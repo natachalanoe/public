@@ -511,9 +511,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <?php endif; ?>
                                                 </td>
                                                 <td data-label="Tickets restants" data-sort-value="<?php echo $contract['tickets_remaining']; ?>">
-                                                    <span class="badge bg-<?php echo $contract['tickets_remaining'] > 3 ? 'success' : 'danger'; ?>">
-                                                        <?php echo $contract['tickets_remaining']; ?>
-                                                    </span>
+                                                    <?php if ($contract['tickets_number'] > 0): ?>
+                                                        <span class="badge bg-<?php echo $contract['tickets_remaining'] > 3 ? 'success' : 'danger'; ?>">
+                                                            <?php echo $contract['tickets_remaining']; ?>
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">--</span>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td data-label="Statut" data-sort-value="<?php echo htmlspecialchars(strtolower($contract['status'])); ?>">
                                                     <span class="badge bg-<?php 

@@ -94,9 +94,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 </span>
                                             </td>
                                             <td data-label="Tickets Restants" data-order="<?php echo $client['total_tickets_remaining'] ?? 0; ?>">
-                                                <span class="badge bg-<?php echo ($client['total_tickets_remaining'] ?? 0) > 10 ? 'success' : (($client['total_tickets_remaining'] ?? 0) > 0 ? 'warning' : 'danger'); ?>">
-                                                    <?php echo $client['total_tickets_remaining'] ?? 0; ?>
-                                                </span>
+                                                <?php if (($client['total_tickets_remaining'] ?? 0) > 0): ?>
+                                                    <span class="badge bg-<?php echo ($client['total_tickets_remaining'] ?? 0) > 10 ? 'success' : 'warning'; ?>">
+                                                        <?php echo $client['total_tickets_remaining']; ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="text-muted">--</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td class="actions">
                                                 <a href="<?php echo BASE_URL; ?>clients/view/<?php echo $client['id']; ?>" class="btn btn-sm btn-outline-info" title="Voir">
