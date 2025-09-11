@@ -1,0 +1,183 @@
+<?php
+/**
+ * Menu latéral de l'application
+ * Différencié selon le type d'utilisateur (admin, technicien, client)
+ */
+
+// Inclure les fonctions utilitaires
+require_once __DIR__ . '/functions.php';
+?>
+
+     <!-- Menu -->
+
+        <aside id="layout-menu" class="layout-menu menu-vertical menu">
+        <div class="app-brand mb-4 d-flex justify-content-center">
+ 
+      <img src="<?= BASE_URL ?>assets/img/logo_avision.png" class="w-auto h-px-100" alt="Logo AVision">
+ 
+            <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </div>
+
+          <div class="menu-inner-shadow"></div>
+
+          <ul class="menu-inner py-1">
+            <!-- Page -->
+
+            <!-- - Admin et Techniciens -->
+             <?php if (isStaff()): ?>
+
+            <li class="menu-item <?php echo isActivePage('dashboard'); ?>">
+              <a href="<?php echo BASE_URL; ?>dashboard" class="menu-link">
+                <i class="menu-icon bi bi-house"></i>
+                <div data-i18n="Page 1">Tableau de bord</div>
+              </a>
+            </li>
+
+            <li class="menu-item <?php echo isActivePage('interventions'); ?>">
+              <a href="<?php echo BASE_URL; ?>interventions" class="menu-link">
+                <i class="menu-icon bi bi-tools"></i>
+                <div data-i18n="Page 1">Interventions</div>
+              </a>
+             </li>
+
+            <li class="menu-item <?php echo isActivePage('agenda'); ?>">
+              <a href="<?php echo BASE_URL; ?>agenda" class="menu-link">
+                <i class="menu-icon bi bi-calendar-event"></i>
+                <div data-i18n="agenda">Agenda</div>
+              </a>
+             </li>
+
+
+            <li class="menu-item <?php echo isActivePage('clients'); ?>">
+              <a href="<?php echo BASE_URL; ?>clients" class="menu-link">
+                <i class="menu-icon bi bi-file-text"></i>
+                <div data-i18n="Page 2">Clients</div>
+              </a>
+            </li>
+
+            <li class="menu-item <?php echo isActivePage('contracts'); ?>">
+              <a href="<?php echo BASE_URL; ?>contracts" class="menu-link">
+                <i class="menu-icon bi bi-file-text"></i>
+                <div data-i18n="Page 2">Contrats</div>
+              </a>
+            </li>
+
+
+
+
+
+            <li class="menu-item <?php echo isActivePage('materiel'); ?>">
+              <a href="<?php echo BASE_URL; ?>materiel" class="menu-link">
+                <i class="menu-icon bi bi-file-text"></i>
+                <div data-i18n="Page 2">Matériel</div>
+              </a>
+            </li>
+
+
+            <?php endif; ?>
+
+
+            <?php if (isAdmin()): ?>
+
+              <li class="menu-header small">
+              <span class="menu-header-text" data-i18n="admin_menu">Administration</span>
+            </li>
+
+            <li class="menu-item <?php echo isActivePage('users'); ?>">
+              <a href="<?php echo BASE_URL; ?>user" class="menu-link">
+                <i class="menu-icon bi bi-file-text"></i>
+                <div data-i18n="users">Utilisateurs</div>
+              </a>
+            </li>
+
+            <li class="menu-item <?php echo isActivePage('settings'); ?>">
+              <a href="<?php echo BASE_URL; ?>settings" class="menu-link">
+                <i class="menu-icon bi bi-gear"></i>
+                <div data-i18n="settings">Paramètres</div>
+              </a>
+            </li>
+
+
+
+            <?php endif; ?>
+
+            <!-- - Clients -->
+            <?php if (isClient()): ?>
+
+            <li class="menu-item <?php echo isActivePage('dashboard'); ?>">
+              <a href="<?php echo BASE_URL; ?>dashboard" class="menu-link">
+                <i class="menu-icon bi bi-house"></i>
+                <div data-i18n="Page 1">Tableau de bord</div>
+              </a>
+            </li>
+
+            <li class="menu-item <?php echo isActivePage('interventions_client'); ?>">
+              <a href="<?php echo BASE_URL; ?>interventions_client" class="menu-link">
+                <i class="menu-icon bi bi-tools"></i>
+                <div data-i18n="interventions">Interventions</div>
+              </a>
+            </li>
+
+            <li class="menu-item <?php echo isActivePage('contracts_client'); ?>">
+              <a href="<?php echo BASE_URL; ?>contracts_client" class="menu-link">
+                <i class="menu-icon bi bi-file-earmark-text"></i>
+                <div data-i18n="contracts">Contrats</div>
+              </a>
+            </li>
+
+            <li class="menu-item <?php echo isActivePage('sites_client'); ?>">
+              <a href="<?php echo BASE_URL; ?>sites_client" class="menu-link">
+                <i class="menu-icon bi bi-building"></i>
+                <div data-i18n="sites">Sites et salles</div>
+              </a>
+            </li>
+
+
+
+            <li class="menu-item <?php echo isActivePage('materiel_client'); ?>">
+              <a href="<?php echo BASE_URL; ?>materiel_client" class="menu-link">
+                <i class="menu-icon bi bi-archive"></i>
+                <div data-i18n="materiel">Matériel</div>
+              </a>
+            </li>
+
+            <?php if (canModifyOwnInfo()): ?>
+            <li class="menu-item <?php echo isActivePage('profileClient'); ?>">
+              <a href="<?php echo BASE_URL; ?>profileClient" class="menu-link">
+                <i class="menu-icon bi bi-person"></i>
+                <div data-i18n="profile">Profil</div>
+              </a>
+            </li>
+            <?php endif; ?>
+
+            <?php if (canManageOwnContacts()): ?>
+            <li class="menu-item <?php echo isActivePage('contactClient'); ?>">
+              <a href="<?php echo BASE_URL; ?>contactClient" class="menu-link">
+                <i class="menu-icon bi bi-people"></i>
+                <div data-i18n="contacts">Contacts</div>
+              </a>
+            </li>
+            <?php endif; ?>
+
+            <?php endif; ?>
+
+            <!-- Bouton de déconnexion -->
+            <li class="menu-item">
+                <a href="<?php echo BASE_URL; ?>auth/logout" class="menu-link">
+                    <i class="menu-icon bi bi-power"></i>
+                    <div data-i18n="logout">Déconnexion</div>
+                </a>
+            </li>
+
+          </ul>
+        </aside>
+
+        <div class="menu-mobile-toggler d-xl-none rounded-1">
+          <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large text-bg-secondary p-2 rounded-1">
+            <i class="bi bi-list icon-base"></i>
+            <i class="bi bi-chevron-right icon-base"></i>
+          </a>
+        </div>
+        <!-- / Menu --> 
