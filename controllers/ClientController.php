@@ -37,9 +37,6 @@ class ClientController {
         $this->checkAccess();
 
         try {
-            // Debug des paramètres GET
-            custom_log("GET params: " . print_r($_GET, true), 'DEBUG');
-
             // Récupération des filtres
             $filters = [
                 'search' => $_GET['search'] ?? '',
@@ -47,14 +44,8 @@ class ClientController {
                 'status' => $_GET['status'] ?? ''
             ];
 
-            // Debug des filtres
-            custom_log("Filtres: " . print_r($filters, true), 'DEBUG');
-
             // Récupérer tous les clients avec leurs statistiques
             $clients = $this->clientModel->getAllClientsWithStats($filters);
-
-            // Debug du nombre de clients
-            custom_log("Nombre de clients: " . count($clients), 'DEBUG');
 
             // Inclure la vue
             require_once VIEWS_PATH . '/client/index.php';

@@ -52,14 +52,6 @@ if ($script_dir !== '/') {
 
 $path = substr($request_uri, strlen($base_path));
 
-// Debug temporaire
-error_log("DEBUG: BASE_URL = " . BASE_URL);
-error_log("DEBUG: REQUEST_URI = " . $request_uri);
-error_log("DEBUG: SCRIPT_NAME = " . $script_name);
-error_log("DEBUG: SCRIPT_DIR = " . $script_dir);
-error_log("DEBUG: base_path = " . $base_path);
-error_log("DEBUG: path = " . $path);
-
 // Nettoyage de l'URL et séparation des paramètres de requête
 $path_parts = explode('?', $path);
 $path = $path_parts[0];
@@ -379,7 +371,6 @@ try {
             
         case 'contracts':
             $contractController = new ContractController();
-            error_log("DEBUG: Route contracts - action: $action, id: $id");
             switch ($action) {
                 case 'index':
                     $contractController->index();

@@ -4,12 +4,14 @@ class ContactController {
     private $db;
     private $contactModel;
     private $clientModel;
+    private $userModel;
 
     public function __construct() {
         global $db;
         $this->db = $db;
         $this->contactModel = new ContactModel($this->db);
         $this->clientModel = new ClientModel($this->db);
+        $this->userModel = new UserModel($this->db);
     }
 
     private function checkAccess($clientId = null) {
@@ -99,17 +101,33 @@ class ContactController {
                         // Créer le compte utilisateur
                         $userData = [
                             'username' => $_POST['username'],
-                            'password' => password_hash($_POST['password'], PASSWORD_DEFAULT),
+                            'password' => $_POST['password'], // Le UserModel s'occupe du hash
                             'first_name' => $_POST['first_name'],
                             'last_name' => $_POST['last_name'],
                             'email' => $_POST['email'],
                             'type' => 'client',
+                            'is_admin' => 0, // Les clients ne sont pas admin
                             'status' => 1,
                             'client_id' => $clientId
                         ];
                         
+                        // Log des données utilisateur pour debug
+                        custom_log("CONTACT_USER_CREATION: Tentative de création d'utilisateur pour contact", 'INFO', [
+                            'client_id' => $clientId,
+                            'username' => $userData['username'],
+                            'email' => $userData['email'],
+                            'type' => $userData['type']
+                        ]);
+                        
                         // Créer l'utilisateur et récupérer son ID
-                        $userId = $this->createUser($userData);
+                        $userId = $this->userModel->createUser($userData);
+                        
+                        // Log du résultat
+                        custom_log("CONTACT_USER_CREATION: Résultat création utilisateur", 'INFO', [
+                            'success' => $userId ? true : false,
+                            'user_id' => $userId,
+                            'username' => $userData['username']
+                        ]);
                         if ($userId) {
                             $data['user_id'] = $userId;
                         } else {
@@ -134,96 +152,6 @@ class ContactController {
         require_once VIEWS_PATH . '/contact/add.php';
     }
 
-    private function createUser($data) {
-        try {
-            $this->db->beginTransaction();
-
-            // Vérifier si le nom d'utilisateur existe déjà
-            $checkQuery = "SELECT id FROM users WHERE username = :username";
-            $checkStmt = $this->db->prepare($checkQuery);
-            $checkStmt->bindParam(':username', $data['username'], PDO::PARAM_STR);
-            $checkStmt->execute();
-            
-            if ($checkStmt->fetch()) {
-                throw new Exception("Ce nom d'utilisateur est déjà utilisé");
-            }
-
-            // 1. Créer l'utilisateur
-            $query = "INSERT INTO users (
-                        username,
-                        password,
-                        first_name,
-                        last_name,
-                        email,
-                        type,
-                        status,
-                        client_id,
-                        created_at,
-                        updated_at
-                    ) VALUES (
-                        :username,
-                        :password,
-                        :first_name,
-                        :last_name,
-                        :email,
-                        :type,
-                        :status,
-                        :client_id,
-                        NOW(),
-                        NOW()
-                    )";
-
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':username', $data['username'], PDO::PARAM_STR);
-            $stmt->bindParam(':password', $data['password'], PDO::PARAM_STR);
-            $stmt->bindParam(':first_name', $data['first_name'], PDO::PARAM_STR);
-            $stmt->bindParam(':last_name', $data['last_name'], PDO::PARAM_STR);
-            $stmt->bindParam(':email', $data['email'], PDO::PARAM_STR);
-            $stmt->bindParam(':type', $data['type'], PDO::PARAM_STR);
-            $stmt->bindParam(':status', $data['status'], PDO::PARAM_INT);
-            $stmt->bindParam(':client_id', $data['client_id'], PDO::PARAM_INT);
-
-            if (!$stmt->execute()) {
-                $error = $stmt->errorInfo();
-                throw new Exception("Erreur lors de la création de l'utilisateur: " . $error[2]);
-            }
-
-            $userId = $this->db->lastInsertId();
-
-            // 2. Créer la localisation utilisateur (client par défaut)
-            $locationQuery = "INSERT INTO user_locations (
-                                user_id,
-                                client_id,
-                                site_id,
-                                room_id,
-                                created_at
-                            ) VALUES (
-                                :user_id,
-                                :client_id,
-                                NULL,
-                                NULL,
-                                NOW()
-                            )";
-
-            $locationStmt = $this->db->prepare($locationQuery);
-            $locationStmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
-            $locationStmt->bindParam(':client_id', $data['client_id'], PDO::PARAM_INT);
-
-            if (!$locationStmt->execute()) {
-                $error = $locationStmt->errorInfo();
-                throw new Exception("Erreur lors de la création de la localisation utilisateur: " . $error[2]);
-            }
-
-            $this->db->commit();
-            return $userId;
-
-        } catch (Exception $e) {
-            $this->db->rollBack();
-            error_log("Erreur lors de la création de l'utilisateur et de sa localisation: " . $e->getMessage());
-            $_SESSION['error'] = $e->getMessage();
-            return false;
-        }
-    }
 
     public function edit($id = null) {
         // Récupérer d'abord le contact pour obtenir l'ID du client

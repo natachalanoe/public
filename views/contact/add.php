@@ -12,7 +12,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 // Définir le type d'utilisateur pour le menu
-$userType = $_SESSION['user']['type'] ?? null;
+$userType = $_SESSION['user']['user_type'] ?? null;
 
 // Récupération des données
 $client = $client ?? null;
@@ -94,7 +94,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <label for="comment" class="form-label">Commentaire</label>
                                 <textarea class="form-control" id="comment" name="comment" rows="4"></textarea>
                             </div>
-                            <?php if ($_SESSION['user']['type'] === 'admin'): ?>
+                            <?php if (isAdmin()): ?>
                             <div class="mb-3">
                                 <div class="form-check">
                                     <input type="checkbox" class="form-check-input" id="has_user_account" name="has_user_account" value="1">

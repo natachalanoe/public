@@ -1,6 +1,6 @@
 <?php 
 // $pageTitle = "Modifier la Salle - " . ($room['name'] ?? 'Salle inconnue'); // Défini dans le contrôleur
-// $isAdmin = $_SESSION['user']['type'] === 'admin'; // Assurez-vous que isAdmin est disponible
+// $isAdmin = isAdmin(); // Assurez-vous que isAdmin est disponible
 // Assurez-vous que $room, $site['client_id'] et $room['site_id'] (pour open_site_id) sont disponibles
 
 setPageVariables('Modifier la Salle', 'room');

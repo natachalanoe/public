@@ -13,7 +13,7 @@ if (!isset($_SESSION['user']) || !canModifyMateriel()) {
 }
 
 // Définir le type d'utilisateur pour le menu
-$userType = $_SESSION['user']['type'] ?? null;
+$userType = $_SESSION['user']['user_type'] ?? null;
 
 setPageVariables(
     'Ajouter du Matériel',

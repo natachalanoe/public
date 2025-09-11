@@ -25,7 +25,7 @@ $totalRows = $validation['total_rows'];
 $fileName = $validation['file_name'];
 
 // Définir le type d'utilisateur pour le menu
-$userType = $_SESSION['user']['type'] ?? null;
+$userType = $_SESSION['user']['user_type'] ?? null;
 
 setPageVariables(
     'Confirmation Import - Matériel',

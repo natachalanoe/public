@@ -12,7 +12,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 // Définir le type d'utilisateur pour le menu
-$userType = $_SESSION['user']['type'] ?? null;
+$userType = $_SESSION['user']['user_type'] ?? null;
 
 // Récupérer les données de changement
 $changeData = $_SESSION['access_level_change'] ?? null;

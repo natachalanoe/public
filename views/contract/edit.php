@@ -13,7 +13,7 @@ if (!isset($_SESSION['user']) || !canManageContracts()) {
 }
 
 // Définir le type d'utilisateur pour le menu
-$userType = $_SESSION['user']['type'] ?? null;
+$userType = $_SESSION['user']['user_type'] ?? null;
 
 // Récupérer les données du formulaire de la session si elles existent
 $formData = $_SESSION['form_data'] ?? [];

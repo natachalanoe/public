@@ -18,7 +18,7 @@ $contracts = $contracts ?? [];
 $contacts = $contacts ?? []; // Assurez-vous que cette variable est définie dans le contrôleur
 
 // Définir le type d'utilisateur pour le menu
-$userType = $_SESSION['user']['type'] ?? null;
+$userType = $_SESSION['user']['user_type'] ?? null;
 
 // Récupérer l'ID du client depuis l'URL
 $clientId = isset($client['id']) ? $client['id'] : '';

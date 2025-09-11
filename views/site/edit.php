@@ -1,6 +1,6 @@
 <?php 
 // $pageTitle = "Modifier le Site - " . ($site['name'] ?? 'Site inconnu'); // Défini dans le contrôleur
-// $isAdmin = $_SESSION['user']['type'] === 'admin'; // Assurez-vous que isAdmin est disponible
+// $isAdmin = isAdmin(); // Assurez-vous que isAdmin est disponible
 
 setPageVariables('Modifier le Site', 'site');
 include_once __DIR__ . '/../../includes/header.php';
