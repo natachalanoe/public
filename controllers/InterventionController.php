@@ -266,28 +266,28 @@ class InterventionController {
             exit;
         }
 
-        // Récupérer le contrat associé
+        // Récupérer le contrat associé directement via contract_id
         $contract = null;
+        if (!empty($intervention['contract_id'])) {
+            $contract = $this->contractModel->getContractById($intervention['contract_id']);
+        }
+
+        // Définir les variables pour les formulaires
         $client_id = isset($intervention['client_id']) ? $intervention['client_id'] : null;
         $site_id = isset($intervention['site_id']) ? $intervention['site_id'] : null;
         $room_id = isset($intervention['room_id']) ? $intervention['room_id'] : null;
-        
-        if (!empty($client_id) && !empty($site_id) && !empty($room_id)) {
-            $contracts = $this->contractModel->getContractsByClientId($client_id);
-            foreach ($contracts as $c) {
-                if (isset($c['site_id']) && isset($c['room_id']) && 
-                    $c['site_id'] == $site_id && $c['room_id'] == $room_id) {
-                    $contract = $c;
-                    break;
-                }
-            }
-        }
 
         // Récupérer les données pour les formulaires
         $clients = $this->clientModel->getAllClientsWithStats();
         $sites = $this->siteModel->getSitesByClientId($client_id);
         $rooms = $this->roomModel->getRoomsBySiteId($site_id);
         $technicians = $this->userModel->getTechnicians();
+        
+        // Récupérer les contrats du client pour le formulaire
+        $contracts = [];
+        if (!empty($client_id)) {
+            $contracts = $this->contractModel->getContractsByClientId($client_id, $site_id, $room_id);
+        }
         
         // Récupérer les statuts, priorités et types
         $statuses = $this->getAllStatuses();

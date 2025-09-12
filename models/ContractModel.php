@@ -19,24 +19,40 @@ class ContractModel {
         
         $params = [':client_id' => $clientId];
 
-        // Si on a des filtres de site/salle, on doit inclure les contrats "hors contrat" ET les contrats spécifiques
+        // Si on a des filtres de site/salle, on doit inclure :
+        // 1. Les contrats "hors contrat" (contract_type_id IS NULL)
+        // 2. Les contrats associés à la salle/site spécifique
+        // 3. Les contrats généraux du client (sans restriction de salle)
         if ($roomId || $siteId) {
-            $sql .= " AND (c.contract_type_id IS NULL OR c.name LIKE '%hors contrat%' OR ct.name LIKE '%hors contrat%'";
+            $sql .= " AND (";
             
+            // Contrats "hors contrat"
+            $sql .= "c.contract_type_id IS NULL OR c.name LIKE '%hors contrat%' OR ct.name LIKE '%hors contrat%'";
+            
+            // Contrats associés à la salle spécifique
             if ($roomId) {
                 $sql .= " OR EXISTS (
-                    SELECT 1 FROM contract_rooms cr 
-                    WHERE cr.contract_id = c.id AND cr.room_id = :room_id
+                    SELECT 1 FROM contract_rooms cr1 
+                    WHERE cr1.contract_id = c.id AND cr1.room_id = :room_id
                 )";
                 $params[':room_id'] = $roomId;
-            } elseif ($siteId) {
+            }
+            
+            // Contrats associés au site spécifique
+            if ($siteId) {
                 $sql .= " OR EXISTS (
-                    SELECT 1 FROM contract_rooms cr 
-                    JOIN rooms r ON cr.room_id = r.id 
-                    WHERE cr.contract_id = c.id AND r.site_id = :site_id
+                    SELECT 1 FROM contract_rooms cr2 
+                    JOIN rooms r ON cr2.room_id = r.id 
+                    WHERE cr2.contract_id = c.id AND r.site_id = :site_id
                 )";
                 $params[':site_id'] = $siteId;
             }
+            
+            // Contrats généraux du client (sans restriction de salle)
+            $sql .= " OR NOT EXISTS (
+                SELECT 1 FROM contract_rooms cr3 
+                WHERE cr3.contract_id = c.id
+            )";
             
             $sql .= ")";
         }
@@ -985,7 +1001,7 @@ class ContractModel {
     /**
      * Enregistre un ajout de tickets dans l'historique
      */
-    public function recordTicketAddition($contractId, $ticketsAdded, $date, $comment = '') {
+    public function recordTicketAddition($contractId, $ticketsAdded, $date, $comment = '', $oldNumFacture = null, $newNumFacture = null, $oldEndDate = null, $newEndDate = null) {
         // Récupérer les valeurs actuelles du contrat
         $sql = "SELECT tickets_number, tickets_remaining FROM contracts WHERE id = :contract_id";
         $stmt = $this->db->prepare($sql);
@@ -1002,13 +1018,23 @@ class ContractModel {
         $newTicketsNumber = $oldTicketsNumber + $ticketsAdded;
         $newTicketsRemaining = $oldTicketsRemaining + $ticketsAdded;
         
-        // Construire la description
-        $description = "Ajout de $ticketsAdded tickets";
+        // Construire les descriptions spécifiques
+        $baseDescription = "Ajout de $ticketsAdded tickets";
         if (!empty($comment)) {
-            $description .= " - $comment";
+            $baseDescription .= " - $comment";
         }
         if (!empty($date)) {
-            $description .= " (Date: " . date('d/m/Y', strtotime($date)) . ")";
+            $baseDescription .= " (Date: " . date('d/m/Y', strtotime($date)) . ")";
+        }
+
+        $descriptionInitiaux = "Ajout de $ticketsAdded tickets initiaux";
+        if (!empty($newNumFacture)) {
+            $descriptionInitiaux .= " (fact: $newNumFacture)";
+        }
+
+        $descriptionRestants = "Ajout de $ticketsAdded tickets restants";
+        if (!empty($newNumFacture)) {
+            $descriptionRestants .= " (fact: $newNumFacture)";
         }
 
         // Enregistrer la modification des tickets initiaux
@@ -1025,7 +1051,7 @@ class ContractModel {
             ':old_value' => $oldTicketsNumber,
             ':new_value' => $newTicketsNumber,
             ':changed_by' => $_SESSION['user']['id'],
-            ':description' => $description
+            ':description' => $descriptionInitiaux
         ]);
         
         // Enregistrer la modification des tickets restants
@@ -1035,8 +1061,52 @@ class ContractModel {
             ':old_value' => $oldTicketsRemaining,
             ':new_value' => $newTicketsRemaining,
             ':changed_by' => $_SESSION['user']['id'],
-            ':description' => $description
+            ':description' => $descriptionRestants
         ]);
+
+        // Enregistrer la modification du numéro de facture si fourni
+        if (!empty($newNumFacture) && $oldNumFacture !== $newNumFacture) {
+            $oldValue = $this->getDisplayValue('num_facture', $oldNumFacture);
+            $newValue = $this->getDisplayValue('num_facture', $newNumFacture);
+            
+            $factureDescription = "Numéro de facture : $oldValue → $newValue (ajout de $ticketsAdded tickets)";
+            if (!empty($comment)) {
+                $factureDescription .= " - $comment";
+            }
+            
+            $stmt->execute([
+                ':contract_id' => $contractId,
+                ':field_name' => 'Numéro de facture',
+                ':old_value' => $oldValue,
+                ':new_value' => $newValue,
+                ':changed_by' => $_SESSION['user']['id'],
+                ':description' => $factureDescription
+            ]);
+            
+            error_log("DEBUG - recordTicketAddition: Modification numéro de facture enregistrée: '$oldValue' → '$newValue'");
+        }
+
+        // Enregistrer la prolongation du contrat si fournie
+        if (!empty($oldEndDate) && !empty($newEndDate)) {
+            $oldValue = $this->getDisplayValue('end_date', $oldEndDate);
+            $newValue = $this->getDisplayValue('end_date', $newEndDate);
+            
+            $extensionDescription = "Date de fin : $oldValue → $newValue (prolongation lors de l'ajout de $ticketsAdded tickets)";
+            if (!empty($comment)) {
+                $extensionDescription .= " - $comment";
+            }
+            
+            $stmt->execute([
+                ':contract_id' => $contractId,
+                ':field_name' => 'Date de fin',
+                ':old_value' => $oldValue,
+                ':new_value' => $newValue,
+                ':changed_by' => $_SESSION['user']['id'],
+                ':description' => $extensionDescription
+            ]);
+            
+            error_log("DEBUG - recordTicketAddition: Prolongation contrat enregistrée: '$oldValue' → '$newValue'");
+        }
     }
 
     /**

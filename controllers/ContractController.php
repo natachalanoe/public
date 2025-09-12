@@ -836,7 +836,7 @@ class ContractController {
                     LEFT JOIN users u ON i.technician_id = u.id
                     LEFT JOIN intervention_statuses ist ON i.status_id = ist.id
                     WHERE i.contract_id = ?
-                    ORDER BY i.created_at DESC";
+                    ORDER BY COALESCE(i.date_planif, i.created_at) DESC";
             
             $stmt_interventions = $this->db->prepare($sql_interventions);
             $stmt_interventions->execute([$id]);
@@ -1513,10 +1513,14 @@ class ContractController {
             $ticketsToAdd = (int)($_POST['tickets_to_add'] ?? 0);
             $addTicketsDate = $_POST['add_tickets_date'] ?? date('Y-m-d');
             $addTicketsComment = trim($_POST['add_tickets_comment'] ?? '');
+            $newNumFacture = trim($_POST['new_num_facture'] ?? '');
+            $extendContract = isset($_POST['extend_contract']) && $_POST['extend_contract'] == '1';
 
             custom_log("DEBUG - Tickets à ajouter: $ticketsToAdd", 'DEBUG');
             custom_log("DEBUG - Date: $addTicketsDate", 'DEBUG');
             custom_log("DEBUG - Commentaire: $addTicketsComment", 'DEBUG');
+            custom_log("DEBUG - Nouveau numéro de facture: $newNumFacture", 'DEBUG');
+            custom_log("DEBUG - Prolonger contrat: " . ($extendContract ? 'OUI' : 'NON'), 'DEBUG');
 
             // Validation
             if ($ticketsToAdd <= 0) {
@@ -1557,14 +1561,106 @@ class ContractController {
             custom_log("DEBUG - Anciens tickets: $oldTicketsNumber, Nouveaux: $newTicketsNumber", 'DEBUG');
             custom_log("DEBUG - Anciens restants: $oldTicketsRemaining, Nouveaux: $newTicketsRemaining", 'DEBUG');
 
-            // Mettre à jour directement avec SQL pour éviter les problèmes
-            $sql = "UPDATE contracts SET tickets_number = :tickets_number, tickets_remaining = :tickets_remaining, updated_at = NOW() WHERE id = :contract_id";
+            // Gérer l'upload de l'avenant si fourni
+            $avenantUploaded = false;
+            if (isset($_FILES['avenant_file']) && $_FILES['avenant_file']['error'] === UPLOAD_ERR_OK) {
+                try {
+                    $file = $_FILES['avenant_file'];
+                    $originalFileName = $file['name'];
+                    $fileSize = $file['size'];
+                    $fileTmpPath = $file['tmp_name'];
+
+                    // Vérifier la taille du fichier (max 10MB)
+                    $maxFileSize = 10 * 1024 * 1024; // 10MB
+                    if ($fileSize > $maxFileSize) {
+                        throw new Exception("Le fichier avenant est trop volumineux (max 10MB)");
+                    }
+
+                    // Vérifier l'extension
+                    require_once INCLUDES_PATH . '/FileUploadValidator.php';
+                    $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
+                    if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
+                        throw new Exception("Le format du fichier avenant n'est pas accepté");
+                    }
+
+                    // Créer le répertoire de destination
+                    $uploadDir = __DIR__ . '/../uploads/contracts/' . $contractId;
+                    if (!is_dir($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+
+                    // Générer un nom de fichier unique
+                    $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalFileName);
+                    $finalFileName = time() . '_avenant_' . $fileName;
+                    $filePath = $uploadDir . '/' . $finalFileName;
+
+                    // Déplacer le fichier
+                    if (move_uploaded_file($fileTmpPath, $filePath)) {
+                        // Ajouter la pièce jointe
+                        $data = [
+                            'nom_fichier' => $originalFileName,
+                            'chemin_fichier' => 'uploads/contracts/' . $contractId . '/' . $finalFileName,
+                            'type_fichier' => $fileExtension,
+                            'taille_fichier' => $fileSize,
+                            'commentaire' => 'Avenant pour ajout de ' . $ticketsToAdd . ' tickets - ' . $addTicketsComment,
+                            'masque_client' => 0,
+                            'created_by' => $_SESSION['user']['id']
+                        ];
+
+                        $this->contractModel->addPieceJointe($contractId, $data);
+                        $avenantUploaded = true;
+                        custom_log("DEBUG - Avenant uploadé avec succès: $originalFileName", 'DEBUG');
+                    } else {
+                        throw new Exception("Erreur lors du déplacement du fichier avenant");
+                    }
+                } catch (Exception $e) {
+                    custom_log("Erreur lors de l'upload de l'avenant : " . $e->getMessage(), 'ERROR');
+                    $_SESSION['error'] = "Erreur lors de l'upload de l'avenant : " . $e->getMessage();
+                    header('Location: ' . BASE_URL . 'contracts/view/' . $contractId);
+                    exit;
+                }
+            }
+
+            // Mettre à jour le contrat (tickets + numéro de facture si fourni)
+            $updateFields = [
+                'tickets_number' => $newTicketsNumber,
+                'tickets_remaining' => $newTicketsRemaining,
+                'updated_at' => 'NOW()'
+            ];
+            
+            $oldNumFacture = $contract['num_facture'];
+            if (!empty($newNumFacture)) {
+                $updateFields['num_facture'] = $newNumFacture;
+                custom_log("DEBUG - Mise à jour numéro de facture: '$oldNumFacture' → '$newNumFacture'", 'DEBUG');
+            }
+
+            // Gérer la prolongation du contrat si demandée
+            $oldEndDate = $contract['end_date'];
+            if ($extendContract) {
+                // Calculer la nouvelle date de fin : 31 décembre de l'année suivante (règle 1 an + fin d'année)
+                $currentYear = date('Y');
+                $nextYear = $currentYear + 1;
+                $newEndDate = $nextYear . '-12-31';
+                $updateFields['end_date'] = $newEndDate;
+                custom_log("DEBUG - Prolongation contrat: '$oldEndDate' → '$newEndDate'", 'DEBUG');
+            }
+
+            // Construire la requête SQL dynamiquement
+            $setClause = [];
+            $params = [];
+            foreach ($updateFields as $field => $value) {
+                if ($value === 'NOW()') {
+                    $setClause[] = "$field = NOW()";
+                } else {
+                    $setClause[] = "$field = :$field";
+                    $params[":$field"] = $value;
+                }
+            }
+            $params[':contract_id'] = $contractId;
+
+            $sql = "UPDATE contracts SET " . implode(', ', $setClause) . " WHERE id = :contract_id";
             $stmt = $this->db->prepare($sql);
-            $result = $stmt->execute([
-                ':tickets_number' => $newTicketsNumber,
-                ':tickets_remaining' => $newTicketsRemaining,
-                ':contract_id' => $contractId
-            ]);
+            $result = $stmt->execute($params);
 
             custom_log("DEBUG - Update SQL result: " . ($result ? 'success' : 'failed'), 'DEBUG');
 
@@ -1574,11 +1670,28 @@ class ContractController {
                     $contractId, 
                     $ticketsToAdd, 
                     $addTicketsDate,
-                    $addTicketsComment
+                    $addTicketsComment,
+                    $oldNumFacture,
+                    $newNumFacture,
+                    $extendContract ? $oldEndDate : null,
+                    $extendContract ? $newEndDate : null
                 );
 
                 custom_log("DEBUG - Historique enregistré", 'DEBUG');
-                $_SESSION['success'] = "$ticketsToAdd tickets ajoutés avec succès au contrat.";
+                
+                $successMessage = "$ticketsToAdd tickets ajoutés avec succès au contrat.";
+                if (!empty($newNumFacture)) {
+                    $successMessage .= " Numéro de facture mis à jour.";
+                }
+                if ($extendContract) {
+                    $nextYear = date('Y') + 1;
+                    $successMessage .= " Contrat prolongé jusqu'au 31/12/" . $nextYear . ".";
+                }
+                if ($avenantUploaded) {
+                    $successMessage .= " Avenant uploadé.";
+                }
+                
+                $_SESSION['success'] = $successMessage;
             } else {
                 $_SESSION['error'] = "Erreur lors de l'ajout des tickets.";
             }

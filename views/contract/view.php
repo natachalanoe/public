@@ -471,7 +471,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <tr>
                                 <td><?= htmlspecialchars($intervention['reference'] ?? '') ?></td>
                                 <td><?= htmlspecialchars($intervention['title'] ?? '') ?></td>
-                                <td><?= date('d/m/Y H:i', strtotime($intervention['created_at'])) ?></td>
+                                <td><?= !empty($intervention['date_planif']) ? date('d/m/Y', strtotime($intervention['date_planif'])) . (!empty($intervention['heure_planif']) ? ' ' . $intervention['heure_planif'] : '') : date('d/m/Y H:i', strtotime($intervention['created_at'])) ?></td>
                                 <td><?= htmlspecialchars($intervention['technician_name'] ?? '') ?></td>
                                 <td><?= $intervention['duration'] ?? 0 ?>h</td>
                                 <td><?= $intervention['tickets_used'] ?? 0 ?></td>
@@ -1036,7 +1036,7 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="modal fade" id="addTicketsModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form action="<?php echo BASE_URL; ?>contracts/addTickets/<?php echo $contract['id']; ?>" method="post">
+                <form action="<?php echo BASE_URL; ?>contracts/addTickets/<?php echo $contract['id']; ?>" method="post" enctype="multipart/form-data">
                     <div class="modal-header">
                         <h5 class="modal-title">
                             <i class="bi bi-plus-circle me-2 me-1"></i> Ajouter des tickets
@@ -1065,6 +1065,68 @@ document.addEventListener('DOMContentLoaded', function() {
                                    value="<?= date('Y-m-d') ?>" 
                                    required>
                         </div>
+                        
+                        <div class="mb-3">
+                            <label for="new_num_facture" class="form-label">
+                                <i class="bi bi-receipt me-1"></i>Nouveau numéro de facture
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="new_num_facture" 
+                                   name="new_num_facture" 
+                                   placeholder="Ex: FACT-2025-002">
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Remplace le numéro de facture actuel. Laissez vide pour conserver l'actuel.
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="avenant_file" class="form-label">
+                                <i class="bi bi-file-earmark-text me-1"></i>Avenant contractuel
+                            </label>
+                            <input type="file" 
+                                   class="form-control" 
+                                   id="avenant_file" 
+                                   name="avenant_file" 
+                                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Document justifiant l'ajout de tickets (PDF, Word, images). Optionnel.
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <?php 
+                        // Vérifier si le contrat se termine dans l'année courante
+                        $currentYear = date('Y');
+                        $contractEndYear = date('Y', strtotime($contract['end_date']));
+                        $shouldShowExtension = ($contractEndYear == $currentYear);
+                        ?>
+                        
+                        <?php if ($shouldShowExtension): ?>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       id="extend_contract" 
+                                       name="extend_contract" 
+                                       value="1">
+                                <label class="form-check-label" for="extend_contract">
+                                    <i class="bi bi-calendar-plus me-1"></i>Prolonger le contrat jusqu'au 31 décembre de l'année suivante
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Si le contrat se termine dans l'année courante, il sera prolongé jusqu'au 31 décembre de l'année suivante.
+                                </small>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                         
                         <div class="mb-3">
                             <label for="add_tickets_comment" class="form-label">Commentaire</label>

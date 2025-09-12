@@ -308,13 +308,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Calculer automatiquement la date de fin à 1 an moins 1 jour après la date de début
+    // Calculer automatiquement la date de fin au 31 décembre de l'année suivante
     startDateInput.addEventListener('change', function() {
         if (this.value) {
             const startDate = new Date(this.value);
-            const endDate = new Date(startDate);
-            endDate.setFullYear(endDate.getFullYear() + 1);
-            endDate.setDate(endDate.getDate() - 1); // Soustraire 1 jour
+            const startYear = startDate.getFullYear();
+            const endYear = startYear + 1;
+            
+            // Créer la date de fin au 31 décembre de l'année suivante
+            const endDate = new Date(endYear, 11, 31); // 11 = décembre (0-indexé)
             
             // Formater la date au format YYYY-MM-DD
             const year = endDate.getFullYear();

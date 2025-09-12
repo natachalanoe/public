@@ -250,7 +250,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <tr>
                                         <td><?= h($intervention['reference'] ?? '') ?></td>
                                         <td><?= h($intervention['title'] ?? '') ?></td>
-                                        <td><?= date('d/m/Y', strtotime($intervention['created_at'])) ?></td>
+                                        <td><?= !empty($intervention['date_planif']) ? date('d/m/Y', strtotime($intervention['date_planif'])) : date('d/m/Y', strtotime($intervention['created_at'])) ?></td>
                                         <td>
                                             <?php if (!empty($intervention['technician_first_name']) || !empty($intervention['technician_last_name'])): ?>
                                                 <?= h($intervention['technician_first_name'] ?? '') ?> <?= h($intervention['technician_last_name'] ?? '') ?>

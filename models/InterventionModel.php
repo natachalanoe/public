@@ -302,17 +302,17 @@ class InterventionModel {
         
         if (isset($data['site_id'])) {
             $updates[] = "site_id = :site_id";
-            $params[':site_id'] = $data['site_id'];
+            $params[':site_id'] = empty($data['site_id']) ? null : $data['site_id'];
         }
         
         if (isset($data['room_id'])) {
             $updates[] = "room_id = :room_id";
-            $params[':room_id'] = $data['room_id'];
+            $params[':room_id'] = empty($data['room_id']) ? null : $data['room_id'];
         }
         
         if (isset($data['technician_id'])) {
             $updates[] = "technician_id = :technician_id";
-            $params[':technician_id'] = $data['technician_id'];
+            $params[':technician_id'] = empty($data['technician_id']) ? null : $data['technician_id'];
         }
         
         if (isset($data['status_id'])) {
