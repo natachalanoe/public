@@ -107,7 +107,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <input type="hidden" name="return_salle_id" value="<?= htmlspecialchars($_GET['salle_id']) ?>">
                 <?php endif; ?>
                 <div class="row">
-                    <!-- Colonne gauche : Informations principales -->
+                    <!-- Colonne gauche : Formulaire principal -->
                     <div class="col-md-8">
                         <!-- Bloc 1: Informations Générales -->
                         <div class="card mb-4">
@@ -117,10 +117,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </h6>
                             </div>
                             <div class="card-body">
+                                <!-- Localisation -->
                                 <div class="row mb-3">
                                     <div class="col-md-4">
                                         <label for="client_id" class="form-label fw-bold">
-                                            <i class="bi bi-building me-2 me-1"></i>Client *
+                                            <i class="bi bi-building me-2"></i>Client *
                                         </label>
                                         <select class="form-select bg-body text-body" id="client_id" name="client_id" required>
                                             <option value="">Sélectionner un client</option>
@@ -133,7 +134,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     </div>
                                     <div class="col-md-4">
                                         <label for="site_id" class="form-label fw-bold">
-                                            <i class="bi bi-geo-alt me-2 me-1"></i>Site *
+                                            <i class="bi bi-geo-alt me-2"></i>Site *
                                         </label>
                                         <select class="form-select bg-body text-body" id="site_id" name="site_id" required>
                                             <option value="">Sélectionner un site</option>
@@ -148,7 +149,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     </div>
                                     <div class="col-md-4">
                                         <label for="salle_id" class="form-label fw-bold">
-                                            <i class="bi bi-door-open me-2 me-1"></i>Salle *
+                                            <i class="bi bi-door-open me-2"></i>Salle *
                                         </label>
                                         <select class="form-select bg-body text-body" id="salle_id" name="salle_id" required>
                                             <option value="">Sélectionner une salle</option>
@@ -301,7 +302,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <div class="input-group">
                                             <input type="password" class="form-control bg-body text-body" id="password" name="password">
                                             <button class="btn btn-outline-secondary" type="button" id="togglePassword" title="Afficher/Masquer le mot de passe">
-                                                <!-- Icône de visibilité (visible) --><i class="<?php echo getIcon('visibility', 'bi bi-eye'); ?>" id="passwordIcon"></i>
+                                                <i class="<?php echo getIcon('visibility', 'bi bi-eye'); ?>" id="passwordIcon"></i>
                                             </button>
                                         </div>
                                     </div>
@@ -309,11 +310,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             </div>
                         </div>
 
-                        <!-- Bloc 4: WiFi -->
+                        <!-- Bloc 4: Dates et commentaire -->
                         <div class="card mb-4">
                             <div class="card-header bg-body-secondary border-bottom">
                                 <h6 class="mb-0 text-body">
-                                    <i class="fas fa-wifi me-2"></i>WiFi
+                                    <i class="fas fa-calendar me-2"></i>Dates et Commentaire
                                 </h6>
                             </div>
                             <div class="card-body">
@@ -325,7 +326,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <div class="row mb-3">
                                     <div class="col-md-6">
                                         <label for="date_fin_maintenance" class="form-label fw-bold">
-                                            <i class="bi bi-tools me-2 me-1"></i>Date fin maintenance
+                                            <i class="bi bi-tools me-2"></i>Date fin maintenance
                                         </label>
                                         <input type="date" class="form-control bg-body text-body" id="date_fin_maintenance" name="date_fin_maintenance">
                                     </div>
@@ -357,81 +358,73 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Bloc 5: Infrastructure -->
-                        <div class="card mb-4">
-                            <div class="card-header bg-body-secondary border-bottom">
-                                <h6 class="mb-0 text-body">
-                                    <i class="fas fa-building me-2"></i>Infrastructure
+                    <!-- Colonne droite : Visibilité des champs -->
+                    <div class="col-md-4">
+                        <div class="card border-primary sticky-top" style="top: 20px;">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-eye me-2 me-1"></i>Visibilité Client
+                                    <?php if (isset($contractAccessLevel)): ?>
+                                        <span class="badge bg-light text-dark ms-2">
+                                            Niveau: <?= htmlspecialchars($contractAccessLevel['name']) ?>
+                                        </span>
+                                    <?php endif; ?>
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <!-- Colonne droite : Visibilité des champs -->
-                                <div class="card border-primary">
-                                    <div class="card-header bg-primary text-white">
-                                        <h6 class="mb-0">
-                                            <i class="bi bi-eye me-2 me-1"></i>Visibilité Client
-                                            <?php if (isset($contractAccessLevel)): ?>
-                                                <span class="badge bg-light text-dark ms-2">
-                                                    Niveau: <?= htmlspecialchars($contractAccessLevel['name']) ?>
-                                                </span>
-                                            <?php endif; ?>
-                                        </h6>
+                                <?php if (isset($contractAccessLevel)): ?>
+                                    <div class="alert alert-info mb-3">
+                                        <small>
+                                            <i class="bi bi-info-circle me-1 me-1"></i>
+                                            Les champs sont pré-sélectionnés selon le niveau d'accès du contrat.
+                                            Vous pouvez modifier individuellement chaque champ.
+                                        </small>
                                     </div>
-                                    <div class="card-body">
-                                        <?php if (isset($contractAccessLevel)): ?>
-                                            <div class="alert alert-info mb-3">
-                                                <small>
-                                                    <i class="bi bi-info-circle me-1 me-1"></i>
-                                                    Les champs sont pré-sélectionnés selon le niveau d'accès du contrat.
-                                                    Vous pouvez modifier individuellement chaque champ.
-                                                </small>
-                                            </div>
-                                        <?php else: ?>
-                                            <p class="text-muted small mb-3">
-                                                Cochez les champs que le client peut voir dans son interface.
-                                            </p>
-                                        <?php endif; ?>
-                                        
-                                        <?php foreach ($champs_visibilite as $nom_champ => $info): ?>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" 
-                                                       id="visibilite_<?= $nom_champ ?>" 
-                                                       name="visibilite_<?= $nom_champ ?>" 
-                                                       <?= $info['visible_client'] ? 'checked' : '' ?>>
-                                                <label class="form-check-label" for="visibilite_<?= $nom_champ ?>">
-                                                    <?= htmlspecialchars($info['label']) ?>
-                                                </label>
-                                            </div>
-                                        <?php endforeach; ?>
-                                        
-                                        <hr>
-                                        <div class="d-grid gap-2">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleAll(true)">
-                                                <i class="bi bi-check-square me-1 me-1"></i>Tout cocher
-                                            </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">
-                                                <i class="fas fa-square me-1"></i>Tout décocher
-                                            </button>
-                                        </div>
+                                <?php else: ?>
+                                    <p class="text-muted small mb-3">
+                                        Cochez les champs que le client peut voir dans son interface.
+                                    </p>
+                                <?php endif; ?>
+                                
+                                <?php foreach ($champs_visibilite as $nom_champ => $info): ?>
+                                    <div class="form-check mb-2">
+                                        <input class="form-check-input" type="checkbox" 
+                                               id="visibilite_<?= $nom_champ ?>" 
+                                               name="visibilite_<?= $nom_champ ?>" 
+                                               <?= $info['visible_client'] ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="visibilite_<?= $nom_champ ?>">
+                                            <?= htmlspecialchars($info['label']) ?>
+                                        </label>
                                     </div>
+                                <?php endforeach; ?>
+                                
+                                <hr>
+                                <div class="d-grid gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleAll(true)">
+                                        <i class="bi bi-check-square me-1 me-1"></i>Tout cocher
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAll(false)">
+                                        <i class="fas fa-square me-1"></i>Tout décocher
+                                    </button>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Boutons d'action -->
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <hr>
-                            <div class="d-flex justify-content-end gap-2">
-                                <a href="<?= BASE_URL ?>materiel" class="btn btn-secondary">
-                                    <i class="bi bi-x-lg me-2 me-1"></i>Annuler
-                                </a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-check-lg me-2 me-1"></i>Créer le Matériel
-                                </button>
-                            </div>
+                <!-- Boutons d'action -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <hr>
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="<?= BASE_URL ?>materiel" class="btn btn-secondary">
+                                <i class="bi bi-x-lg me-2 me-1"></i>Annuler
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-2 me-1"></i>Créer le Matériel
+                            </button>
                         </div>
                     </div>
                 </div>
