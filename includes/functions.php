@@ -614,4 +614,18 @@ function getIcon($iconKey, $defaultIcon = 'bi bi-eye') {
         return $defaultIcon;
     }
 }
+
+/**
+ * Fonction helper pour sécuriser l'affichage des chaînes avec htmlspecialchars
+ * Évite les erreurs de dépréciation avec les valeurs null
+ * @param mixed $value La valeur à afficher
+ * @param string $default La valeur par défaut si null ou vide
+ * @return string La valeur sécurisée pour l'affichage
+ */
+function safeHtml($value, $default = '') {
+    if ($value === null || $value === '') {
+        return htmlspecialchars($default);
+    }
+    return htmlspecialchars($value);
+}
 ?> 

@@ -810,6 +810,13 @@ try {
                         header('Location: ' . BASE_URL . 'interventions_client');
                     }
                     break;
+                case 'addMultipleAttachments':
+                    if ($id) {
+                        $interventionsClientController->addMultipleAttachments($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'interventions_client');
+                    }
+                    break;
                 case 'deleteAttachment':
                     if ($id) {
                         $interventionsClientController->deleteAttachment($id);
@@ -831,6 +838,12 @@ try {
                         echo json_encode(['error' => 'ID site manquant']);
                         exit;
                     }
+                    break;
+                case 'add':
+                    $interventionsClientController->add();
+                    break;
+                case 'store':
+                    $interventionsClientController->store();
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'interventions_client');

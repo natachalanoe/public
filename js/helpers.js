@@ -958,8 +958,8 @@ const Helpers = {
     btnToActive.setAttribute('aria-pressed', 'true')
 
     const classList = Array.from(activeThemeIcon.classList)
-    const filteredClassList = classList.filter(className => !className.startsWith('bx-'))
-    activeThemeIcon.setAttribute('class', `bx-${svgOfActiveBtn} ${filteredClassList.join(' ')}`)
+    const filteredClassList = classList.filter(className => !className.startsWith('bx-') && !className.startsWith('bi-'))
+    activeThemeIcon.setAttribute('class', `bi bi-${svgOfActiveBtn} ${filteredClassList.join(' ')}`)
     const themeSwitcherLabel = `${themeSwitcherText.textContent} (${btnToActive.dataset.bsThemeValue})`
     themeSwitcher.setAttribute('aria-label', themeSwitcherLabel)
 

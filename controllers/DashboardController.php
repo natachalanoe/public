@@ -125,10 +125,28 @@ class DashboardController {
             // Marquer les sites et salles autorisés
             $sitesWithAccess = $this->markAuthorizedLocations($allSites, $userLocations);
             
+            // Récupérer les contrats ticket du client
+            $ticketContracts = $this->getTicketContracts($db, $clientId);
+            
+            // Debug des permissions de l'utilisateur
+            $this->debugUserPermissions();
+            
+            // Récupérer les interventions ouvertes si l'utilisateur a la permission
+            $openInterventions = [];
+            if (hasPermission('client_view_interventions')) {
+                custom_log("DEBUG - Utilisateur a la permission client_view_interventions", 'DEBUG');
+                $openInterventions = $this->getOpenInterventions($db, $clientId, $userLocations);
+                custom_log("DEBUG - Nombre d'interventions ouvertes trouvées : " . count($openInterventions), 'DEBUG');
+            } else {
+                custom_log("DEBUG - Utilisateur n'a PAS la permission client_view_interventions", 'DEBUG');
+            }
+            
         } catch (Exception $e) {
             custom_log("Erreur lors du chargement du dashboard client : " . $e->getMessage(), 'ERROR');
             $_SESSION['error'] = "Une erreur est survenue lors du chargement des données";
             $sitesWithAccess = [];
+            $ticketContracts = [];
+            $openInterventions = [];
         }
         
         // Inclure la vue du dashboard client
@@ -196,5 +214,228 @@ class DashboardController {
         }
         
         return $sitesWithAccess;
+    }
+    
+    /**
+     * Récupère les contrats ticket du client avec leurs informations
+     * @param PDO $db Connexion à la base de données
+     * @param int $clientId ID du client
+     * @return array Liste des contrats ticket
+     */
+    private function getTicketContracts($db, $clientId) {
+        try {
+            // Récupérer les contrats avec tickets
+            $stmt = $db->prepare("
+                SELECT c.*, ct.name as contract_type_name
+                FROM contracts c
+                LEFT JOIN contract_types ct ON c.contract_type_id = ct.id
+                WHERE c.client_id = :client_id 
+                AND c.status = 'actif' 
+                AND c.tickets_number > 0
+                ORDER BY c.end_date ASC
+            ");
+            $stmt->execute(['client_id' => $clientId]);
+            $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Pour chaque contrat, récupérer la date du dernier achat
+            foreach ($contracts as &$contract) {
+                $contract['last_purchase_date'] = $this->getLastTicketPurchaseDate($db, $contract['id']);
+                
+                // Debug : afficher l'historique complet pour ce contrat
+                $this->debugContractHistory($db, $contract['id']);
+            }
+            
+            return $contracts;
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la récupération des contrats ticket : " . $e->getMessage(), 'ERROR');
+            return [];
+        }
+    }
+    
+    /**
+     * Récupère la date du dernier achat de tickets pour un contrat
+     * @param PDO $db Connexion à la base de données
+     * @param int $contractId ID du contrat
+     * @return string|null Date du dernier achat ou null
+     */
+    private function getLastTicketPurchaseDate($db, $contractId) {
+        try {
+            // D'abord, récupérer toutes les entrées liées aux tickets pour debug
+            $debugStmt = $db->prepare("
+                SELECT field_name, description, created_at
+                FROM contract_history
+                WHERE contract_id = :contract_id 
+                AND (
+                    field_name LIKE '%tickets%' 
+                    OR field_name LIKE '%Tickets%'
+                    OR description LIKE '%tickets%'
+                    OR description LIKE '%Tickets%'
+                )
+                ORDER BY created_at DESC
+                LIMIT 10
+            ");
+            $debugStmt->execute(['contract_id' => $contractId]);
+            $debugResults = $debugStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Log pour debug
+            custom_log("DEBUG - Historique tickets pour contrat $contractId : " . json_encode($debugResults), 'DEBUG');
+            
+            // Maintenant chercher spécifiquement les ajouts
+            $stmt = $db->prepare("
+                SELECT created_at
+                FROM contract_history
+                WHERE contract_id = :contract_id 
+                AND (
+                    (field_name = 'Tickets initiaux' AND description LIKE '%Ajout de%tickets initiaux%')
+                    OR (field_name = 'Tickets restants' AND description LIKE '%Ajout de%tickets restants%')
+                    OR (field_name = 'Nombre de tickets' AND description LIKE '%Tickets initiaux définis%')
+                    OR (description LIKE '%Ajout de%tickets%' AND description NOT LIKE '%Déduction%')
+                )
+                ORDER BY created_at DESC
+                LIMIT 1
+            ");
+            $stmt->execute(['contract_id' => $contractId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            return $result ? $result['created_at'] : null;
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la récupération de la date du dernier achat : " . $e->getMessage(), 'ERROR');
+            return null;
+        }
+    }
+    
+    /**
+     * Récupère les interventions ouvertes du client
+     * @param PDO $db Connexion à la base de données
+     * @param int $clientId ID du client
+     * @param array $userLocations Localisations autorisées de l'utilisateur
+     * @return array Liste des interventions ouvertes
+     */
+    private function getOpenInterventions($db, $clientId, $userLocations) {
+        try {
+            custom_log("DEBUG - getOpenInterventions appelée pour client_id: $clientId", 'DEBUG');
+            
+            // Récupérer les interventions ouvertes
+            $stmt = $db->prepare("
+                SELECT i.*, 
+                       s.name as site_name,
+                       r.name as room_name,
+                       its.name as status_name,
+                       its.color as status_color,
+                       it.name as type_name,
+                       ip.name as priority_name,
+                       ip.color as priority_color,
+                       CONCAT(u.first_name, ' ', u.last_name) as technician_name
+                FROM interventions i
+                LEFT JOIN sites s ON i.site_id = s.id
+                LEFT JOIN rooms r ON i.room_id = r.id
+                LEFT JOIN intervention_statuses its ON i.status_id = its.id
+                LEFT JOIN intervention_types it ON i.type_id = it.id
+                LEFT JOIN intervention_priorities ip ON i.priority_id = ip.id
+                LEFT JOIN users u ON i.technician_id = u.id
+                WHERE i.client_id = :client_id 
+                AND its.name NOT IN ('Fermé', 'Annulé', 'Terminé')
+                ORDER BY i.created_at DESC
+                LIMIT 10
+            ");
+            $stmt->execute(['client_id' => $clientId]);
+            $interventions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            custom_log("DEBUG - Interventions trouvées avant filtrage : " . count($interventions), 'DEBUG');
+            
+            // Filtrer selon les autorisations de l'utilisateur
+            $authorizedInterventions = [];
+            foreach ($interventions as $intervention) {
+                if ($this->isInterventionAuthorized($intervention, $userLocations)) {
+                    $authorizedInterventions[] = $intervention;
+                }
+            }
+            
+            custom_log("DEBUG - Interventions autorisées après filtrage : " . count($authorizedInterventions), 'DEBUG');
+            
+            return $authorizedInterventions;
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la récupération des interventions ouvertes : " . $e->getMessage(), 'ERROR');
+            return [];
+        }
+    }
+    
+    /**
+     * Vérifie si une intervention est autorisée pour l'utilisateur
+     * @param array $intervention Données de l'intervention
+     * @param array $userLocations Localisations autorisées de l'utilisateur
+     * @return bool true si autorisée
+     */
+    private function isInterventionAuthorized($intervention, $userLocations) {
+        foreach ($userLocations as $location) {
+            $locClientId = (int)$location['client_id'];
+            $locSiteId = $location['site_id'] !== null ? (int)$location['site_id'] : null;
+            $locRoomId = $location['room_id'] !== null ? (int)$location['room_id'] : null;
+            
+            // Accès au client entier
+            if ($locSiteId === null && $locRoomId === null) {
+                return true;
+            }
+            
+            // Accès au site entier
+            if ($locSiteId === (int)$intervention['site_id'] && $locRoomId === null) {
+                return true;
+            }
+            
+            // Accès à la salle spécifique
+            if ($locSiteId === (int)$intervention['site_id'] && $locRoomId === (int)$intervention['room_id']) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Méthode de debug pour afficher l'historique complet d'un contrat
+     * @param PDO $db Connexion à la base de données
+     * @param int $contractId ID du contrat
+     */
+    private function debugContractHistory($db, $contractId) {
+        try {
+            $stmt = $db->prepare("
+                SELECT field_name, description, created_at, old_value, new_value
+                FROM contract_history
+                WHERE contract_id = :contract_id 
+                ORDER BY created_at DESC
+                LIMIT 20
+            ");
+            $stmt->execute(['contract_id' => $contractId]);
+            $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            custom_log("DEBUG - Historique complet pour contrat $contractId : " . json_encode($history), 'DEBUG');
+        } catch (Exception $e) {
+            custom_log("Erreur lors du debug de l'historique : " . $e->getMessage(), 'ERROR');
+        }
+    }
+    
+    /**
+     * Méthode de debug pour afficher les permissions de l'utilisateur
+     */
+    private function debugUserPermissions() {
+        try {
+            $user = $_SESSION['user'] ?? null;
+            if ($user) {
+                custom_log("DEBUG - Utilisateur connecté : " . json_encode([
+                    'id' => $user['id'] ?? 'N/A',
+                    'user_type' => $user['user_type'] ?? 'N/A',
+                    'client_id' => $user['client_id'] ?? 'N/A',
+                    'permissions' => $user['permissions'] ?? 'N/A'
+                ]), 'DEBUG');
+                
+                // Test de la permission spécifique
+                $hasPermission = hasPermission('client_view_interventions');
+                custom_log("DEBUG - hasPermission('client_view_interventions') = " . ($hasPermission ? 'true' : 'false'), 'DEBUG');
+            } else {
+                custom_log("DEBUG - Aucun utilisateur connecté", 'DEBUG');
+            }
+        } catch (Exception $e) {
+            custom_log("Erreur lors du debug des permissions : " . $e->getMessage(), 'ERROR');
+        }
     }
 } 

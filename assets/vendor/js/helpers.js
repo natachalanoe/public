@@ -914,7 +914,14 @@ const Helpers = {
 
   setStoredTheme: (templateName, theme) => {
     // Store theme in localStorage without template customizer prefix
-    localStorage.setItem(`theme-${templateName}`, theme)
+    localStorage.setItem(`theme-${templateName}`, theme);
+    
+    // Gestion spéciale pour le mode semi-dark
+    if (theme === 'semi-dark') {
+      localStorage.setItem(`semi-dark-${templateName}`, 'true');
+    } else {
+      localStorage.removeItem(`semi-dark-${templateName}`);
+    }
   },
 
   getPreferredTheme: themeName => {
@@ -926,15 +933,25 @@ const Helpers = {
   },
 
   setTheme: theme => {
-    console.log('setTheme called with theme:', theme);
+    console.log('setTheme called with theme:', theme, 'VERSION 2.0');
     
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       console.log('System theme detected:', systemTheme);
       document.documentElement.setAttribute('data-bs-theme', systemTheme);
+    } else if (theme === 'semi-dark') {
+      // Mode semi-dark : menu sombre, reste clair
+      console.log('Setting semi-dark theme - VERSION 2.0');
+      document.documentElement.setAttribute('data-bs-theme', 'light');
+      document.documentElement.setAttribute('data-semidark-menu', 'true');
+      console.log('Semi-dark attributes applied:', {
+        'data-bs-theme': document.documentElement.getAttribute('data-bs-theme'),
+        'data-semidark-menu': document.documentElement.getAttribute('data-semidark-menu')
+      });
     } else {
       console.log('Setting theme to:', theme);
       document.documentElement.setAttribute('data-bs-theme', theme);
+      document.documentElement.removeAttribute('data-semidark-menu');
     }
     
     // Trigger a custom event for theme change
@@ -987,8 +1004,8 @@ const Helpers = {
     // Update the active theme icon
     if (activeThemeIcon) {
       const classList = Array.from(activeThemeIcon.classList)
-      const filteredClassList = classList.filter(className => !className.startsWith('bx-'))
-      activeThemeIcon.setAttribute('class', `bx-${dataIcon} ${filteredClassList.join(' ')}`)
+      const filteredClassList = classList.filter(className => !className.startsWith('bx-') && !className.startsWith('bi-'))
+      activeThemeIcon.setAttribute('class', `bi bi-${dataIcon} ${filteredClassList.join(' ')}`)
     }
     
     // Update the theme switcher label

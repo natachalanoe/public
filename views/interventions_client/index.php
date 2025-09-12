@@ -31,6 +31,14 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 <div class="d-flex bd-highlight mb-3">
     <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Mes interventions</h4></div>
+    
+    <div class="ms-auto p-2 bd-highlight">
+        <?php if (hasPermission('client_add_intervention')): ?>
+            <a href="<?php echo BASE_URL; ?>interventions_client/add" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Créer une intervention
+            </a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <!-- Filtres rapides par statut -->

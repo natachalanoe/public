@@ -1,4 +1,4 @@
-user 16 a comme location client 1<?php
+<?php
 require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../includes/FileUploadValidator.php';
 
@@ -33,6 +33,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Details de l'intervention</h4></div>
 
     <div class="ms-auto p-2 bd-highlight">
+        <?php if (hasPermission('client_add_intervention')): ?>
+            <a href="<?php echo BASE_URL; ?>interventions_client/add" class="btn btn-primary me-2">
+                <i class="bi bi-plus-circle me-1"></i> Nouvelle intervention
+            </a>
+        <?php endif; ?>
         <a href="<?php echo BASE_URL; ?>interventions_client" class="btn btn-secondary me-2">
             <i class="bi bi-arrow-left me-1"></i> Retour
         </a>
@@ -466,36 +471,56 @@ include_once __DIR__ . '/../../includes/navbar.php';
             </div>
         </div>
 
-        <!-- Modal Ajout de piece jointe -->
-        <div class="modal fade" id="addAttachmentModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
+        <!-- Modal Ajout de pièces jointes avec Drag & Drop -->
+        <div class="modal fade" id="addAttachmentModal" tabindex="-1" aria-labelledby="addAttachmentModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
-                    <form action="<?= BASE_URL ?>interventions_client/addAttachment/<?= $intervention['id'] ?>" method="post" enctype="multipart/form-data">
+                    <form action="<?= BASE_URL ?>interventions_client/addMultipleAttachments/<?= $intervention['id']; ?>" method="post" enctype="multipart/form-data" id="dragDropForm">
                         <div class="modal-header">
-                            <h5 class="modal-title">Ajouter une piece jointe</h5>
+                            <h5 class="modal-title" id="addAttachmentModalLabel">
+                                <i class="bi bi-cloud-upload me-2 me-1"></i>
+                                Ajouter des pièces jointes
+                            </h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <div class="mb-3">
-                                <label for="attachment" class="form-label">Fichier</label>
-                                <input type="file" class="form-control" id="attachment" name="attachment" accept="<?= FileUploadValidator::getAcceptAttribute($GLOBALS['db']) ?>" required>
-                                <div class="form-text">
-                                    Formats acceptés : Images, documents, archives et fichiers texte<br>
-                                    Taille maximale : <?php echo ini_get('upload_max_filesize'); ?>
+                            <!-- Zone de Drag & Drop -->
+                            <div class="drop-zone" id="dropZone">
+                                <div class="drop-message">
+                                    <i class="bi bi-cloud-upload me-1"></i>
+                                    Glissez-déposez vos fichiers ici<br>
+                                    <small class="text-muted">ou cliquez pour sélectionner</small>
                                 </div>
-                                <div id="attachment-error" class="invalid-feedback"></div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="custom_name" class="form-label">Nom du fichier (optionnel)</label>
-                                <input type="text" class="form-control" id="custom_name" name="custom_name" placeholder="Nom personnalisé pour ce fichier" maxlength="255">
-                                <div class="form-text">
-                                    Si laissé vide, le nom original du fichier sera utilisé
+                                
+                                <input type="file" id="fileInput" multiple style="display: none;" 
+                                       accept="<?= FileUploadValidator::getAcceptAttribute($GLOBALS['db']) ?>">
+                                
+                                <div class="file-list" id="fileList"></div>
+                                
+                                <div class="stats" id="stats" style="display: none;">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <strong>Fichiers valides:</strong> <span id="validCount">0</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <strong>Fichiers rejetés:</strong> <span id="invalidCount">0</span>
+                                        </div>
+                                    </div>
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="progressFill"></div>
+                                    </div>
                                 </div>
+                                
                             </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                            <button type="submit" class="btn btn-primary" id="addAttachmentModal-submit">Ajouter</button>
+                            <button type="button" class="btn btn-warning" id="clearAllBtn" style="display: none;">
+                                <i class="bi bi-trash me-1 me-1"></i> Tout effacer
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="uploadValidBtn" style="display: none;">
+                                <i class="bi bi-upload me-1 me-1"></i> Uploader les fichiers valides
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -515,64 +540,453 @@ include_once __DIR__ . '/../../includes/navbar.php';
 // Initialiser BASE_URL pour JavaScript
 initBaseUrl('<?= BASE_URL ?>');
 
-// Initialiser la validation de fichiers pour le modal d'ajout de piece jointe
-document.addEventListener('DOMContentLoaded', function() {
-    // Validation côté client avec récupération des extensions autorisées
-    const fileInput = document.getElementById('attachment');
-    const fileError = document.getElementById('attachment-error');
-    const submitButton = document.getElementById('addAttachmentModal-submit');
-    const maxSize = parsePhpSize('<?php echo ini_get("upload_max_filesize"); ?>');
+// Classe Drag & Drop Uploader pour la modale
+class DragDropUploader {
+    constructor() {
+        this.dropZone = document.getElementById('dropZone');
+        this.fileInput = document.getElementById('fileInput');
+        this.fileList = document.getElementById('fileList');
+        this.stats = document.getElementById('stats');
+        this.validCount = document.getElementById('validCount');
+        this.invalidCount = document.getElementById('invalidCount');
+        this.progressFill = document.getElementById('progressFill');
+        this.uploadValidBtn = document.getElementById('uploadValidBtn');
+        this.clearAllBtn = document.getElementById('clearAllBtn');
+        this.dragDropForm = document.getElementById('dragDropForm');
+        
+        this.files = [];
+        this.allowedExtensions = [];
+        this.maxSize = parsePhpSize('<?php echo ini_get("upload_max_filesize"); ?>');
+        
+        this.init();
+    }
     
-    // Récupérer les extensions autorisées
-    fetch('<?php echo BASE_URL; ?>settings/getAllowedExtensions')
-        .then(response => response.json())
-        .then(data => {
-            const allowedExtensions = data.extensions || [];
-            
-            fileInput.addEventListener('change', function() {
-                const file = this.files[0];
-                if (!file) return;
-                
-                // Réinitialiser les messages d'erreur
-                fileError.textContent = '';
-                fileInput.classList.remove('is-invalid');
-                submitButton.disabled = false;
-                
-                // Vérifier la taille du fichier
-                if (file.size > maxSize) {
-                    fileError.textContent = `Le fichier est trop volumineux (${formatFileSize(file.size)}). Taille maximale autorisée : ${formatFileSize(maxSize)}.`;
-                    fileError.style.display = 'block';
-                    fileInput.classList.add('is-invalid');
-                    submitButton.disabled = true;
-                    return;
-                }
-                
-                // Vérifier l'extension du fichier
-                const fileName = file.name;
-                const fileExtension = fileName.split('.').pop().toLowerCase();
-                
-                if (!allowedExtensions.includes(fileExtension)) {
-                    fileError.textContent = 'Ce format n\'est pas accepté, rapprochez-vous de l\'administrateur du site, ou utilisez un format compressé.';
-                    fileError.style.display = 'block';
-                    fileInput.classList.add('is-invalid');
-                    submitButton.disabled = true;
-                    return;
-                }
-                
-                // Fichier valide
-                fileError.style.display = 'none';
-                fileInput.classList.remove('is-invalid');
-                submitButton.disabled = false;
-            });
-        })
-        .catch(error => {
-            console.error('Erreur lors de la récupération des extensions autorisées:', error);
-            // En cas d'erreur, on désactive la validation côté client
+    async init() {
+        await this.loadAllowedExtensions();
+        this.setupEventListeners();
+    }
+    
+    async loadAllowedExtensions() {
+        try {
+            const response = await fetch('<?php echo BASE_URL; ?>settings/getAllowedExtensions');
+            const data = await response.json();
+            this.allowedExtensions = data.extensions || [];
+        } catch (error) {
+            console.error('Erreur lors du chargement des extensions autorisées:', error);
+        }
+    }
+    
+    setupEventListeners() {
+        // Drag & Drop events
+        this.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.add('dragover');
         });
+        
+        this.dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.remove('dragover');
+        });
+        
+        this.dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            this.handleFiles(files);
+        });
+        
+        // Click to select files (seulement sur la zone de drop, pas sur les éléments enfants)
+        this.dropZone.addEventListener('click', (e) => {
+            // Ne déclencher que si on clique directement sur la zone de drop ou le message
+            if (e.target === this.dropZone || e.target.classList.contains('drop-message') || e.target.closest('.drop-message')) {
+                this.fileInput.click();
+            }
+        });
+        
+        this.fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            this.handleFiles(files);
+        });
+        
+        // Action buttons
+        this.uploadValidBtn.addEventListener('click', () => {
+            this.uploadValidFiles();
+        });
+        
+        this.clearAllBtn.addEventListener('click', () => {
+            this.clearAllFiles();
+        });
+        
+        // Form submission
+        this.dragDropForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.uploadValidFiles();
+        });
+    }
+    
+    handleFiles(newFiles) {
+        const validatedFiles = this.validateFiles(newFiles);
+        this.files = [...this.files, ...validatedFiles];
+        this.displayFiles();
+        this.updateStats();
+    }
+    
+    validateFiles(files) {
+        return files.map(file => {
+            const extension = file.name.split('.').pop().toLowerCase();
+            const isValid = this.allowedExtensions.includes(extension);
+            const isSizeValid = file.size <= this.maxSize;
+            
+            let error = null;
+            if (!isSizeValid) {
+                error = `Le fichier est trop volumineux (${this.formatFileSize(file.size)}). Taille maximale autorisée : ${this.formatFileSize(this.maxSize)}.`;
+            } else if (!isValid) {
+                error = 'Ce format n\'est pas accepté, rapprochez-vous de l\'administrateur du site, ou utilisez un format compressé.';
+            }
+            
+            return {
+                file,
+                isValid: isValid && isSizeValid,
+                extension,
+                error
+            };
+        });
+    }
+    
+    displayFiles() {
+        this.fileList.innerHTML = '';
+        
+        this.files.forEach((fileData, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = `file-item ${fileData.isValid ? 'valid' : 'invalid'}`;
+            
+            // Si le fichier est valide, ajouter le champ de nom personnalisé
+            const customNameField = fileData.isValid ? `
+                <div class="custom-name-field">
+                    <input type="text" 
+                           placeholder="Nom personnalisé (optionnel)" 
+                           value="${fileData.customName || ''}"
+                           maxlength="255"
+                           data-file-index="${index}">
+                </div>
+            ` : '';
+            
+            fileItem.innerHTML = `
+                <div class="file-info">
+                    <span class="file-name">${fileData.file.name}</span>
+                    <span class="file-size">${this.formatFileSize(fileData.file.size)}</span>
+                    ${fileData.error ? `<span class="error-message">${fileData.error}</span>` : ''}
+                </div>
+                ${customNameField}
+                <button type="button" class="remove-file" onclick="uploader.removeFile(${index})" onmousedown="event.stopPropagation()">×</button>
+            `;
+            
+            // Empêcher la propagation des événements sur tout l'élément de fichier
+            fileItem.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+            
+            // Ajouter un event listener pour sauvegarder le nom personnalisé
+            if (fileData.isValid) {
+                const input = fileItem.querySelector('input[data-file-index]');
+                input.addEventListener('input', (e) => {
+                    fileData.customName = e.target.value;
+                });
+                // Empêcher la propagation du clic pour éviter l'ouverture du sélecteur
+                input.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            }
+            
+            this.fileList.appendChild(fileItem);
+        });
+        
+    }
+    
+    removeFile(index) {
+        this.files.splice(index, 1);
+        this.displayFiles();
+        this.updateStats();
+    }
+    
+    
+    updateStats() {
+        const validFiles = this.files.filter(f => f.isValid);
+        const invalidFiles = this.files.filter(f => !f.isValid);
+        
+        this.validCount.textContent = validFiles.length;
+        this.invalidCount.textContent = invalidFiles.length;
+        
+        if (this.files.length > 0) {
+            this.stats.style.display = 'block';
+            this.uploadValidBtn.style.display = 'inline-block';
+            this.clearAllBtn.style.display = 'inline-block';
+            
+            const progress = (validFiles.length / this.files.length) * 100;
+            this.progressFill.style.width = `${progress}%`;
+        } else {
+            this.stats.style.display = 'none';
+            this.uploadValidBtn.style.display = 'none';
+            this.clearAllBtn.style.display = 'none';
+        }
+    }
+    
+    clearAllFiles() {
+        this.files = [];
+        this.displayFiles();
+        this.updateStats();
+        this.fileInput.value = '';
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    async uploadValidFiles() {
+        const validFiles = this.files.filter(f => f.isValid);
+        
+        if (validFiles.length === 0) {
+            alert('Aucun fichier valide à uploader');
+            return;
+        }
+        
+        // Préparer les données du formulaire
+        const formData = new FormData();
+        
+        // Ajouter les fichiers et leurs noms personnalisés
+        validFiles.forEach((fileData, index) => {
+            formData.append(`attachments[${index}]`, fileData.file);
+            if (fileData.customName && fileData.customName.trim()) {
+                formData.append(`custom_names[${index}]`, fileData.customName.trim());
+            }
+        });
+        
+        // Désactiver le bouton pendant l'upload
+        this.uploadValidBtn.disabled = true;
+        this.uploadValidBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin me-1 me-1"></i>Upload en cours...';
+        
+        try {
+            const response = await fetch(this.dragDropForm.action, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(`${validFiles.length} fichier(s) uploadé(s) avec succès !`);
+                // Fermer la modale et recharger la page
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addAttachmentModal'));
+                modal.hide();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                alert(`Erreur lors de l'upload : ${result.error || 'Erreur inconnue'}`);
+            }
+        } catch (error) {
+            console.error('Erreur lors de l\'upload:', error);
+            alert('Erreur lors de l\'upload des fichiers');
+        } finally {
+            this.uploadValidBtn.disabled = false;
+            this.uploadValidBtn.innerHTML = '<i class="bi bi-upload me-1 me-1"></i> Uploader les fichiers valides';
+        }
+    }
+}
+
+// Initialiser l'uploader quand la modale est ouverte
+document.addEventListener('DOMContentLoaded', function() {
+    let uploader;
+    
+    // Initialiser l'uploader quand la modale s'ouvre
+    document.getElementById('addAttachmentModal').addEventListener('shown.bs.modal', function() {
+        if (!uploader) {
+            uploader = new DragDropUploader();
+        }
+    });
 });
 </script>
 
 <style>
+.drop-zone {
+    border: 2px dashed var(--bs-border-color);
+    border-radius: 8px;
+    padding: 30px;
+    text-align: center;
+    background-color: var(--bs-body-bg);
+    transition: all 0.3s ease;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.drop-zone.dragover {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+.drop-zone.dragover .drop-message {
+    color: var(--bs-primary);
+}
+
+.drop-message {
+    font-size: 1.1em;
+    color: var(--bs-secondary-color);
+    margin-bottom: 15px;
+}
+
+.drop-message i {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.file-list {
+    margin-top: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin: 3px 0;
+    border-radius: 5px;
+    border: 1px solid var(--bs-border-color);
+    background-color: var(--bs-body-bg);
+    gap: 10px;
+}
+
+.file-item.valid {
+    background-color: var(--bs-success-bg-subtle);
+    border-color: var(--bs-success-border-subtle);
+}
+
+.file-item.invalid {
+    background-color: var(--bs-danger-bg-subtle);
+    border-color: var(--bs-danger-border-subtle);
+}
+
+.file-info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-name {
+    font-weight: 500;
+    font-size: 0.9em;
+    color: var(--bs-body-color);
+}
+
+.file-size {
+    color: var(--bs-secondary-color);
+    font-size: 0.8em;
+}
+
+.error-message {
+    color: var(--bs-danger);
+    font-size: 0.8em;
+    margin-left: 8px;
+}
+
+.remove-file {
+    background: none;
+    border: none;
+    color: var(--bs-danger);
+    font-size: 1.1em;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.remove-file:hover {
+    color: var(--bs-danger-hover);
+}
+
+.stats {
+    margin-top: 10px;
+    padding: 8px;
+    background-color: var(--bs-secondary-bg);
+    border-radius: 5px;
+    font-size: 0.9em;
+    color: var(--bs-body-color);
+}
+
+.progress-bar {
+    height: 3px;
+    background-color: var(--bs-secondary-bg);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--bs-primary);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+/* Dark mode specific adjustments */
+[data-bs-theme="dark"] .drop-zone {
+    border-color: var(--bs-border-color);
+    background-color: var(--bs-body-bg);
+}
+
+[data-bs-theme="dark"] .file-item {
+    background-color: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] .file-item.valid {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-color: rgba(25, 135, 84, 0.3);
+}
+
+[data-bs-theme="dark"] .file-item.invalid {
+    background-color: rgba(220, 53, 69, 0.1);
+    border-color: rgba(220, 53, 69, 0.3);
+}
+
+[data-bs-theme="dark"] .stats {
+    background-color: var(--bs-secondary-bg);
+}
+
+/* Styles pour le champ de nom personnalisé intégré */
+.custom-name-field {
+    flex: 0 0 200px;
+}
+
+.custom-name-field input {
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 3px;
+    font-size: 0.8em;
+    background-color: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+
+.custom-name-field input:focus {
+    outline: none;
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+[data-bs-theme="dark"] .custom-name-field input {
+    background-color: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
 /* Styles pour l'affichage des noms de fichiers */
 .attachment-name {
     display: flex;

@@ -431,10 +431,10 @@ class InterventionsClientModel {
             if (move_uploaded_file($file['tmp_name'], $filepath)) {
                 // Insérer la pièce jointe
                 $sql = "INSERT INTO pieces_jointes (
-                            nom_fichier, nom_original, chemin_fichier, type_fichier, taille_fichier, 
+                            nom_fichier, nom_personnalise, chemin_fichier, type_fichier, taille_fichier, 
                             commentaire, masque_client, created_by
                         ) VALUES (
-                            :nom_fichier, :nom_original, :chemin_fichier, :type_fichier, :taille_fichier,
+                            :nom_fichier, :nom_personnalise, :chemin_fichier, :type_fichier, :taille_fichier,
                             :commentaire, :masque_client, :created_by
                         )";
 
@@ -443,8 +443,8 @@ class InterventionsClientModel {
                 
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
-                    ':nom_fichier' => $displayName,
-                    ':nom_original' => $file['name'],
+                    ':nom_fichier' => $filename, // Nom physique du fichier
+                    ':nom_personnalise' => $displayName, // Nom d'affichage
                     ':chemin_fichier' => $filepath,
                     ':type_fichier' => $extension,
                     ':taille_fichier' => $file['size'],
@@ -560,5 +560,134 @@ class InterventionsClientModel {
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Récupère toutes les priorités d'intervention
+     * @return array Liste des priorités
+     */
+    public function getAllPriorities() {
+        $sql = "SELECT * FROM intervention_priorities ORDER BY id ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Récupère les contrats d'un client
+     * @param int $clientId ID du client
+     * @return array Liste des contrats
+     */
+    public function getContractsByClient($clientId) {
+        $sql = "SELECT c.*, ct.name as contract_type_name
+                FROM contracts c
+                LEFT JOIN contract_types ct ON c.contract_type_id = ct.id
+                WHERE c.client_id = ? AND c.status = 'actif' 
+                ORDER BY c.name ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Récupère les contacts d'un client
+     * @param int $clientId ID du client
+     * @return array Liste des contacts
+     */
+    public function getContactsByClient($clientId) {
+        $sql = "SELECT * FROM contacts 
+                WHERE client_id = ? AND status = 1 
+                ORDER BY last_name, first_name ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Crée une nouvelle intervention
+     * @param array $data Données de l'intervention
+     * @return int|false ID de l'intervention créée ou false en cas d'erreur
+     */
+    public function create($data) {
+        try {
+            $this->db->beginTransaction();
+
+            // Générer une référence unique si elle n'existe pas
+            if (empty($data['reference'])) {
+                $data['reference'] = $this->generateReference();
+            }
+
+            $sql = "INSERT INTO interventions (
+                        reference, title, description, demande_par, client_id, site_id, room_id, 
+                        contract_id, type_id, status_id, priority_id, duration, 
+                        date_planif, heure_planif, technician_id, ref_client, contact_client, created_at
+                    ) VALUES (
+                        :reference, :title, :description, :demande_par, :client_id, :site_id, :room_id,
+                        :contract_id, :type_id, :status_id, :priority_id, :duration,
+                        :date_planif, :heure_planif, :technician_id, :ref_client, :contact_client, NOW()
+                    )";
+
+            $stmt = $this->db->prepare($sql);
+            $success = $stmt->execute([
+                ':reference' => $data['reference'],
+                ':title' => $data['title'],
+                ':description' => $data['description'],
+                ':demande_par' => $data['demande_par'],
+                ':client_id' => $data['client_id'],
+                ':site_id' => $data['site_id'],
+                ':room_id' => $data['room_id'],
+                ':contract_id' => $data['contract_id'],
+                ':type_id' => $data['type_id'],
+                ':status_id' => $data['status_id'],
+                ':priority_id' => $data['priority_id'],
+                ':duration' => $data['duration'],
+                ':date_planif' => $data['date_planif'],
+                ':heure_planif' => $data['heure_planif'],
+                ':technician_id' => $data['technician_id'],
+                ':ref_client' => $data['ref_client'],
+                ':contact_client' => $data['contact_client']
+            ]);
+
+            if ($success) {
+                $interventionId = $this->db->lastInsertId();
+                $this->db->commit();
+                return $interventionId;
+            } else {
+                $this->db->rollBack();
+                return false;
+            }
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            custom_log("Erreur lors de la création de l'intervention: " . $e->getMessage(), 'ERROR');
+            return false;
+        }
+    }
+
+    /**
+     * Génère une référence unique pour une intervention
+     * @return string Référence générée
+     */
+    private function generateReference() {
+        // Format: INT-YYYY-NNNNNN (ex: INT-2025-000001)
+        $year = date('Y');
+        
+        // Récupérer le dernier numéro de l'année
+        $sql = "SELECT reference FROM interventions 
+                WHERE reference LIKE ? 
+                ORDER BY reference DESC 
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(["INT-{$year}-%"]);
+        $lastRef = $stmt->fetchColumn();
+        
+        if ($lastRef) {
+            // Extraire le numéro et l'incrémenter
+            $parts = explode('-', $lastRef);
+            $number = (int)end($parts) + 1;
+        } else {
+            $number = 1;
+        }
+        
+        return sprintf("INT-%s-%06d", $year, $number);
     }
 } 

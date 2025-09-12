@@ -195,8 +195,24 @@ document.addEventListener('DOMContentLoaded', function () {
   function initializeTheme() {
     console.log('Initializing theme...');
     
-    // Show active theme
-    window.Helpers.showActiveTheme(window.Helpers.getPreferredTheme());
+    // Récupérer le thème stocké
+    const storedTheme = localStorage.getItem(`theme-${templateName}`);
+    const isSemiDark = localStorage.getItem(`semi-dark-${templateName}`) === 'true';
+    
+    // Appliquer le thème au chargement
+    if (storedTheme === 'semi-dark' || isSemiDark) {
+      console.log('Initializing semi-dark theme');
+      document.documentElement.setAttribute('data-bs-theme', 'light');
+      document.documentElement.setAttribute('data-semidark-menu', 'true');
+      console.log('Applied attributes:', {
+        'data-bs-theme': document.documentElement.getAttribute('data-bs-theme'),
+        'data-semidark-menu': document.documentElement.getAttribute('data-semidark-menu')
+      });
+      window.Helpers.showActiveTheme('semi-dark');
+    } else {
+      // Thème classique
+      window.Helpers.showActiveTheme(window.Helpers.getPreferredTheme());
+    }
     
     // Get scrollbar width
     getScrollbarWidth();
@@ -222,25 +238,49 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('Theme toggle clicked:', theme);
     
     window.Helpers.setStoredTheme(templateName, theme);
-    window.Helpers.setTheme(theme);
-    window.Helpers.showActiveTheme(theme, true);
-    window.Helpers.syncCustomOptions(theme);
     
-    let currTheme = theme;
-    if (theme === 'system') {
-      currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    
-    const semiDarkL = document.querySelector('.template-customizer-semiDark');
-    if (semiDarkL) {
-      if (theme === 'dark') {
-        semiDarkL.classList.add('d-none');
-      } else {
-        semiDarkL.classList.remove('d-none');
+    // Gestion spéciale pour le mode semi-dark
+    if (theme === 'semi-dark') {
+      // Mode semi-dark : menu sombre, reste clair
+      console.log('Applying semi-dark theme');
+      document.documentElement.setAttribute('data-bs-theme', 'light');
+      document.documentElement.setAttribute('data-semidark-menu', 'true');
+      console.log('Applied attributes:', {
+        'data-bs-theme': document.documentElement.getAttribute('data-bs-theme'),
+        'data-semidark-menu': document.documentElement.getAttribute('data-semidark-menu')
+      });
+      window.Helpers.showActiveTheme(theme, true);
+      window.Helpers.syncCustomOptions(theme);
+      window.Helpers.switchImage('light');
+    } else {
+      // Modes classiques (light, dark, system)
+      window.Helpers.setTheme(theme);
+      window.Helpers.showActiveTheme(theme, true);
+      window.Helpers.syncCustomOptions(theme);
+      
+      let currTheme = theme;
+      if (theme === 'system') {
+        currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       }
+      
+      // Gestion de l'attribut data-semidark-menu pour les autres thèmes
+      if (theme === 'dark') {
+        document.documentElement.removeAttribute('data-semidark-menu');
+      } else {
+        document.documentElement.removeAttribute('data-semidark-menu');
+      }
+      
+      const semiDarkL = document.querySelector('.template-customizer-semiDark');
+      if (semiDarkL) {
+        if (theme === 'dark') {
+          semiDarkL.classList.add('d-none');
+        } else {
+          semiDarkL.classList.remove('d-none');
+        }
+      }
+      
+      window.Helpers.switchImage(currTheme);
     }
-    
-    window.Helpers.switchImage(currTheme);
   }
   
   // Initialize theme when DOM is ready

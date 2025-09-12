@@ -112,26 +112,49 @@ window.isDarkStyle = window.Helpers.isDarkStyle();
   }
   getScrollbarWidth();
 
-  //Style Switcher (Light/Dark/System Mode)
+  //Style Switcher (Light/Dark/System/Semi-Dark Mode)
   window.addEventListener('DOMContentLoaded', () => {
-    window.Helpers.showActiveTheme(window.Helpers.getPreferredTheme());
+    // Récupérer le thème stocké
+    const storedTheme = localStorage.getItem(`theme-${templateName}`);
+    const isSemiDark = localStorage.getItem(`semi-dark-${templateName}`) === 'true';
+    
+    // Appliquer le thème au chargement
+    if (storedTheme === 'semi-dark' || isSemiDark) {
+      document.documentElement.setAttribute('data-bs-theme', 'light');
+      document.documentElement.setAttribute('data-semidark-menu', 'true');
+      window.Helpers.showActiveTheme('semi-dark');
+    } else {
+      window.Helpers.showActiveTheme(window.Helpers.getPreferredTheme());
+    }
+    
     getScrollbarWidth();
     document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
       toggle.addEventListener('click', () => {
         const theme = toggle.getAttribute('data-bs-theme-value');
         window.Helpers.setStoredTheme(templateName, theme);
-        window.Helpers.setTheme(theme);
-        window.Helpers.showActiveTheme(theme, true);
-        window.Helpers.syncCustomOptions(theme);
-        let currTheme = theme;
-        if (theme === 'system') {
-          currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        
+        // Gestion spéciale pour le mode semi-dark
+        if (theme === 'semi-dark') {
+          document.documentElement.setAttribute('data-bs-theme', 'light');
+          document.documentElement.setAttribute('data-semidark-menu', 'true');
+          window.Helpers.showActiveTheme(theme, true);
+          window.Helpers.syncCustomOptions(theme);
+          window.Helpers.switchImage('light');
+        } else {
+          window.Helpers.setTheme(theme);
+          window.Helpers.showActiveTheme(theme, true);
+          window.Helpers.syncCustomOptions(theme);
+          let currTheme = theme;
+          if (theme === 'system') {
+            currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          window.Helpers.switchImage(currTheme);
         }
+        
         new bootstrap.Tooltip(styleSwitcherIcon, {
           title: theme.charAt(0).toUpperCase() + theme.slice(1) + ' Mode',
           fallbackPlacements: ['bottom']
         });
-        window.Helpers.switchImage(currTheme);
       });
     });
   });

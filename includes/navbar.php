@@ -29,7 +29,7 @@
                         class="dropdown-item align-items-center active"
                         data-bs-theme-value="light"
                         aria-pressed="false">
-                        <span><i class="bi bi-sun icon-md me-3" data-icon="sun"></i>Light</span>
+                        <span><i class="bi bi-sun icon-md me-3" data-icon="sun"></i>Clair</span>
                       </button>
                     </li>
                     <li>
@@ -38,16 +38,25 @@
                         class="dropdown-item align-items-center"
                         data-bs-theme-value="dark"
                         aria-pressed="true">
-                        <span><i class="bi bi-moon icon-md me-3" data-icon="moon"></i>Dark</span>
+                        <span><i class="bi bi-moon icon-md me-3" data-icon="moon"></i>Sombre</span>
                       </button>
                     </li>
-                    <li>
+                    <li style="display: none;">
                       <button
                         type="button"
                         class="dropdown-item align-items-center"
                         data-bs-theme-value="system"
                         aria-pressed="false">
                         <span><i class="bi bi-display icon-md me-3" data-icon="desktop"></i>System</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        class="dropdown-item align-items-center"
+                        data-bs-theme-value="semi-dark"
+                        aria-pressed="false">
+                        <span><i class="bi bi-layout-sidebar-reverse icon-md me-3" data-icon="layout-sidebar-reverse"></i>Menu sombre</span>
                       </button>
                     </li>
                   </ul>
