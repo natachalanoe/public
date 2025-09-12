@@ -1231,6 +1231,12 @@ try {
                 case 'getAllowedExtensions':
                     $settingsController->getAllowedExtensions();
                     break;
+                case 'configuration':
+                    $settingsController->configuration();
+                    break;
+                case 'saveConfiguration':
+                    $settingsController->saveConfiguration();
+                    break;
                 case 'contractTypes':
                     require_once __DIR__ . '/controllers/ContractTypeController.php';
                     $contractTypeController = new ContractTypeController($db);

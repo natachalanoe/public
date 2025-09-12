@@ -38,6 +38,90 @@ class SettingsController {
         require_once VIEWS_PATH . '/settings/index.php';
     }
 
+    /**
+     * Page de configuration système
+     */
+    public function configuration() {
+        $this->checkAdmin();
+        
+        // Définir les variables de page
+        setPageVariables('Configuration système', 'settings');
+        $currentPage = 'settings';
+
+        // Inclure la vue
+        require_once VIEWS_PATH . '/settings/configuration.php';
+    }
+
+    /**
+     * Sauvegarde de la configuration
+     */
+    public function saveConfiguration() {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $_SESSION['error'] = "Méthode non autorisée.";
+            header('Location: ' . BASE_URL . 'settings/configuration');
+            exit;
+        }
+
+        try {
+            $tarif_ticket = trim($_POST['tarif_ticket'] ?? '');
+            $coef_intervention = trim($_POST['coef_intervention'] ?? '');
+            
+            // Validation
+            if (empty($tarif_ticket) || !is_numeric($tarif_ticket) || $tarif_ticket < 0) {
+                throw new Exception("Le tarif du ticket doit être un nombre positif.");
+            }
+            
+            if (empty($coef_intervention) || !is_numeric($coef_intervention) || $coef_intervention < 0 || $coef_intervention > 1) {
+                throw new Exception("Le coefficient d'intervention doit être un nombre entre 0 et 1.");
+            }
+
+            // Traiter les deux settings
+            $settings = [
+                'tarif_ticket' => [
+                    'value' => $tarif_ticket,
+                    'description' => 'Tarif par défaut pour un ticket d\'intervention (en euros)',
+                    'group' => 'pricing'
+                ],
+                'coef_intervention' => [
+                    'value' => $coef_intervention,
+                    'description' => 'Coefficient global pour le calcul des tickets d\'intervention',
+                    'group' => 'interventions'
+                ]
+            ];
+
+            foreach ($settings as $key => $data) {
+                // Vérifier si le setting existe déjà
+                $stmt = $this->db->prepare("SELECT id FROM settings WHERE setting_key = ?");
+                $stmt->execute([$key]);
+                $existing = $stmt->fetch();
+
+                if ($existing) {
+                    // Mettre à jour le setting existant
+                    $stmt = $this->db->prepare("UPDATE settings SET setting_value = ?, updated_at = CURRENT_TIMESTAMP WHERE setting_key = ?");
+                    $stmt->execute([$data['value'], $key]);
+                } else {
+                    // Créer un nouveau setting
+                    $stmt = $this->db->prepare("INSERT INTO settings (setting_key, setting_value, setting_description, setting_group) VALUES (?, ?, ?, ?)");
+                    $stmt->execute([$key, $data['value'], $data['description'], $data['group']]);
+                }
+            }
+
+            // Recharger la configuration
+            $config = Config::getInstance();
+            $config->reloadSettings();
+
+            $_SESSION['success'] = "Configuration sauvegardée avec succès.";
+            
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors de la sauvegarde : " . $e->getMessage();
+        }
+
+        header('Location: ' . BASE_URL . 'settings/configuration');
+        exit;
+    }
+
     // Page de paramétrage des niveaux d'accès
     public function accessLevels() {
         $this->checkAdmin();

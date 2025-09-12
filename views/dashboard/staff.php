@@ -104,7 +104,7 @@ try {
         ORDER BY c.tickets_remaining ASC
     ")->fetchAll(PDO::FETCH_ASSOC);
 
-    // Interventions avec statut "Nouveau"
+    // Interventions avec statut "Nouveau" (excluant les préventives)
     $newInterventions = $db->query("
         SELECT i.*, c.name as client_name, s.name as site_name, r.name as room_name,
                p.name as priority, p.color as color, t.name as type
@@ -116,6 +116,7 @@ try {
         JOIN intervention_types t ON i.type_id = t.id
         JOIN intervention_statuses st ON i.status_id = st.id
         WHERE st.name = 'Nouveau'
+        AND p.name != 'Préventif'
         ORDER BY i.created_at DESC
     ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -149,6 +150,33 @@ try {
         ORDER BY c.name, s.name, r.name
     ")->fetchAll(PDO::FETCH_ASSOC);
 
+    // Calcul des montants financiers
+    // 1. Récupérer le tarif d'un ticket depuis les settings
+    $tarifTicket = $db->query("SELECT setting_value FROM settings WHERE setting_key = 'tarif_ticket'")->fetchColumn();
+    $tarifTicket = $tarifTicket ? (float)$tarifTicket : 90.0; // Valeur par défaut si non trouvée
+
+    // 2. Calculer la valeur des tickets restants (tickets_remaining * tarif_ticket)
+    $stmt = $db->prepare("
+        SELECT COALESCE(SUM(tickets_remaining * :tarif_ticket), 0) as total_value
+        FROM contracts 
+        WHERE status = 'actif' 
+        AND contract_type_id IS NOT NULL
+        AND tickets_remaining > 0
+    ");
+    $stmt->execute([':tarif_ticket' => $tarifTicket]);
+    $ticketsValue = $stmt->fetchColumn();
+
+    // 3. Calculer la somme des montants des contrats actifs
+    $contractsValue = $db->query("
+        SELECT COALESCE(SUM(CAST(tarif AS DECIMAL(10,2))), 0) as total_value
+        FROM contracts 
+        WHERE status = 'actif' 
+        AND contract_type_id IS NOT NULL
+        AND tarif IS NOT NULL 
+        AND tarif != ''
+        AND tarif != '0.00'
+    ")->fetchColumn();
+
 } catch (Exception $e) {
     // En cas d'erreur, initialiser les variables avec des tableaux vides
     $statsByStatus = [];
@@ -159,6 +187,9 @@ try {
     $newInterventions = [];
     $plannedInterventions = [];
     $roomsWithoutContract = [];
+    $ticketsValue = 0;
+    $contractsValue = 0;
+    $tarifTicket = 90.0;
     
     // Log de l'erreur
     custom_log("Erreur lors du chargement des statistiques du dashboard : " . $e->getMessage(), 'ERROR');
@@ -184,6 +215,56 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 <div class="container-fluid flex-grow-1 container-p-y">
 <h4 class="py-4 mb-6">Tableau de bord</h4>
+
+            <!-- Card des montants financiers -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header text-dark">
+                            <i class="bi bi-currency-euro me-1"></i> Aperçu financier des contrats actifs
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="avatar avatar-sm me-3">
+                                                <span class="avatar-initial rounded bg-label-primary">
+                                                    <i class="bi bi-ticket-perforated"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-0">Valeur des tickets restants</h6>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                            <h4 class="mb-0 text-primary"><?php echo formatAmount($ticketsValue); ?></h4>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center">
+                                        <div class="flex-shrink-0">
+                                            <div class="avatar avatar-sm me-3">
+                                                <span class="avatar-initial rounded bg-label-success">
+                                                    <i class="bi bi-file-earmark-text"></i>
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-0">Valeur des contrats actifs</h6>
+                                            <small class="text-muted">Somme des montants des contrats actifs</small>
+                                        </div>
+                                        <div class="flex-shrink-0">
+                                            <h4 class="mb-0 text-success"><?php echo formatAmount($contractsValue); ?></h4>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <!-- Cartes de statistiques -->
             <div class="row">
@@ -299,14 +380,18 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <th>Nom du contrat</th>
                                             <th>Site</th>
                                             <th>Date de fin</th>
-                                            <th>Tickets restants</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php foreach ($expiringContracts as $contract): ?>
                                         <tr>
                                             <td><?php echo h($contract['client_name']); ?></td>
-                                            <td><?php echo h($contract['name']); ?></td>
+                                            <td>
+                                                <a href="<?php echo BASE_URL; ?>contracts/view/<?php echo $contract['id']; ?>" 
+                                                   class="text-primary fw-bold text-decoration-none">
+                                                    <?php echo h($contract['name']); ?>
+                                                </a>
+                                            </td>
                                             <td>
                                                 <?php 
                                                 if ($contract['site_names']) {
@@ -317,7 +402,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 ?>
                                             </td>
                                             <td><?php echo formatDate($contract['end_date']); ?></td>
-                                            <td><?php echo $contract['tickets_remaining']; ?></td>
                                         </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -349,7 +433,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <?php foreach ($lowTicketsContracts as $contract): ?>
                                         <tr>
                                             <td><?php echo h($contract['client_name']); ?></td>
-                                            <td><?php echo h($contract['name']); ?></td>
+                                            <td>
+                                                <a href="<?php echo BASE_URL; ?>contracts/view/<?php echo $contract['id']; ?>" 
+                                                   class="text-primary fw-bold text-decoration-none">
+                                                    <?php echo h($contract['name']); ?>
+                                                </a>
+                                            </td>
                                             <td>
                                                 <?php 
                                                 if ($contract['site_names']) {
@@ -376,7 +465,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="col-12">
                     <div class="card">
                         <div class="card-header text-dark">
-                            <i class="bi bi-plus-circle me-1"></i> Interventions avec statut "Nouveau"
+                            <i class="bi bi-plus-circle me-1"></i> Interventions avec statut "Nouveau" hors préventives
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
