@@ -139,13 +139,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             </div>
                             <i class="bi bi-chevron-right text-muted me-1"></i>
                         </a>
-                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center disabled">
+                        <a href="<?= BASE_URL ?>settings/email" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                             <div>
-                                <i class="bi bi-envelope me-2 text-secondary me-1"></i>
+                                <i class="bi bi-envelope me-2 text-primary me-1"></i>
                                 <strong>Configuration email</strong>
-                                <br><small class="text-muted">Paramètres SMTP et notifications</small>
+                                <br><small class="text-muted">Paramètres SMTP et templates d'emails</small>
                             </div>
-                            <span class="badge bg-secondary">Bientôt</span>
+                            <i class="bi bi-chevron-right text-muted me-1"></i>
                         </a>
                     </div>
                 </div>

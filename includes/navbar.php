@@ -68,7 +68,7 @@
                 <ul class="navbar-nav ms-lg-auto">
                   <li class="nav-item me-3">
                     <span class="badge bg-warning text-dark">
-                      <i class="bi bi-code-slash me-1"></i>Version en cours de développement 0.8.2
+                      <i class="bi bi-code-slash me-1"></i>Version en cours de développement 0.8.3
                     </span>
                   </li>
                   <li class="nav-item">

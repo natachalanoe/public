@@ -548,4 +548,239 @@ class SettingsController {
         echo json_encode(['extensions' => $extensionList]);
         exit;
     }
+
+    /**
+     * Page de configuration email
+     */
+    public function email() {
+        $this->checkAdmin();
+        
+        // Définir les variables de page
+        setPageVariables('Configuration email', 'settings');
+        $currentPage = 'settings';
+
+        // Récupérer les templates
+        $templates = [];
+        try {
+            $stmt = $this->db->query("SELECT * FROM mail_templates ORDER BY template_type, name");
+            $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            $templates = [];
+        }
+
+        // Inclure la vue
+        require_once VIEWS_PATH . '/settings/email.php';
+    }
+
+    /**
+     * Sauvegarde la configuration SMTP
+     */
+    public function saveEmailConfig() {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'settings/email');
+            exit;
+        }
+
+        try {
+            $config = Config::getInstance();
+            
+            // Paramètres SMTP
+            $smtpSettings = [
+                'mail_host' => $_POST['mail_host'] ?? '',
+                'mail_port' => $_POST['mail_port'] ?? '587',
+                'mail_username' => $_POST['mail_username'] ?? '',
+                'mail_password' => $_POST['mail_password'] ?? '',
+                'mail_encryption' => $_POST['mail_encryption'] ?? 'tls',
+                'mail_from_address' => $_POST['mail_from_address'] ?? '',
+                'mail_from_name' => $_POST['mail_from_name'] ?? '',
+            ];
+
+            // Sauvegarder chaque setting
+            foreach ($smtpSettings as $key => $value) {
+                $config->set($key, $value);
+            }
+
+            $_SESSION['success'] = "Configuration SMTP sauvegardée avec succès.";
+            
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors de la sauvegarde : " . $e->getMessage();
+        }
+
+        header('Location: ' . BASE_URL . 'settings/email');
+        exit;
+    }
+
+    /**
+     * Sauvegarde les paramètres d'envoi automatique
+     */
+    public function saveEmailSettings() {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'settings/email');
+            exit;
+        }
+
+        try {
+            $config = Config::getInstance();
+            
+            // Paramètres d'envoi automatique
+            $emailSettings = [
+                'email_auto_send_creation' => isset($_POST['email_auto_send_creation']) ? '1' : '0',
+                'email_auto_send_closing' => isset($_POST['email_auto_send_closing']) ? '1' : '0',
+                'email_auto_send_bon' => isset($_POST['email_auto_send_bon']) ? '1' : '0',
+                'test_email' => $_POST['test_email'] ?? '',
+            ];
+
+            // Sauvegarder chaque setting
+            foreach ($emailSettings as $key => $value) {
+                $config->set($key, $value);
+            }
+
+            $_SESSION['success'] = "Paramètres d'envoi automatique sauvegardés avec succès.";
+            
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors de la sauvegarde : " . $e->getMessage();
+        }
+
+        header('Location: ' . BASE_URL . 'settings/email');
+        exit;
+    }
+
+    /**
+     * Page de gestion des templates email
+     */
+    public function emailTemplate($templateId = null) {
+        $this->checkAdmin();
+        
+        // Définir les variables de page
+        setPageVariables('Gestion des templates email', 'settings');
+        $currentPage = 'settings';
+
+        // Si aucun ID n'est passé en paramètre, essayer de le récupérer depuis l'URL
+        if ($templateId === null) {
+            $templateId = isset($_GET['id']) ? (int)$_GET['id'] : null;
+        }
+        
+        $template = null;
+        $isEdit = false;
+
+        // Si on édite un template existant
+        if ($templateId) {
+            try {
+                $stmt = $this->db->prepare("SELECT * FROM mail_templates WHERE id = ?");
+                $stmt->execute([$templateId]);
+                $template = $stmt->fetch(PDO::FETCH_ASSOC);
+                $isEdit = true;
+            } catch (Exception $e) {
+                $_SESSION['error'] = "Erreur lors de la récupération du template.";
+                header('Location: ' . BASE_URL . 'settings/email');
+                exit;
+            }
+        }
+
+        // Inclure la vue
+        require_once VIEWS_PATH . '/settings/emailTemplate.php';
+    }
+
+    /**
+     * Sauvegarde un template email
+     */
+    public function saveEmailTemplate() {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'settings/email');
+            exit;
+        }
+
+        try {
+            $templateData = [
+                'name' => $_POST['name'] ?? '',
+                'template_type' => $_POST['template_type'] ?? '',
+                'subject' => $_POST['subject'] ?? '',
+                'body' => $_POST['body'] ?? '',
+                'description' => $_POST['description'] ?? '',
+                'is_active' => isset($_POST['is_active']) ? 1 : 0,
+            ];
+
+            // Validation
+            if (empty($templateData['name']) || empty($templateData['template_type']) || 
+                empty($templateData['subject']) || empty($templateData['body'])) {
+                throw new Exception("Tous les champs obligatoires doivent être remplis.");
+            }
+
+            $isEdit = !empty($_POST['template_id']);
+            
+            if ($isEdit) {
+                // Mise à jour
+                $sql = "UPDATE mail_templates SET 
+                        name = ?, template_type = ?, subject = ?, body = ?, 
+                        description = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP 
+                        WHERE id = ?";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([
+                    $templateData['name'],
+                    $templateData['template_type'],
+                    $templateData['subject'],
+                    $templateData['body'],
+                    $templateData['description'],
+                    $templateData['is_active'],
+                    $_POST['template_id']
+                ]);
+                $_SESSION['success'] = "Template mis à jour avec succès.";
+            } else {
+                // Création
+                $sql = "INSERT INTO mail_templates (name, template_type, subject, body, description, is_active) 
+                        VALUES (?, ?, ?, ?, ?, ?)";
+                $stmt = $this->db->prepare($sql);
+                $stmt->execute([
+                    $templateData['name'],
+                    $templateData['template_type'],
+                    $templateData['subject'],
+                    $templateData['body'],
+                    $templateData['description'],
+                    $templateData['is_active']
+                ]);
+                $_SESSION['success'] = "Template créé avec succès.";
+            }
+            
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors de la sauvegarde : " . $e->getMessage();
+        }
+
+        header('Location: ' . BASE_URL . 'settings/email');
+        exit;
+    }
+
+    /**
+     * Supprime un template email
+     */
+    public function deleteEmailTemplate() {
+        $this->checkAdmin();
+        
+        $templateId = $_GET['id'] ?? null;
+        
+        if (!$templateId) {
+            $_SESSION['error'] = "ID du template manquant.";
+            header('Location: ' . BASE_URL . 'settings/email');
+            exit;
+        }
+
+        try {
+            $sql = "DELETE FROM mail_templates WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$templateId]);
+            
+            $_SESSION['success'] = "Template supprimé avec succès.";
+            
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors de la suppression : " . $e->getMessage();
+        }
+
+        header('Location: ' . BASE_URL . 'settings/email');
+        exit;
+    }
 } 

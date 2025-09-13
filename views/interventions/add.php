@@ -1,6 +1,5 @@
 <?php
-// Inclure la configuration
-require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/functions.php';
 
 // Vérification de l'accès - Utiliser le nouveau système de permissions
 if (!isset($_SESSION['user']) || !canModifyInterventions()) {

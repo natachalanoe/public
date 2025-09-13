@@ -1303,6 +1303,28 @@ try {
                 case 'userTypes':
                     require_once __DIR__ . '/views/settings/user_types.php';
                     break;
+                case 'email':
+                    $settingsController->email();
+                    break;
+                case 'saveEmailConfig':
+                    $settingsController->saveEmailConfig();
+                    break;
+                case 'saveEmailSettings':
+                    $settingsController->saveEmailSettings();
+                    break;
+                case 'emailTemplate':
+                    if ($id) {
+                        $settingsController->emailTemplate($id);
+                    } else {
+                        $settingsController->emailTemplate();
+                    }
+                    break;
+                case 'saveEmailTemplate':
+                    $settingsController->saveEmailTemplate();
+                    break;
+                case 'deleteEmailTemplate':
+                    $settingsController->deleteEmailTemplate();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'settings');
                     break;

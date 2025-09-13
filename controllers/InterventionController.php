@@ -11,6 +11,7 @@ class InterventionController {
     private $userModel;
     private $contractModel;
     private $durationModel;
+    private $mailService;
 
     // Constantes pour la configuration du PDF
     const PDF_PAGE_ORIENTATION = 'P'; // P = Portrait, L = Landscape
@@ -43,6 +44,7 @@ class InterventionController {
         require_once __DIR__ . '/../models/UserModel.php';
         require_once __DIR__ . '/../models/ContractModel.php';
         require_once __DIR__ . '/../models/DurationModel.php';
+        require_once __DIR__ . '/../classes/MailService.php';
         
         $this->interventionModel = new InterventionModel($db);
         $this->clientModel = new ClientModel($db);
@@ -51,6 +53,7 @@ class InterventionController {
         $this->userModel = new UserModel($db);
         $this->contractModel = new ContractModel($db);
         $this->durationModel = new DurationModel($db);
+        $this->mailService = new MailService($db);
 
         // Charger le fichier d'autoload de TCPDF
         require_once __DIR__ . '/../vendor/TCPDF-6.6.2/tcpdf.php';
@@ -1607,19 +1610,19 @@ class InterventionController {
         // Récupérer les données du formulaire
         $data = [
             'title' => $_POST['title'] ?? '',
-            'client_id' => $_POST['client_id'] ?? null,
-            'site_id' => $_POST['site_id'] ?? null,
-            'room_id' => $_POST['room_id'] ?? null,
-            'technician_id' => $_POST['technician_id'] ?? null,
-            'status_id' => $_POST['status_id'] ?? 1, // 1 = Nouveau par défaut
-            'priority_id' => $_POST['priority_id'] ?? 2, // 2 = Normal par défaut
-            'type_id' => $_POST['type_id'] ?? null,
-            'duration' => $_POST['duration'] ?? 0, // 0 par défaut au lieu de null
+            'client_id' => !empty($_POST['client_id']) ? $_POST['client_id'] : null,
+            'site_id' => !empty($_POST['site_id']) ? $_POST['site_id'] : null,
+            'room_id' => !empty($_POST['room_id']) ? $_POST['room_id'] : null,
+            'technician_id' => !empty($_POST['technician_id']) ? $_POST['technician_id'] : null,
+            'status_id' => !empty($_POST['status_id']) ? $_POST['status_id'] : 1, // 1 = Nouveau par défaut
+            'priority_id' => !empty($_POST['priority_id']) ? $_POST['priority_id'] : 2, // 2 = Normal par défaut
+            'type_id' => !empty($_POST['type_id']) ? $_POST['type_id'] : null,
+            'duration' => !empty($_POST['duration']) ? $_POST['duration'] : 0, // 0 par défaut au lieu de null
             'description' => $_POST['description'] ?? '',
-            'demande_par' => $_POST['demande_par'] ?? null,
-            'ref_client' => $_POST['ref_client'] ?? null,
-            'contact_client' => $_POST['contact_client'] ?? null,
-            'contract_id' => $_POST['contract_id'] ?? null,
+            'demande_par' => !empty($_POST['demande_par']) ? $_POST['demande_par'] : null,
+            'ref_client' => !empty($_POST['ref_client']) ? $_POST['ref_client'] : null,
+            'contact_client' => !empty($_POST['contact_client']) ? $_POST['contact_client'] : null,
+            'contract_id' => !empty($_POST['contract_id']) ? $_POST['contract_id'] : null,
             'date_planif' => !empty($_POST['date_planif']) ? $_POST['date_planif'] : null,
             'heure_planif' => !empty($_POST['heure_planif']) ? $_POST['heure_planif'] : null
         ];
@@ -1747,6 +1750,14 @@ class InterventionController {
                 ':changed_by' => $_SESSION['user']['id'],
                 ':description' => "Intervention créée"
             ]);
+            
+            // Envoyer l'email de création d'intervention
+            try {
+                $this->mailService->sendInterventionCreated($interventionId);
+            } catch (Exception $e) {
+                // Log l'erreur mais ne pas faire échouer la création
+                custom_log("Erreur envoi email création intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            }
             
             $_SESSION['success'] = "Intervention créée avec succès.";
             header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
@@ -2003,6 +2014,14 @@ class InterventionController {
                 ':changed_by' => $_SESSION['user']['id'],
                 ':description' => "Intervention fermée avec {$ticketsUsed} tickets utilisés"
             ]);
+
+            // Envoyer l'email de fermeture d'intervention
+            try {
+                $this->mailService->sendInterventionClosed($id);
+            } catch (Exception $e) {
+                // Log l'erreur mais ne pas faire échouer la fermeture
+                custom_log("Erreur envoi email fermeture intervention $id : " . $e->getMessage(), 'ERROR');
+            }
 
             $_SESSION['success'] = "L'intervention a été fermée avec succès.";
         } else {

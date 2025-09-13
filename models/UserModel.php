@@ -14,6 +14,7 @@ class UserModel {
     private $type;
     private $status;
     private $coefUtilisateur;
+    private $isAdmin;
     private $permissions = null;
 
     /**

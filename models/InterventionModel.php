@@ -1013,4 +1013,40 @@ class InterventionModel {
         
         return $results;
     }
+
+    /**
+     * Récupère les commentaires solution d'une intervention (sans observations)
+     * @param int $interventionId ID de l'intervention
+     * @return array Liste des commentaires solution uniquement
+     */
+    public function getSolutionComments($interventionId) {
+        $sql = "SELECT ic.*, 
+                CONCAT(u.first_name, ' ', u.last_name) as created_by_name
+                FROM intervention_comments ic
+                LEFT JOIN users u ON ic.created_by = u.id
+                WHERE ic.intervention_id = ? AND ic.is_solution = 1 
+                ORDER BY ic.created_at ASC";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$interventionId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Récupère les commentaires pour le bon d'intervention
+     * @param int $interventionId ID de l'intervention
+     * @return array Liste des commentaires sélectionnés pour le bon
+     */
+    public function getCommentsForBon($interventionId) {
+        $sql = "SELECT ic.*, 
+                CONCAT(u.first_name, ' ', u.last_name) as created_by_name
+                FROM intervention_comments ic
+                LEFT JOIN users u ON ic.created_by = u.id
+                WHERE ic.intervention_id = ? AND ic.pour_bon_intervention = 1
+                ORDER BY ic.is_solution DESC, ic.created_at ASC";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$interventionId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 } 
