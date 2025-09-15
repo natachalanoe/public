@@ -188,3 +188,4 @@ class MailHistoryModel {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }
+

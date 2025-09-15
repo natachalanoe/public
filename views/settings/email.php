@@ -137,9 +137,14 @@ $mailSettings = [
                                    value="<?= h($mailSettings['mail_from_name']) ?>" required>
                         </div>
                         
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg me-1"></i> Sauvegarder la configuration SMTP
-                        </button>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i> Sauvegarder la configuration SMTP
+                            </button>
+                            <button type="button" class="btn btn-outline-success" id="testSmtpBtn">
+                                <i class="bi bi-envelope-check me-1"></i> Tester la configuration
+                            </button>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -279,3 +284,108 @@ $mailSettings = [
 </div>
 
 <?php include_once __DIR__ . '/../../includes/footer.php'; ?>
+
+<script>
+document.getElementById('testSmtpBtn').addEventListener('click', function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    
+    // Désactiver le bouton et afficher un indicateur de chargement
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Test en cours...';
+    
+    // Récupérer les valeurs du formulaire
+    const formData = new FormData();
+    formData.append('mail_host', document.getElementById('mail_host').value);
+    formData.append('mail_port', document.getElementById('mail_port').value);
+    formData.append('mail_username', document.getElementById('mail_username').value);
+    formData.append('mail_password', document.getElementById('mail_password').value);
+    formData.append('mail_encryption', document.getElementById('mail_encryption').value);
+    formData.append('mail_from_address', document.getElementById('mail_from_address').value);
+    formData.append('mail_from_name', document.getElementById('mail_from_name').value);
+    
+    // Envoyer la requête de test
+    fetch('<?= BASE_URL ?>settings/testSmtp', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Afficher un message de succès
+            showModal('success', 'Test SMTP réussi !', data.message);
+        } else {
+            // Afficher un message d'erreur
+            showModal('danger', 'Test SMTP échoué', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showModal('danger', 'Erreur lors du test SMTP', error.message);
+    })
+    .finally(() => {
+        // Réactiver le bouton
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+});
+
+function showModal(type, title, message) {
+    // Supprimer les anciennes modales de test SMTP
+    const existingModals = document.querySelectorAll('#smtpTestModal');
+    existingModals.forEach(modal => modal.remove());
+    
+    // Définir les icônes selon le type
+    const icons = {
+        'success': 'bi-check-circle-fill text-success',
+        'danger': 'bi-exclamation-triangle-fill text-danger',
+        'warning': 'bi-exclamation-triangle-fill text-warning',
+        'info': 'bi-info-circle-fill text-info'
+    };
+    
+    // Créer la modale
+    const modalHtml = `
+        <div class="modal fade" id="smtpTestModal" tabindex="-1" aria-labelledby="smtpTestModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="smtpTestModalLabel">
+                            <i class="bi ${icons[type] || icons['info']} me-2"></i>
+                            ${title}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-${type} mb-0">
+                            <i class="bi ${icons[type] || icons['info']} me-2"></i>
+                            ${message}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="bi bi-x-lg me-1"></i> Fermer
+                        </button>
+                        ${type === 'success' ? '' : `
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('testSmtpBtn').click()">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Tester à nouveau
+                        </button>
+                        `}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Insérer la modale dans le DOM
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Afficher la modale
+    const modal = new bootstrap.Modal(document.getElementById('smtpTestModal'));
+    modal.show();
+    
+    // Supprimer la modale du DOM quand elle est fermée
+    document.getElementById('smtpTestModal').addEventListener('hidden.bs.modal', function () {
+        this.remove();
+    });
+}
+</script>

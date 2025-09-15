@@ -783,4 +783,248 @@ class SettingsController {
         header('Location: ' . BASE_URL . 'settings/email');
         exit;
     }
+
+    /**
+     * Test de la configuration SMTP
+     */
+    public function testSmtp() {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
+            exit;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            // Récupérer les paramètres SMTP du formulaire
+            $smtpSettings = [
+                'host' => $_POST['mail_host'] ?? '',
+                'port' => (int)($_POST['mail_port'] ?? 587),
+                'username' => $_POST['mail_username'] ?? '',
+                'password' => $_POST['mail_password'] ?? '',
+                'encryption' => $_POST['mail_encryption'] ?? 'tls',
+                'from_address' => $_POST['mail_from_address'] ?? '',
+                'from_name' => $_POST['mail_from_name'] ?? '',
+            ];
+
+            // Validation des paramètres requis
+            if (empty($smtpSettings['host']) || empty($smtpSettings['from_address'])) {
+                throw new Exception('Serveur SMTP et adresse d\'expédition sont requis');
+            }
+
+            // Test de connexion SMTP
+            $result = $this->performSmtpTest($smtpSettings);
+            
+            if ($result['success']) {
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Connexion SMTP réussie. ' . $result['message']
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => false, 
+                    'message' => $result['message']
+                ]);
+            }
+
+        } catch (Exception $e) {
+            echo json_encode([
+                'success' => false, 
+                'message' => $e->getMessage()
+            ]);
+        }
+        exit;
+    }
+
+    /**
+     * Effectue le test de connexion SMTP
+     */
+    private function performSmtpTest($settings) {
+        try {
+            // Créer une socket pour tester la connexion
+            $context = stream_context_create([
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ]);
+
+            // Déterminer le protocole selon l'encryption
+            $protocol = '';
+            $port = $settings['port'];
+            
+            switch ($settings['encryption']) {
+                case 'ssl':
+                    $protocol = 'ssl://';
+                    if ($port == 587) $port = 465; // Port SSL par défaut
+                    break;
+                case 'tls':
+                    $protocol = 'tcp://';
+                    break;
+                default:
+                    $protocol = 'tcp://';
+                    break;
+            }
+
+            $host = $protocol . $settings['host'];
+            
+            // Tentative de connexion
+            $socket = @stream_socket_client(
+                $host . ':' . $port, 
+                $errno, 
+                $errstr, 
+                10, // timeout 10 secondes
+                STREAM_CLIENT_CONNECT,
+                $context
+            );
+
+            if (!$socket) {
+                return [
+                    'success' => false,
+                    'message' => "Impossible de se connecter au serveur SMTP {$settings['host']}:{$port}. Erreur: {$errstr} (Code: {$errno})"
+                ];
+            }
+
+            // Lire la réponse initiale du serveur
+            $response = fgets($socket, 1024);
+            if (!$response || !preg_match('/^220/', $response)) {
+                fclose($socket);
+                return [
+                    'success' => false,
+                    'message' => "Réponse invalide du serveur SMTP: " . trim($response)
+                ];
+            }
+
+            // Envoyer EHLO
+            fwrite($socket, "EHLO " . $_SERVER['HTTP_HOST'] . "\r\n");
+            $response = fgets($socket, 1024);
+            
+            // Lire toutes les lignes de la réponse EHLO
+            $ehloResponse = $response;
+            while (preg_match('/^250-/', $response)) {
+                $response = fgets($socket, 1024);
+                $ehloResponse .= $response;
+            }
+            
+            // Si TLS est demandé, essayer de l'activer
+            if ($settings['encryption'] === 'tls' && preg_match('/STARTTLS/i', $ehloResponse)) {
+                fwrite($socket, "STARTTLS\r\n");
+                $response = fgets($socket, 1024);
+                
+                if (preg_match('/^220/', $response)) {
+                    // Activer le chiffrement TLS
+                    if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                        fclose($socket);
+                        return [
+                            'success' => false,
+                            'message' => "Impossible d'activer le chiffrement TLS"
+                        ];
+                    }
+                    
+                    // Renvoyer EHLO après TLS
+                    fwrite($socket, "EHLO " . $_SERVER['HTTP_HOST'] . "\r\n");
+                    $response = fgets($socket, 1024);
+                    
+                    // Lire toutes les lignes de la nouvelle réponse EHLO
+                    $ehloResponse = $response;
+                    while (preg_match('/^250-/', $response)) {
+                        $response = fgets($socket, 1024);
+                        $ehloResponse .= $response;
+                    }
+                }
+            }
+
+            // Si des identifiants sont fournis, tester l'authentification
+            if (!empty($settings['username']) && !empty($settings['password'])) {
+                // Vérifier si AUTH est supporté dans la réponse EHLO complète
+                if (preg_match('/AUTH/i', $ehloResponse)) {
+                    // Essayer différentes méthodes d'authentification
+                    $authMethods = ['LOGIN', 'PLAIN', 'CRAM-MD5'];
+                    $authSuccess = false;
+                    $lastError = '';
+                    
+                    foreach ($authMethods as $method) {
+                        if (preg_match('/' . preg_quote($method, '/') . '/i', $ehloResponse)) {
+                            fwrite($socket, "AUTH " . $method . "\r\n");
+                            $response = fgets($socket, 1024);
+                            
+                            if (preg_match('/^334/', $response)) {
+                                if ($method === 'LOGIN') {
+                                    // Envoyer le nom d'utilisateur (base64)
+                                    fwrite($socket, base64_encode($settings['username']) . "\r\n");
+                                    $response = fgets($socket, 1024);
+                                    
+                                    if (preg_match('/^334/', $response)) {
+                                        // Envoyer le mot de passe (base64)
+                                        fwrite($socket, base64_encode($settings['password']) . "\r\n");
+                                        $response = fgets($socket, 1024);
+                                        
+                                        if (preg_match('/^235/', $response)) {
+                                            $authSuccess = true;
+                                            break;
+                                        } else {
+                                            $lastError = "Échec de l'authentification LOGIN: " . trim($response);
+                                        }
+                                    } else {
+                                        $lastError = "Erreur lors de l'envoi du nom d'utilisateur: " . trim($response);
+                                    }
+                                } elseif ($method === 'PLAIN') {
+                                    // Envoyer les identifiants en format PLAIN (base64)
+                                    $credentials = base64_encode("\0" . $settings['username'] . "\0" . $settings['password']);
+                                    fwrite($socket, $credentials . "\r\n");
+                                    $response = fgets($socket, 1024);
+                                    
+                                    if (preg_match('/^235/', $response)) {
+                                        $authSuccess = true;
+                                        break;
+                                    } else {
+                                        $lastError = "Échec de l'authentification PLAIN: " . trim($response);
+                                    }
+                                }
+                            } else {
+                                $lastError = "Méthode d'authentification " . $method . " non supportée: " . trim($response);
+                            }
+                        }
+                    }
+                    
+                    if ($authSuccess) {
+                        fclose($socket);
+                        return [
+                            'success' => true,
+                            'message' => "Connexion et authentification SMTP réussies avec " . $method
+                        ];
+                    } else {
+                        fclose($socket);
+                        return [
+                            'success' => false,
+                            'message' => $lastError ?: "Aucune méthode d'authentification supportée. Réponse EHLO complète: " . $ehloResponse
+                        ];
+                    }
+                } else {
+                    fclose($socket);
+                    return [
+                        'success' => false,
+                        'message' => "Le serveur ne supporte pas l'authentification. Réponse EHLO complète: " . $ehloResponse
+                    ];
+                }
+            } else {
+                // Pas d'authentification, juste tester la connexion
+                fclose($socket);
+                return [
+                    'success' => true,
+                    'message' => "Connexion SMTP réussie (sans authentification). Réponse EHLO complète: " . $ehloResponse
+                ];
+            }
+
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => "Erreur lors du test SMTP: " . $e->getMessage()
+            ];
+        }
+    }
 } 

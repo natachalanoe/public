@@ -151,3 +151,4 @@ class MailTemplateModel {
         return $stmt->fetchColumn() > 0;
     }
 }
+

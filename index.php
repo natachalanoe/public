@@ -1325,6 +1325,9 @@ try {
                 case 'deleteEmailTemplate':
                     $settingsController->deleteEmailTemplate();
                     break;
+                case 'testSmtp':
+                    $settingsController->testSmtp();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'settings');
                     break;
