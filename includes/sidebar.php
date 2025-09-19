@@ -57,11 +57,45 @@ require_once __DIR__ . '/functions.php';
               </a>
             </li>
 
-            <li class="menu-item <?php echo isActivePage('contracts'); ?>">
-              <a href="<?php echo BASE_URL; ?>contracts" class="menu-link">
+            <?php 
+            // Fonction pour détecter si on est sur une page de contrat
+            $currentUrl = $_SERVER['REQUEST_URI'] ?? '';
+            $isContractPage = isActivePage('contracts') || isActivePage('contract_types') || 
+                             isActivePage('hors_contrat_facturable') || isActivePage('hors_contrat_non_facturable') ||
+                             strpos($currentUrl, '/contracts/') !== false ||
+                             strpos($currentUrl, '/hors_contrat_facturable') !== false ||
+                             strpos($currentUrl, '/hors_contrat_non_facturable') !== false;
+            
+            // Détection précise de chaque page
+            $isContractListPage = (isActivePage('contracts') && !isActivePage('contract_types')) || 
+                                 ($currentUrl === BASE_URL . 'contracts' || $currentUrl === BASE_URL . 'contracts/');
+            $isContractAddPage = strpos($currentUrl, '/contracts/add') !== false;
+            $isContractViewPage = preg_match('/\/contracts\/view\/\d+/', $currentUrl);
+            $isContractEditPage = preg_match('/\/contracts\/edit\/\d+/', $currentUrl);
+            $isContractTypesPage = isActivePage('contract_types');
+            ?>
+            <li class="menu-item <?php echo $isContractPage ? 'active open' : ''; ?>">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon bi bi-file-text"></i>
-                <div data-i18n="Page 2">Contrats</div>
+                <div data-i18n="contracts">Contrats</div>
               </a>
+              <ul class="menu-sub">
+                <li class="menu-item <?php echo ($isContractListPage || $isContractViewPage || $isContractEditPage) ? 'active' : ''; ?>">
+                  <a href="<?php echo BASE_URL; ?>contracts" class="menu-link">
+                    <div data-i18n="contracts_list">Liste des contrats</div>
+                  </a>
+                </li>
+                <li class="menu-item <?php echo (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/hors_contrat_facturable') !== false) ? 'active' : ''; ?>">
+                  <a href="<?php echo BASE_URL; ?>hors_contrat_facturable" class="menu-link">
+                    <div data-i18n="hors_contrat_facturable">Hors contrat facturable</div>
+                  </a>
+                </li>
+                <li class="menu-item <?php echo (isset($_SERVER['REQUEST_URI']) && strpos($_SERVER['REQUEST_URI'], '/hors_contrat_non_facturable') !== false) ? 'active' : ''; ?>">
+                  <a href="<?php echo BASE_URL; ?>hors_contrat_non_facturable" class="menu-link">
+                    <div data-i18n="hors_contrat_non_facturable">Hors contrat non facturable</div>
+                  </a>
+                </li>
+              </ul>
             </li>
 
 

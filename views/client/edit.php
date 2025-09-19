@@ -53,7 +53,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Modification du client</h4></div>
 
         <div class="ms-auto p-2 bd-highlight">
-            <a href="<?php echo BASE_URL; ?>clients/view/<?php echo $client['id'] ?? ''; ?>" class="btn btn-secondary me-2">
+            <a href="<?php echo BASE_URL; ?>clients/view/<?php echo $client['id'] ?? ''; ?>" class="btn btn-secondary me-2" id="backToViewBtn">
                 <i class="bi bi-arrow-left me-1"></i> Retour
             </a>
             <button type="submit" form="clientForm" class="btn btn-primary">
@@ -520,16 +520,43 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Récupérer le hash de l'URL (sans le #)
-    const hash = window.location.hash.substring(1);
+    // Récupérer le paramètre active_tab de l'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTab = urlParams.get('active_tab');
     
-    // Si un hash est présent, activer l'onglet correspondant
-    if (hash) {
+    // Si un paramètre active_tab est présent, activer l'onglet correspondant
+    if (activeTab) {
+        const tab = document.querySelector(`#${activeTab}`);
+        if (tab) {
+            const tabInstance = new bootstrap.Tab(tab);
+            tabInstance.show();
+        }
+    }
+    
+    // Récupérer le hash de l'URL (sans le #) comme fallback
+    const hash = window.location.hash.substring(1);
+    if (hash && !activeTab) {
         const tab = document.querySelector(`button[data-bs-target="#${hash}"]`);
         if (tab) {
             const tabInstance = new bootstrap.Tab(tab);
             tabInstance.show();
         }
+    }
+    
+    // Gestion du bouton Retour avec persistance de l'onglet
+    const backBtn = document.getElementById('backToViewBtn');
+    if (backBtn && activeTab) {
+        backBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Construire l'URL avec le paramètre de l'onglet
+            const baseUrl = this.href;
+            const separator = baseUrl.includes('?') ? '&' : '?';
+            const newUrl = baseUrl + separator + 'active_tab=' + activeTab;
+            
+            // Rediriger vers la page de vue
+            window.location.href = newUrl;
+        });
     }
 });
 </script>

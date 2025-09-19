@@ -25,6 +25,8 @@ require_once CONTROLLERS_PATH . '/SiteController.php';
 require_once CONTROLLERS_PATH . '/RoomController.php';
 require_once CONTROLLERS_PATH . '/ContractController.php';
 require_once CONTROLLERS_PATH . '/ContractsClientController.php';
+require_once CONTROLLERS_PATH . '/HorsContratFacturableController.php';
+require_once CONTROLLERS_PATH . '/HorsContratNonFacturableController.php';
 require_once CONTROLLERS_PATH . '/InterventionController.php';
 require_once CONTROLLERS_PATH . '/InterventionsClientController.php';
 require_once CONTROLLERS_PATH . '/AgendaController.php';
@@ -50,7 +52,14 @@ if ($script_dir !== '/') {
     $base_path = $script_dir;
 }
 
+// Nettoyer le base_path pour éviter les problèmes de double slash
+$base_path = rtrim($base_path, '/');
 $path = substr($request_uri, strlen($base_path));
+
+// Si le path commence par un slash, le supprimer
+if (strpos($path, '/') === 0) {
+    $path = substr($path, 1);
+}
 
 // Nettoyage de l'URL et séparation des paramètres de requête
 $path_parts = explode('?', $path);
@@ -520,6 +529,44 @@ try {
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'contracts');
+                    break;
+            }
+            break;
+            
+        case 'hors_contrat_facturable':
+            $horsContratFacturableController = new HorsContratFacturableController();
+            switch ($action) {
+                case 'index':
+                    $horsContratFacturableController->index();
+                    break;
+                case 'view':
+                    if ($id) {
+                        $horsContratFacturableController->view($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'hors_contrat_facturable');
+                    }
+                    break;
+                default:
+                    header('Location: ' . BASE_URL . 'hors_contrat_facturable');
+                    break;
+            }
+            break;
+            
+        case 'hors_contrat_non_facturable':
+            $horsContratNonFacturableController = new HorsContratNonFacturableController();
+            switch ($action) {
+                case 'index':
+                    $horsContratNonFacturableController->index();
+                    break;
+                case 'view':
+                    if ($id) {
+                        $horsContratNonFacturableController->view($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'hors_contrat_non_facturable');
+                    }
+                    break;
+                default:
+                    header('Location: ' . BASE_URL . 'hors_contrat_non_facturable');
                     break;
             }
             break;
@@ -1313,11 +1360,8 @@ try {
                     $settingsController->saveEmailSettings();
                     break;
                 case 'emailTemplate':
-                    if ($id) {
-                        $settingsController->emailTemplate($id);
-                    } else {
-                        $settingsController->emailTemplate();
-                    }
+                    $templateId = $parts[2] ?? null;
+                    $settingsController->emailTemplate($templateId);
                     break;
                 case 'saveEmailTemplate':
                     $settingsController->saveEmailTemplate();
@@ -1327,6 +1371,12 @@ try {
                     break;
                 case 'testSmtp':
                     $settingsController->testSmtp();
+                    break;
+                case 'testOAuth2':
+                    $settingsController->testOAuth2();
+                    break;
+                case 'oauth2Callback':
+                    $settingsController->oauth2Callback();
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'settings');

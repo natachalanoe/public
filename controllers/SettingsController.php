@@ -597,12 +597,26 @@ class SettingsController {
                 'mail_from_name' => $_POST['mail_from_name'] ?? '',
             ];
 
-            // Sauvegarder chaque setting
+            // Paramètres OAuth2
+            $oauth2Settings = [
+                'oauth2_enabled' => isset($_POST['oauth2_enabled']) ? '1' : '0',
+                'oauth2_client_id' => $_POST['oauth2_client_id'] ?? '',
+                'oauth2_client_secret' => $_POST['oauth2_client_secret'] ?? '',
+                'oauth2_tenant_id' => $_POST['oauth2_tenant_id'] ?? '',
+                'oauth2_redirect_uri' => $_POST['oauth2_redirect_uri'] ?? '',
+            ];
+
+            // Sauvegarder chaque setting SMTP
             foreach ($smtpSettings as $key => $value) {
                 $config->set($key, $value);
             }
 
-            $_SESSION['success'] = "Configuration SMTP sauvegardée avec succès.";
+            // Sauvegarder chaque setting OAuth2
+            foreach ($oauth2Settings as $key => $value) {
+                $config->set($key, $value);
+            }
+
+            $_SESSION['success'] = "Configuration SMTP et OAuth2 sauvegardée avec succès.";
             
         } catch (Exception $e) {
             $_SESSION['error'] = "Erreur lors de la sauvegarde : " . $e->getMessage();
@@ -1025,6 +1039,226 @@ class SettingsController {
                 'success' => false,
                 'message' => "Erreur lors du test SMTP: " . $e->getMessage()
             ];
+        }
+    }
+
+    /**
+     * Test de la configuration OAuth2
+     */
+    public function testOAuth2() {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
+            exit;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            // Récupérer les paramètres OAuth2 du formulaire
+            $oauth2Settings = [
+                'client_id' => $_POST['oauth2_client_id'] ?? '',
+                'client_secret' => $_POST['oauth2_client_secret'] ?? '',
+                'tenant_id' => $_POST['oauth2_tenant_id'] ?? '',
+                'redirect_uri' => $_POST['oauth2_redirect_uri'] ?? '',
+            ];
+
+            // Validation des paramètres requis
+            if (empty($oauth2Settings['client_id']) || empty($oauth2Settings['tenant_id'])) {
+                throw new Exception('Client ID et Tenant ID sont requis');
+            }
+
+            // Test de la configuration OAuth2
+            $result = $this->performOAuth2Test($oauth2Settings);
+            
+            if ($result['success']) {
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Configuration OAuth2 valide. ' . $result['message']
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => false, 
+                    'message' => $result['message']
+                ]);
+            }
+
+        } catch (Exception $e) {
+            echo json_encode([
+                'success' => false, 
+                'message' => $e->getMessage()
+            ]);
+        }
+        exit;
+    }
+
+    /**
+     * Effectue le test de configuration OAuth2
+     */
+    private function performOAuth2Test($settings) {
+        try {
+            // Vérifier la connectivité vers Microsoft
+            $discoveryUrl = "https://login.microsoftonline.com/{$settings['tenant_id']}/.well-known/openid_configuration";
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $discoveryUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $error = curl_error($ch);
+            curl_close($ch);
+
+            if ($error) {
+                return [
+                    'success' => false,
+                    'message' => "Erreur de connexion: $error"
+                ];
+            }
+
+            if ($httpCode !== 200) {
+                return [
+                    'success' => false,
+                    'message' => "Erreur HTTP $httpCode lors de la vérification du tenant"
+                ];
+            }
+
+            $discoveryData = json_decode($response, true);
+            if (!$discoveryData) {
+                return [
+                    'success' => false,
+                    'message' => "Réponse invalide du serveur de découverte"
+                ];
+            }
+
+            // Vérifier que les endpoints sont disponibles
+            if (!isset($discoveryData['authorization_endpoint']) || !isset($discoveryData['token_endpoint'])) {
+                return [
+                    'success' => false,
+                    'message' => "Endpoints OAuth2 non trouvés dans la réponse de découverte"
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => "Configuration OAuth2 valide. Tenant ID vérifié avec succès."
+            ];
+
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => "Erreur lors du test OAuth2: " . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Callback OAuth2 - traite la réponse d'autorisation
+     */
+    public function oauth2Callback() {
+        $this->checkAdmin();
+        
+        try {
+            $code = $_GET['code'] ?? '';
+            $state = $_GET['state'] ?? '';
+            $error = $_GET['error'] ?? '';
+
+            if (!empty($error)) {
+                $errorDescription = $_GET['error_description'] ?? 'Erreur inconnue';
+                throw new Exception("Erreur d'autorisation: $error - $errorDescription");
+            }
+
+            if (empty($code)) {
+                throw new Exception("Code d'autorisation manquant");
+            }
+
+            if ($state !== 'oauth2_auth') {
+                throw new Exception("État de sécurité invalide");
+            }
+
+            // Échanger le code contre un token
+            $tokenData = $this->exchangeCodeForToken($code);
+            
+            if ($tokenData) {
+                // Sauvegarder les tokens
+                $config = Config::getInstance();
+                $config->set('oauth2_access_token', $tokenData['access_token']);
+                $config->set('oauth2_refresh_token', $tokenData['refresh_token']);
+                
+                $expiresIn = $tokenData['expires_in'] ?? 3600;
+                $expiresAt = date('Y-m-d H:i:s', time() + $expiresIn);
+                $config->set('oauth2_token_expires', $expiresAt);
+
+                $_SESSION['success'] = "Autorisation OAuth2 réussie ! Les tokens ont été sauvegardés.";
+            } else {
+                throw new Exception("Échec de l'échange du code d'autorisation");
+            }
+
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors de l'autorisation OAuth2: " . $e->getMessage();
+        }
+
+        header('Location: ' . BASE_URL . 'settings/email');
+        exit;
+    }
+
+    /**
+     * Échange le code d'autorisation contre un token d'accès
+     */
+    private function exchangeCodeForToken($code) {
+        try {
+            $config = Config::getInstance();
+            $clientId = $config->get('oauth2_client_id', '');
+            $clientSecret = $config->get('oauth2_client_secret', '');
+            $tenantId = $config->get('oauth2_tenant_id', '');
+            $redirectUri = $config->get('oauth2_redirect_uri', '');
+
+            if (empty($clientId) || empty($clientSecret) || empty($tenantId) || empty($redirectUri)) {
+                throw new Exception("Configuration OAuth2 incomplète");
+            }
+
+            $tokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token";
+            
+            $postData = [
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'code' => $code,
+                'grant_type' => 'authorization_code',
+                'redirect_uri' => $redirectUri,
+                'scope' => 'https://outlook.office365.com/SMTP.Send offline_access'
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $tokenUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/x-www-form-urlencoded'
+            ]);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                throw new Exception("Erreur HTTP $httpCode lors de l'échange du token");
+            }
+
+            $tokenData = json_decode($response, true);
+            if (!$tokenData || isset($tokenData['error'])) {
+                throw new Exception("Erreur lors de l'échange du token: " . ($tokenData['error_description'] ?? 'Erreur inconnue'));
+            }
+
+            return $tokenData;
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'échange du token OAuth2: " . $e->getMessage(), 'ERROR');
+            return false;
         }
     }
 } 

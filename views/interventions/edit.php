@@ -253,9 +253,9 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <!-- Description sur une ligne complète -->
                         <div class="col-12 mt-3">
                             <div class="card">
-                                <div class="card-header py-2">
-                                    <h6 class="card-title mb-0">Description</h6>
-                                </div>
+                            <div class="card-header py-2">
+                                <h6 class="card-title mb-0">Demande/description du problème</h6>
+                            </div>
                                 <div class="card-body py-2">
                                     <textarea class="form-control bg-body text-body" id="description" name="description" rows="5"><?php echo h($intervention['description'] ?? ''); ?></textarea>
                                 </div>
@@ -314,7 +314,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <div class="col-md-8">
                 <div class="card mb-3">
                     <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Commentaires</h5>
+                        <h5 class="card-title mb-0">Compte-rendu/observations</h5>
                         <?php if (canModifyInterventions() && $intervention['status_id'] != 6): ?>
                             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCommentModal">
                                 <i class="bi bi-plus me-1"></i> Ajouter un commentaire

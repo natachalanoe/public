@@ -68,7 +68,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <table id="usersTable" class="table table-striped table-hover dt-responsive">
                     <thead>
                         <tr>
-                            <th>ID</th>
                             <th>Nom d'utilisateur</th>
                             <th>Nom</th>
                             <th>Prénom</th>
@@ -76,15 +75,19 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <th>Type</th>
                             <th>Statut</th>
                             <th>Date de création</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (isset($users) && !empty($users)): ?>
                             <?php foreach ($users as $user): ?>
                                 <tr>
-                                    <td data-label="ID"><?php echo htmlspecialchars($user['id']); ?></td>
-                                    <td data-label="Nom d'utilisateur"><?php echo htmlspecialchars($user['username'] ?? ''); ?></td>
+                                    <td data-label="Nom d'utilisateur">
+                                        <a href="<?php echo BASE_URL; ?>user/view/<?php echo $user['id']; ?>" 
+                                           class="text-decoration-none fw-bold" 
+                                           title="Voir l'utilisateur">
+                                            <?php echo htmlspecialchars($user['username'] ?? ''); ?>
+                                        </a>
+                                    </td>
                                     <td data-label="Nom"><?php echo htmlspecialchars($user['last_name'] ?? ''); ?></td>
                                     <td data-label="Prénom"><?php echo htmlspecialchars($user['first_name'] ?? ''); ?></td>
                                     <td data-label="Email"><?php echo htmlspecialchars($user['email'] ?? ''); ?></td>
@@ -130,17 +133,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <td data-label="Date de création" data-order="<?php echo isset($user['created_at']) ? strtotime($user['created_at']) : 0; ?>">
                                         <?php echo isset($user['created_at']) ? date('d/m/Y', strtotime($user['created_at'])) : ''; ?>
                                     </td>
-                                    <td class="actions">
-                                        <a href="<?php echo BASE_URL; ?>user/view/<?php echo $user['id']; ?>" class="btn btn-sm btn-outline-info" title="Voir">
-                                            <i class="<?php echo getIcon('show', 'bi bi-info-circle'); ?>"></i>
-                                        </a>
-                                        <a href="<?php echo BASE_URL; ?>user/edit/<?php echo $user['id']; ?>" class="btn btn-sm btn-outline-warning" title="Modifier">
-                                            <i class="<?php echo getIcon('edit', 'bi bi-pencil'); ?>"></i>
-                                        </a>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username'] ?? ''); ?>')" title="Supprimer">
-                                            <i class="<?php echo getIcon('delete', 'bi bi-trash'); ?>"></i>
-                                        </button>
-                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                                                     <?php else: ?>
@@ -153,14 +145,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
     </div>
 </div>
 
-<!-- Script pour la confirmation de suppression -->
-<script>
-function confirmDelete(userId, username) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer l\'utilisateur "' + username + '" ?')) {
-        window.location.href = '<?php echo BASE_URL; ?>user/delete/' + userId;
-    }
-}
-</script>
 
 <!-- DataTable Persistence -->
 <script src="<?php echo BASE_URL; ?>assets/js/datatable-persistence.js"></script>

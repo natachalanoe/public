@@ -107,8 +107,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
             
             <?php if ($isAdmin && $intervention['status_id'] == 7): ?>
                 <!-- DEBUG: Bouton de suppression affiché pour admin et intervention annulée -->
-                <button type="button" class="btn btn-danger me-2" onclick="deleteIntervention(<?php echo $intervention['id']; ?>, '<?php echo htmlspecialchars($intervention['reference'] ?? ''); ?>')">
-                    <i class="bi bi-trash me-1"></i> Supprimer l'intervention
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteIntervention(<?php echo $intervention['id']; ?>, '<?php echo htmlspecialchars($intervention['reference'] ?? ''); ?>')" title="Supprimer l'intervention">
+                    <i class="bi bi-trash"></i>
                 </button>
             <?php else: ?>
                 <!-- DEBUG: Bouton non affiché - isAdmin: <?php echo $isAdmin ? 'true' : 'false'; ?>, status_id: <?php echo $intervention['status_id']; ?> -->
@@ -288,7 +288,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <div class="col-12 mt-3">
                         <div class="card">
                             <div class="card-header py-2">
-                                <h6 class="card-title mb-0">Description</h6>
+                                <h6 class="card-title mb-0">Demande/description du problème</h6>
                             </div>
                             <div class="card-body py-2">
                                 <p class="mb-0"><?= nl2br(h($intervention['description'])) ?></p>
@@ -343,7 +343,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <div class="col-md-8">
                 <div class="card mb-3">
                     <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Commentaires</h5>
+                        <h5 class="card-title mb-0">Compte-rendu/observations</h5>
                         <?php if (canModifyInterventions() && $intervention['status_id'] != 6): ?>
                             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCommentModal">
                                 <i class="bi bi-plus me-1"></i> Ajouter un commentaire

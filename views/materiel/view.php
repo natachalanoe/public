@@ -62,11 +62,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <a href="<?= BASE_URL ?>materiel/edit/<?= $materiel['id'] ?>" class="btn btn-warning me-2">
             <i class="bi bi-pencil me-1"></i> Modifier
         </a>
-        <a href="<?= BASE_URL ?>materiel/delete/<?= $materiel['id'] ?>" 
-           class="btn btn-danger"
-           onclick="return confirm('Êtes-vous sûr de vouloir supprimer ce matériel ?')">
-            <i class="bi bi-trash me-1"></i> Supprimer
-        </a>
+        <?php if (isAdmin()): ?>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDelete(<?= $materiel['id'] ?>, '<?= htmlspecialchars($materiel['marque'] ?? '') ?> <?= htmlspecialchars($materiel['modele'] ?? '') ?>')" title="Supprimer le matériel">
+                <i class="bi bi-trash"></i>
+            </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -1365,6 +1365,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+function confirmDelete(materielId, materielName) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer le matériel "' + materielName + '" ?\n\nCette action est irréversible et supprimera définitivement le matériel et toutes ses données associées (pièces jointes, historique, etc.).')) {
+        window.location.href = '<?= BASE_URL ?>materiel/delete/' + materielId;
+    }
+}
 </script>
 
 <?php include_once __DIR__ . '/../../includes/footer.php'; ?> 

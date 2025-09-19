@@ -83,14 +83,17 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <th>Date planifiee</th>
                 <th>Technicien</th>
                 <th>Date creation</th>
-                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             <?php if (isset($interventions) && !empty($interventions)): ?>
                 <?php foreach ($interventions as $intervention): ?>
                     <tr>
-                        <td data-label="Reference"><?php echo htmlspecialchars($intervention['reference'] ?? ''); ?></td>
+                        <td data-label="Reference">
+                            <a href="<?php echo BASE_URL; ?>interventions_client/view/<?php echo $intervention['id']; ?>" class="text-decoration-none">
+                                <?php echo htmlspecialchars($intervention['reference'] ?? ''); ?>
+                            </a>
+                        </td>
                         <td data-label="Titre"><?php echo htmlspecialchars($intervention['title'] ?? ''); ?></td>
                         <td data-label="Client"><?php echo htmlspecialchars($intervention['client_name'] ?? ''); ?></td>
                         <td data-label="Site"><?php echo htmlspecialchars($intervention['site_name'] ?? '-'); ?></td>
@@ -111,13 +114,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <td data-label="Technicien"><?php echo htmlspecialchars($intervention['technician_first_name'] ?? '') . ' ' . htmlspecialchars($intervention['technician_last_name'] ?? ''); ?></td>
                         <td data-label="Date creation" data-order="<?php echo isset($intervention['created_at']) ? strtotime($intervention['created_at']) : 0; ?>">
                             <?php echo date('d/m/Y H:i', strtotime($intervention['created_at'] ?? '')); ?>
-                        </td>
-                        <td class="actions">
-                            <div class="d-flex flex-column gap-1">
-                                <a href="<?php echo BASE_URL; ?>interventions_client/view/<?php echo $intervention['id']; ?>" class="btn btn-sm btn-outline-info btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Voir">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                </a>
-                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>

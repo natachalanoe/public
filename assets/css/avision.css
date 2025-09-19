@@ -120,3 +120,12 @@
   text-align: center;
   margin-top: 1rem;
 }
+
+/*
+* Fix pour le thème semi-sombre - liens actifs du sous-menu
+******************************************************************************/
+
+/* En mode semi-sombre, les liens actifs du sous-menu doivent être clairs */
+[data-semidark-menu="true"] .menu-sub > .menu-item.active > .menu-link {
+  color: #d5d5e2 !important; /* Même couleur que le thème sombre */
+}

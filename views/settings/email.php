@@ -20,19 +20,28 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 // Récupérer les settings actuels
 $config = Config::getInstance();
-$mailSettings = [
-    'mail_host' => $config->get('mail_host', ''),
-    'mail_port' => $config->get('mail_port', '587'),
-    'mail_username' => $config->get('mail_username', ''),
-    'mail_password' => $config->get('mail_password', ''),
-    'mail_encryption' => $config->get('mail_encryption', 'tls'),
-    'mail_from_address' => $config->get('mail_from_address', ''),
-    'mail_from_name' => $config->get('mail_from_name', ''),
-    'email_auto_send_creation' => $config->get('email_auto_send_creation', '1'),
-    'email_auto_send_closing' => $config->get('email_auto_send_closing', '1'),
-    'email_auto_send_bon' => $config->get('email_auto_send_bon', '0'),
-    'test_email' => $config->get('test_email', ''),
-];
+    $mailSettings = [
+        'mail_host' => $config->get('mail_host', ''),
+        'mail_port' => $config->get('mail_port', '587'),
+        'mail_username' => $config->get('mail_username', ''),
+        'mail_password' => $config->get('mail_password', ''),
+        'mail_encryption' => $config->get('mail_encryption', 'tls'),
+        'mail_from_address' => $config->get('mail_from_address', ''),
+        'mail_from_name' => $config->get('mail_from_name', ''),
+        'email_auto_send_creation' => $config->get('email_auto_send_creation', '1'),
+        'email_auto_send_closing' => $config->get('email_auto_send_closing', '1'),
+        'email_auto_send_bon' => $config->get('email_auto_send_bon', '0'),
+        'test_email' => $config->get('test_email', ''),
+        // Paramètres OAuth2
+        'oauth2_enabled' => $config->get('oauth2_enabled', '0'),
+        'oauth2_client_id' => $config->get('oauth2_client_id', ''),
+        'oauth2_client_secret' => $config->get('oauth2_client_secret', ''),
+        'oauth2_tenant_id' => $config->get('oauth2_tenant_id', ''),
+        'oauth2_redirect_uri' => $config->get('oauth2_redirect_uri', ''),
+        'oauth2_access_token' => $config->get('oauth2_access_token', ''),
+        'oauth2_refresh_token' => $config->get('oauth2_refresh_token', ''),
+        'oauth2_token_expires' => $config->get('oauth2_token_expires', ''),
+    ];
 
 // Les templates sont récupérés par le contrôleur
 ?>
@@ -78,6 +87,7 @@ $mailSettings = [
             <strong><?= h($mailSettings['test_email']) ?></strong> au lieu des destinataires réels.
         </div>
     <?php endif; ?>
+
 
     <div class="row">
         <!-- Configuration SMTP -->
@@ -137,6 +147,19 @@ $mailSettings = [
                                    value="<?= h($mailSettings['mail_from_name']) ?>" required>
                         </div>
                         
+                        <!-- Aide SMTP avec OAuth2 -->
+                        <div id="smtpOAuth2Help" style="display: none;">
+                            <div class="alert alert-info border-primary">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>Configuration SMTP avec OAuth2 :</strong><br>
+                                <small class="text-muted">
+                                    • Serveur : <code>smtp.office365.com</code><br>
+                                    • Port : <code>587</code> avec <code>TLS</code><br>
+                                    • L'authentification basique sera ignorée si OAuth2 est activé
+                                </small>
+                            </div>
+                        </div>
+                        
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-check-lg me-1"></i> Sauvegarder la configuration SMTP
@@ -144,6 +167,105 @@ $mailSettings = [
                             <button type="button" class="btn btn-outline-success" id="testSmtpBtn">
                                 <i class="bi bi-envelope-check me-1"></i> Tester la configuration
                             </button>
+                        </div>
+                        
+                        <!-- Séparateur OAuth2 -->
+                        <hr class="my-4">
+                        
+                        <!-- Configuration OAuth2 -->
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="oauth2_enabled" 
+                                       name="oauth2_enabled" value="1" 
+                                       <?= $mailSettings['oauth2_enabled'] == '1' ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="oauth2_enabled">
+                                    <strong>Activer OAuth2 (Exchange 365)</strong>
+                                </label>
+                            </div>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                OAuth2 est recommandé pour Exchange 365. L'authentification basique sera désactivée.
+                            </div>
+                        </div>
+                        
+                        <div id="oauth2Config" style="<?= $mailSettings['oauth2_enabled'] == '1' ? '' : 'display: none;' ?>">
+                            <!-- Aide rapide OAuth2 -->
+                            <div class="alert alert-light border-primary mb-3">
+                                <div class="d-flex align-items-start">
+                                    <i class="bi bi-question-circle text-primary me-2 mt-1"></i>
+                                    <div class="small">
+                                        <strong>Besoin d'aide ?</strong><br>
+                                        <span class="text-muted">1. Créez une app Azure AD → 2. Ajoutez les permissions Mail.Send → 3. Générez un secret → 4. Récupérez les IDs</span>
+                                        <a href="#azure-guide" class="text-decoration-none ms-1">↑ Voir le guide détaillé</a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="oauth2_client_id" class="form-label">Client ID Azure AD</label>
+                                <input type="text" class="form-control" id="oauth2_client_id" name="oauth2_client_id" 
+                                       value="<?= h($mailSettings['oauth2_client_id']) ?>" 
+                                       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="oauth2_client_secret" class="form-label">Client Secret</label>
+                                <input type="password" class="form-control" id="oauth2_client_secret" name="oauth2_client_secret" 
+                                       value="<?= h($mailSettings['oauth2_client_secret']) ?>" 
+                                       placeholder="Votre client secret">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="oauth2_tenant_id" class="form-label">Tenant ID</label>
+                                <input type="text" class="form-control" id="oauth2_tenant_id" name="oauth2_tenant_id" 
+                                       value="<?= h($mailSettings['oauth2_tenant_id']) ?>" 
+                                       placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="oauth2_redirect_uri" class="form-label">Redirect URI</label>
+                                <input type="url" class="form-control" id="oauth2_redirect_uri" name="oauth2_redirect_uri" 
+                                       value="<?= h($mailSettings['oauth2_redirect_uri']) ?>" 
+                                       placeholder="<?= BASE_URL ?>settings/oauth2/callback">
+                                <div class="form-text">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    URL de redirection après autorisation OAuth2
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary" id="testOAuth2Btn">
+                                    <i class="bi bi-shield-check me-1"></i> Tester OAuth2
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="authorizeOAuth2Btn">
+                                    <i class="bi bi-person-check me-1"></i> Autoriser l'application
+                                </button>
+                            </div>
+                            
+                            <!-- Aide pour les tests -->
+                            <div class="mt-3">
+                                <div class="alert alert-light border-success">
+                                    <i class="bi bi-lightbulb me-2"></i>
+                                    <strong>Étapes de test :</strong>
+                                    <ol class="mb-0 mt-2 small">
+                                        <li><strong>Tester OAuth2</strong> : Vérifie la connectivité et la configuration</li>
+                                        <li><strong>Autoriser l'application</strong> : Lance le processus d'autorisation avec votre compte Exchange 365</li>
+                                        <li><strong>Sauvegarder</strong> : Enregistre tous les paramètres (SMTP + OAuth2)</li>
+                                    </ol>
+                                </div>
+                            </div>
+                            
+                            <?php if (!empty($mailSettings['oauth2_access_token'])): ?>
+                                <div class="mt-3">
+                                    <div class="alert alert-success">
+                                        <i class="bi bi-check-circle me-2"></i>
+                                        <strong>OAuth2 configuré</strong>
+                                        <?php if (!empty($mailSettings['oauth2_token_expires'])): ?>
+                                            <br><small>Token expire le : <?= date('d/m/Y H:i', strtotime($mailSettings['oauth2_token_expires'])) ?></small>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </form>
                 </div>
@@ -210,6 +332,72 @@ $mailSettings = [
                             <i class="bi bi-check-lg me-1"></i> Sauvegarder les paramètres
                         </button>
                     </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Guide de configuration Azure AD -->
+        <div class="col-md-6 mb-4" id="azure-guide">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Guide de configuration Azure AD pour OAuth2
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">
+                                <i class="bi bi-1-circle me-1"></i> Créer une application Azure AD
+                            </h6>
+                            <ol class="small">
+                                <li>Allez sur <a href="https://portal.azure.com" target="_blank" class="text-decoration-none">portal.azure.com</a></li>
+                                <li>Azure Active Directory → Inscriptions d'applications</li>
+                                <li>Nouvelle inscription → Nom : "Avision Email System"</li>
+                                <li>URI de redirection : <code><?= BASE_URL ?>settings/oauth2/callback</code></li>
+                            </ol>
+                            
+                            <h6 class="text-primary mt-3">
+                                <i class="bi bi-2-circle me-1"></i> Configurer les permissions
+                            </h6>
+                            <ul class="small">
+                                <li>Autorisations d'API → Microsoft Graph</li>
+                                <li>Ajouter : <code>Mail.Send</code> et <code>offline_access</code></li>
+                                <li>Accorder le consentement administrateur</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-primary">
+                                <i class="bi bi-3-circle me-1"></i> Générer un secret client
+                            </h6>
+                            <ol class="small">
+                                <li>Certificats et secrets → Nouveau secret client</li>
+                                <li>Description : "Avision Email Secret"</li>
+                                <li>Durée : 24 mois</li>
+                                <li><strong>⚠️ Copiez immédiatement la valeur !</strong></li>
+                            </ol>
+                            
+                            <h6 class="text-primary mt-3">
+                                <i class="bi bi-4-circle me-1"></i> Récupérer les identifiants
+                            </h6>
+                            <ul class="small">
+                                <li><strong>Client ID</strong> : Vue d'ensemble de l'application</li>
+                                <li><strong>Tenant ID</strong> : Vue d'ensemble d'Azure AD</li>
+                                <li><strong>Client Secret</strong> : Valeur copiée précédemment</li>
+                                <li><strong>Redirect URI</strong> : <code><?= BASE_URL ?>settings/oauth2/callback</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <div class="alert alert-light border-info">
+                            <i class="bi bi-lightbulb me-2"></i>
+                            <strong>Conseil :</strong> Une fois OAuth2 configuré, vous pourrez désactiver l'authentification basique dans Exchange 365 pour une sécurité renforcée.
+                            <a href="<?= BASE_URL ?>OAUTH2_SETUP_GUIDE.md" target="_blank" class="btn btn-sm btn-outline-info ms-2">
+                                <i class="bi bi-book me-1"></i> Guide complet
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -286,6 +474,90 @@ $mailSettings = [
 <?php include_once __DIR__ . '/../../includes/footer.php'; ?>
 
 <script>
+// Gestion du switch OAuth2
+document.getElementById('oauth2_enabled').addEventListener('change', function() {
+    const oauth2Config = document.getElementById('oauth2Config');
+    const smtpOAuth2Help = document.getElementById('smtpOAuth2Help');
+    
+    if (this.checked) {
+        oauth2Config.style.display = 'block';
+        smtpOAuth2Help.style.display = 'block';
+    } else {
+        oauth2Config.style.display = 'none';
+        smtpOAuth2Help.style.display = 'none';
+    }
+});
+
+// Afficher l'aide SMTP si OAuth2 est déjà activé au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    const oauth2Enabled = document.getElementById('oauth2_enabled');
+    const smtpOAuth2Help = document.getElementById('smtpOAuth2Help');
+    
+    if (oauth2Enabled.checked) {
+        smtpOAuth2Help.style.display = 'block';
+    }
+});
+
+// Test OAuth2
+document.getElementById('testOAuth2Btn').addEventListener('click', function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Test en cours...';
+    
+    const formData = new FormData();
+    formData.append('oauth2_client_id', document.getElementById('oauth2_client_id').value);
+    formData.append('oauth2_client_secret', document.getElementById('oauth2_client_secret').value);
+    formData.append('oauth2_tenant_id', document.getElementById('oauth2_tenant_id').value);
+    formData.append('oauth2_redirect_uri', document.getElementById('oauth2_redirect_uri').value);
+    
+    fetch('<?= BASE_URL ?>settings/testOAuth2', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showModal('success', 'Test OAuth2 réussi !', data.message);
+        } else {
+            showModal('danger', 'Test OAuth2 échoué', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showModal('danger', 'Erreur lors du test OAuth2', error.message);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
+});
+
+// Autorisation OAuth2
+document.getElementById('authorizeOAuth2Btn').addEventListener('click', function() {
+    const clientId = document.getElementById('oauth2_client_id').value;
+    const tenantId = document.getElementById('oauth2_tenant_id').value;
+    const redirectUri = document.getElementById('oauth2_redirect_uri').value;
+    
+    if (!clientId || !tenantId || !redirectUri) {
+        showModal('warning', 'Configuration incomplète', 'Veuillez remplir tous les champs OAuth2 avant de lancer l\'autorisation.');
+        return;
+    }
+    
+    // Construire l'URL d'autorisation OAuth2
+    const authUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/authorize?` +
+        `client_id=${encodeURIComponent(clientId)}&` +
+        `response_type=code&` +
+        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `scope=${encodeURIComponent('https://outlook.office365.com/SMTP.Send offline_access')}&` +
+        `response_mode=query&` +
+        `state=oauth2_auth`;
+    
+    // Ouvrir la fenêtre d'autorisation
+    window.open(authUrl, 'oauth2_auth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+});
+
 document.getElementById('testSmtpBtn').addEventListener('click', function() {
     const btn = this;
     const originalText = btn.innerHTML;

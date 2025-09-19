@@ -324,20 +324,36 @@ foreach ($materiel_list as $materiel) {
                                                         <th>IP</th>
                                                         <th>MAC</th>
                                                         <th>Expiration</th>
-                                                        <th>Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     <?php foreach ($materiels as $materiel): ?>
                                                         <tr>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['marque']) && !$visibilites_champs[$materiel['id']]['marque']) || (isset($visibilites_champs[$materiel['id']]['modele']) && !$visibilites_champs[$materiel['id']]['modele']) ? 'bg-warning bg-opacity-25' : '' ?>">
-                                                                <?php if ((isset($visibilites_champs[$materiel['id']]['marque']) && $visibilites_champs[$materiel['id']]['marque']) && (isset($visibilites_champs[$materiel['id']]['modele']) && $visibilites_champs[$materiel['id']]['modele'])): ?>
-                                                                    <div class="fw-bold"><?= htmlspecialchars($materiel['marque'] ?? 'Marque non définie') ?></div>
-                                                                    <small class="text-muted"><?= htmlspecialchars($materiel['modele'] ?? 'Modèle non défini') ?></small>
-                                                                <?php else: ?>
-                                                                    <div class="fw-bold text-muted">---</div>
-                                                                    <small class="text-muted">---</small>
-                                                                <?php endif; ?>
+                                                                <?php
+                                                                // Construire les paramètres de filtres pour les liens
+                                                                $filterParams = [];
+                                                                if (!empty($filters['site_id'])) {
+                                                                    $filterParams['site_id'] = $filters['site_id'];
+                                                                }
+                                                                if (!empty($filters['salle_id'])) {
+                                                                    $filterParams['salle_id'] = $filters['salle_id'];
+                                                                }
+                                                                
+                                                                $viewUrl = BASE_URL . 'materiel_client/view/' . $materiel['id'];
+                                                                if (!empty($filterParams)) {
+                                                                    $viewUrl .= '?' . http_build_query($filterParams);
+                                                                }
+                                                                ?>
+                                                                <a href="<?= $viewUrl ?>" class="text-decoration-none">
+                                                                    <?php if ((isset($visibilites_champs[$materiel['id']]['marque']) && $visibilites_champs[$materiel['id']]['marque']) && (isset($visibilites_champs[$materiel['id']]['modele']) && $visibilites_champs[$materiel['id']]['modele'])): ?>
+                                                                        <div class="fw-bold"><?= htmlspecialchars($materiel['marque'] ?? 'Marque non définie') ?></div>
+                                                                        <small class="text-muted"><?= htmlspecialchars($materiel['modele'] ?? 'Modèle non défini') ?></small>
+                                                                    <?php else: ?>
+                                                                        <div class="fw-bold text-muted">---</div>
+                                                                        <small class="text-muted">---</small>
+                                                                    <?php endif; ?>
+                                                                </a>
                                                             </td>
                                                             <td>
                                                                 <?= htmlspecialchars($materiel['type_nom'] ?? 'Type non défini') ?>
@@ -400,30 +416,6 @@ foreach ($materiel_list as $materiel) {
                                                                 ?>
                                                             </td>
 
-                                                            <td>
-                                                                <?php
-                                                                // Construire les paramètres de filtres pour les liens
-                                                                $filterParams = [];
-                                                                if (!empty($filters['site_id'])) {
-                                                                    $filterParams['site_id'] = $filters['site_id'];
-                                                                }
-                                                                if (!empty($filters['salle_id'])) {
-                                                                    $filterParams['salle_id'] = $filters['salle_id'];
-                                                                }
-                                                                
-                                                                $viewUrl = BASE_URL . 'materiel_client/view/' . $materiel['id'];
-                                                                if (!empty($filterParams)) {
-                                                                    $viewUrl .= '?' . http_build_query($filterParams);
-                                                                }
-                                                                ?>
-                                                                <div class="d-flex">
-                                                                    <a href="<?= $viewUrl ?>" 
-                                                                       class="btn btn-sm btn-outline-info btn-action" 
-                                                                       title="Voir">
-                                                                        <i class="<?php echo getIcon('show', 'bi bi-info-circle'); ?>"></i>
-                                                                    </a>
-                                                                </div>
-                                                            </td>
                                                         </tr>
                                                     <?php endforeach; ?>
                                                 </tbody>

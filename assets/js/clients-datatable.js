@@ -141,11 +141,10 @@ document.addEventListener('DOMContentLoaded', function() {
           responsivePriority: 8
         },
         {
-          // Actions column - always visible
+          // Tickets remaining column
           targets: 8,
-          orderable: false,
-          searchable: false,
-          responsivePriority: 1
+          responsivePriority: 9,
+          type: 'num'
         }
       ],
 

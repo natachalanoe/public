@@ -60,14 +60,19 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <th>Salles</th>
                                     <th>Contrats</th>
                                     <th>Tickets Restants</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (isset($clients) && !empty($clients)): ?>
                                     <?php foreach ($clients as $client): ?>
                                         <tr>
-                                            <td data-label="Nom du Client"><?php echo htmlspecialchars($client['name'] ?? ''); ?></td>
+                                            <td data-label="Nom du Client">
+                                                <a href="<?php echo BASE_URL; ?>clients/view/<?php echo $client['id']; ?>" 
+                                                   class="text-decoration-none fw-bold" 
+                                                   title="Voir le client">
+                                                    <?php echo htmlspecialchars($client['name'] ?? ''); ?>
+                                                </a>
+                                            </td>
                                             <td data-label="Ville"><?php echo htmlspecialchars($client['city'] ?? ''); ?></td>
                                             <td data-label="Email"><?php echo htmlspecialchars($client['email'] ?? ''); ?></td>
                                             <td data-label="Téléphone"><?php echo htmlspecialchars($client['phone'] ?? ''); ?></td>
@@ -99,20 +104,9 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                         <?php echo $client['total_tickets_remaining']; ?>
                                                     </span>
                                                 <?php else: ?>
-                                                    <span class="text-muted">--</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td class="actions">
-                                                <a href="<?php echo BASE_URL; ?>clients/view/<?php echo $client['id']; ?>" class="btn btn-sm btn-outline-info" title="Voir">
-                                                    <i class="<?php echo getIcon('show', 'bi bi-eye'); ?>"></i>
-                                                </a>
-                                                <a href="<?php echo BASE_URL; ?>clients/edit/<?php echo $client['id']; ?>" class="btn btn-sm btn-outline-warning" title="Modifier">
-                                                    <i class="<?php echo getIcon('edit', 'bi bi-pencil'); ?>"></i>
-                                                </a>
-                                                <?php if (canDelete()): ?>
-                                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="confirmDelete(<?php echo $client['id']; ?>, '<?php echo htmlspecialchars($client['name'] ?? ''); ?>')" title="Supprimer">
-                                                        <i class="<?php echo getIcon('delete', 'bi bi-trash'); ?>"></i>
-                                                    </button>
+                                                    <span class="badge bg-secondary">
+                                                        Sans tickets
+                                                    </span>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -126,14 +120,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </div>
 
 
-<!-- Script pour la confirmation de suppression -->
-<script>
-function confirmDelete(clientId, clientName) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer le client "' + clientName + '" ?')) {
-        window.location.href = '<?php echo BASE_URL; ?>clients/delete/' + clientId;
-    }
-}
-</script>
 
 <!-- DataTable Persistence -->
 <script src="<?php echo BASE_URL; ?>assets/js/datatable-persistence.js"></script>

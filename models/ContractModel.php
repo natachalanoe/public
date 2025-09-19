@@ -1313,4 +1313,192 @@ class ContractModel {
             return "Utilisateur inconnu";
         }
     }
+
+    /**
+     * Récupère tous les contrats hors contrat facturable
+     * 
+     * @param array $filters Filtres à appliquer
+     * @return array Liste des contrats hors contrat facturable
+     */
+    public function getHorsContratFacturableContracts($filters = []) {
+        $sql = "SELECT DISTINCT
+                    c.*,
+                    cl.name as client_name,
+                    COUNT(DISTINCT i.id) as interventions_count,
+                    SUM(CASE WHEN i.status_id = (SELECT id FROM intervention_statuses WHERE name = 'Fermé') THEN 1 ELSE 0 END) as closed_interventions_count,
+                    COUNT(DISTINCT CASE WHEN pj.masque_client = 0 THEN pj.id END) as attachments_count
+                FROM contracts c
+                LEFT JOIN clients cl ON c.client_id = cl.id
+                LEFT JOIN contract_rooms cr ON c.id = cr.contract_id
+                LEFT JOIN rooms r ON cr.room_id = r.id
+                LEFT JOIN sites s ON r.site_id = s.id
+                LEFT JOIN interventions i ON c.id = i.contract_id
+                LEFT JOIN liaisons_pieces_jointes lpj ON c.id = lpj.entite_id AND lpj.type_liaison = 'contract'
+                LEFT JOIN pieces_jointes pj ON lpj.piece_jointe_id = pj.id
+                WHERE c.contract_type_id IS NULL 
+                AND c.name LIKE '%hors contrat facturable%'
+                AND c.id IS NOT NULL";
+        
+        $params = [];
+
+        // Appliquer les filtres
+        if (!empty($filters['client_id'])) {
+            $sql .= " AND c.client_id = :client_id";
+            $params[':client_id'] = $filters['client_id'];
+        }
+
+        if (!empty($filters['site_id'])) {
+            $sql .= " AND s.id = :site_id";
+            $params[':site_id'] = $filters['site_id'];
+        }
+
+        if (!empty($filters['room_id'])) {
+            $sql .= " AND r.id = :room_id";
+            $params[':room_id'] = $filters['room_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= " AND c.status = :status";
+            $params[':status'] = $filters['status'];
+        }
+
+        // Filtre par type de tickets
+        if (!empty($filters['ticket_type'])) {
+            if ($filters['ticket_type'] === 'with_tickets') {
+                $sql .= " AND c.tickets_number > 0";
+            } elseif ($filters['ticket_type'] === 'without_tickets') {
+                $sql .= " AND (c.tickets_number = 0 OR c.tickets_number IS NULL)";
+            }
+        }
+
+        $sql .= " GROUP BY c.id ORDER BY c.name";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Pour chaque contrat, récupérer les salles associées
+        foreach ($contracts as &$contract) {
+            $contract['rooms'] = $this->getContractRooms($contract['id']);
+        }
+
+        return $contracts;
+    }
+
+    /**
+     * Récupère tous les contrats hors contrat non facturable
+     * 
+     * @param array $filters Filtres à appliquer
+     * @return array Liste des contrats hors contrat non facturable
+     */
+    public function getHorsContratNonFacturableContracts($filters = []) {
+        $sql = "SELECT DISTINCT
+                    c.*,
+                    cl.name as client_name,
+                    COUNT(DISTINCT i.id) as interventions_count,
+                    SUM(CASE WHEN i.status_id = (SELECT id FROM intervention_statuses WHERE name = 'Fermé') THEN 1 ELSE 0 END) as closed_interventions_count,
+                    COUNT(DISTINCT CASE WHEN pj.masque_client = 0 THEN pj.id END) as attachments_count
+                FROM contracts c
+                LEFT JOIN clients cl ON c.client_id = cl.id
+                LEFT JOIN contract_rooms cr ON c.id = cr.contract_id
+                LEFT JOIN rooms r ON cr.room_id = r.id
+                LEFT JOIN sites s ON r.site_id = s.id
+                LEFT JOIN interventions i ON c.id = i.contract_id
+                LEFT JOIN liaisons_pieces_jointes lpj ON c.id = lpj.entite_id AND lpj.type_liaison = 'contract'
+                LEFT JOIN pieces_jointes pj ON lpj.piece_jointe_id = pj.id
+                WHERE c.contract_type_id IS NULL 
+                AND c.name LIKE '%hors contrat non facturable%'
+                AND c.id IS NOT NULL";
+        
+        $params = [];
+
+        // Appliquer les filtres
+        if (!empty($filters['client_id'])) {
+            $sql .= " AND c.client_id = :client_id";
+            $params[':client_id'] = $filters['client_id'];
+        }
+
+        if (!empty($filters['site_id'])) {
+            $sql .= " AND s.id = :site_id";
+            $params[':site_id'] = $filters['site_id'];
+        }
+
+        if (!empty($filters['room_id'])) {
+            $sql .= " AND r.id = :room_id";
+            $params[':room_id'] = $filters['room_id'];
+        }
+
+        if (!empty($filters['status'])) {
+            $sql .= " AND c.status = :status";
+            $params[':status'] = $filters['status'];
+        }
+
+        // Filtre par type de tickets
+        if (!empty($filters['ticket_type'])) {
+            if ($filters['ticket_type'] === 'with_tickets') {
+                $sql .= " AND c.tickets_number > 0";
+            } elseif ($filters['ticket_type'] === 'without_tickets') {
+                $sql .= " AND (c.tickets_number = 0 OR c.tickets_number IS NULL)";
+            }
+        }
+
+        $sql .= " GROUP BY c.id ORDER BY c.name";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $contracts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Pour chaque contrat, récupérer les salles associées
+        foreach ($contracts as &$contract) {
+            $contract['rooms'] = $this->getContractRooms($contract['id']);
+        }
+
+        return $contracts;
+    }
+
+    /**
+     * Récupère les statistiques des contrats hors contrat facturable
+     * 
+     * @return array Statistiques
+     */
+    public function getHorsContratFacturableStats() {
+        $sql = "SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'actif' THEN 1 ELSE 0 END) as actifs,
+                    SUM(CASE WHEN status = 'inactif' THEN 1 ELSE 0 END) as inactifs,
+                    SUM(CASE WHEN status = 'en_attente' THEN 1 ELSE 0 END) as en_attente,
+                    SUM(CASE WHEN tickets_number > 0 THEN 1 ELSE 0 END) as avec_tickets,
+                    SUM(CASE WHEN tickets_number = 0 OR tickets_number IS NULL THEN 1 ELSE 0 END) as sans_tickets
+                FROM contracts 
+                WHERE contract_type_id IS NULL 
+                AND name LIKE '%hors contrat facturable%'
+                AND id IS NOT NULL";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Récupère les statistiques des contrats hors contrat non facturable
+     * 
+     * @return array Statistiques
+     */
+    public function getHorsContratNonFacturableStats() {
+        $sql = "SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'actif' THEN 1 ELSE 0 END) as actifs,
+                    SUM(CASE WHEN status = 'inactif' THEN 1 ELSE 0 END) as inactifs,
+                    SUM(CASE WHEN status = 'en_attente' THEN 1 ELSE 0 END) as en_attente,
+                    SUM(CASE WHEN tickets_number > 0 THEN 1 ELSE 0 END) as avec_tickets,
+                    SUM(CASE WHEN tickets_number = 0 OR tickets_number IS NULL THEN 1 ELSE 0 END) as sans_tickets
+                FROM contracts 
+                WHERE contract_type_id IS NULL 
+                AND name LIKE '%hors contrat non facturable%'
+                AND id IS NOT NULL";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
 } 

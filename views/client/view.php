@@ -53,12 +53,17 @@ include_once __DIR__ . '/../../includes/navbar.php';
             Documentation
         </a>
         <?php if ($canModifyClient): ?>
-            <a href="<?php echo BASE_URL; ?>clients/edit/<?php echo $client['id'] ?? ''; ?>" class="btn btn-warning">
+            <a href="<?php echo BASE_URL; ?>clients/edit/<?php echo $client['id'] ?? ''; ?>" class="btn btn-warning me-2" id="editClientBtn">
                 Modifier
             </a>
         <?php else: ?>
-            <button type="button" class="btn btn-secondary" disabled title="Vous n'avez pas les droits pour modifier ce client">
+            <button type="button" class="btn btn-secondary me-2" disabled title="Vous n'avez pas les droits pour modifier ce client">
                 Modifier
+            </button>
+        <?php endif; ?>
+        <?php if (isAdmin()): ?>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDelete(<?php echo $client['id'] ?? 0; ?>, '<?php echo htmlspecialchars($client['name'] ?? ''); ?>')" title="Supprimer le client">
+                <i class="bi bi-trash"></i>
             </button>
         <?php endif; ?>
     </div>
@@ -83,69 +88,79 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <?php endif; ?>
 
     <?php if ($client): ?>
-        <!-- Résumé du client -->
-        <div class="card mb-4">
-            <div class="card-header py-2">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0"><?php echo htmlspecialchars($client['name'] ?? ''); ?></h5>
-                    <span class="badge bg-<?php echo ($client['status'] ?? 0) == 1 ? 'success' : 'danger'; ?>">
-                        <?php echo ($client['status'] ?? 0) == 1 ? 'Actif' : 'Inactif'; ?>
-                    </span>
+        <!-- En-tête du client -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h4 class="mb-0"><?php echo htmlspecialchars($client['name'] ?? ''); ?></h4>
+            <span class="badge bg-<?php echo ($client['status'] ?? 0) == 1 ? 'success' : 'danger'; ?> fs-6">
+                <?php echo ($client['status'] ?? 0) == 1 ? 'Actif' : 'Inactif'; ?>
+            </span>
+        </div>
+
+        <!-- Onglets pour les différentes sections -->
+        <div class="row g-3 mb-4" id="clientTabs" role="tablist">
+            <div class="col-md-3">
+                <div class="card tab-card active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" role="tab" aria-controls="info" aria-selected="true" style="cursor: pointer; border: 2px solid #007bff;">
+                    <div class="card-body text-center p-3">
+                        <div class="mb-2">
+                            <i class="<?php echo getIcon('info', 'bi bi-info-circle'); ?> fs-2 text-primary"></i>
+                        </div>
+                        <h6 class="card-title mb-1">Informations</h6>
+                        <small class="text-muted">Détails du client</small>
+                    </div>
                 </div>
             </div>
-            <div class="card-body py-3">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <div class="text-center p-3 bg-light rounded">
-                            <h4 class="mb-1 text-dark"><?php echo $stats['site_count'] ?? 0; ?></h4>
-                            <small class="text-muted">Sites</small>
+            <div class="col-md-3">
+                <div class="card tab-card" id="contacts-tab" data-bs-toggle="tab" data-bs-target="#contacts" role="tab" aria-controls="contacts" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
+                    <div class="card-body text-center p-3">
+                        <div class="mb-2">
+                            <i class="<?php echo getIcon('contact', 'bi bi-person-lines-fill'); ?> fs-2 text-success"></i>
                         </div>
+                        <h6 class="card-title mb-1">Contacts</h6>
+                        <small class="text-muted"><?php echo count($contacts); ?> contact(s)</small>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 bg-light rounded">
-                            <h4 class="mb-1 text-dark"><?php echo $stats['room_count'] ?? 0; ?></h4>
-                            <small class="text-muted">Salles</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card tab-card" id="sites-tab" data-bs-toggle="tab" data-bs-target="#sites" role="tab" aria-controls="sites" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
+                    <div class="card-body text-center p-3">
+                        <div class="mb-2">
+                            <i class="<?php echo getIcon('site', 'bi bi-building'); ?> fs-2 text-warning"></i>
                         </div>
+                        <h6 class="card-title mb-1">Sites</h6>
+                        <small class="text-muted"><?php echo $stats['site_count'] ?? 0; ?> site(s) • <?php echo $stats['room_count'] ?? 0; ?> salle(s)</small>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 bg-light rounded">
-                            <h4 class="mb-1 text-dark"><?php echo $stats['contract_count'] ?? 0; ?></h4>
-                            <small class="text-muted">Contrats</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card tab-card" id="contracts-tab" data-bs-toggle="tab" data-bs-target="#contracts" role="tab" aria-controls="contracts" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
+                    <div class="card-body text-center p-3">
+                        <div class="mb-2">
+                            <i class="<?php echo getIcon('contract', 'bi bi-file-earmark-text'); ?> fs-2 text-info"></i>
                         </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-center p-3 bg-light rounded">
-                            <h4 class="mb-1 text-dark"><?php echo count($contacts); ?></h4>
-                            <small class="text-muted">Contacts</small>
-                        </div>
+                        <h6 class="card-title mb-1">Contrats</h6>
+                        <small class="text-muted">
+                            <?php echo $stats['contract_count'] ?? 0; ?> contrat(s)
+                            <?php 
+                            // Calculer la somme des tickets restants pour les contrats avec tickets
+                            $totalTicketsRemaining = 0;
+                            $contractsWithTickets = 0;
+                            if (!empty($contracts)) {
+                                foreach ($contracts as $contract) {
+                                    if (($contract['tickets_number'] ?? 0) > 0) {
+                                        $totalTicketsRemaining += ($contract['tickets_remaining'] ?? 0);
+                                        $contractsWithTickets++;
+                                    }
+                                }
+                            }
+                            if ($contractsWithTickets > 0) {
+                                echo ' • ' . $totalTicketsRemaining . ' ticket(s) restant(s)';
+                            }
+                            ?>
+                        </small>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Onglets pour les différentes sections -->
-        <ul class="nav nav-tabs mb-4" id="clientTabs" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="true">
-                    <i class="<?php echo getIcon('info', 'bi bi-info-circle'); ?> me-2"></i> Informations
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="contacts-tab" data-bs-toggle="tab" data-bs-target="#contacts" type="button" role="tab" aria-controls="contacts" aria-selected="false">
-                    <i class="<?php echo getIcon('contact', 'bi bi-person-lines-fill'); ?> me-2"></i> Contacts
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="sites-tab" data-bs-toggle="tab" data-bs-target="#sites" type="button" role="tab" aria-controls="sites" aria-selected="false">
-                    <i class="<?php echo getIcon('site', 'bi bi-building'); ?> me-2"></i> Sites
-                </button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" id="contracts-tab" data-bs-toggle="tab" data-bs-target="#contracts" type="button" role="tab" aria-controls="contracts" aria-selected="false">
-                    <i class="<?php echo getIcon('contract', 'bi bi-file-earmark-text'); ?> me-2"></i> Contrats
-                </button>
-            </li>
-        </ul>
 
         <div class="tab-content" id="clientTabsContent">
             <!-- Onglet Informations -->
@@ -460,14 +475,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <table class="table table-striped table-hover" id="contractsTable">
                                     <thead>
                                         <tr>
-                                            <th class="sortable" data-sort="client">
-                                                Client <i class="bi bi-arrow-down-up sort-icon"></i>
+                                            <th class="sortable" data-sort="name">
+                                                Nom <i class="bi bi-arrow-down-up sort-icon"></i>
                                             </th>
                                             <th class="sortable" data-sort="type">
                                                 Type de contrat <i class="bi bi-arrow-down-up sort-icon"></i>
-                                            </th>
-                                            <th class="sortable" data-sort="name">
-                                                Nom <i class="bi bi-arrow-down-up sort-icon"></i>
                                             </th>
                                             <th class="sortable" data-sort="end_date">
                                                 Date de fin <i class="bi bi-arrow-down-up sort-icon"></i>
@@ -481,20 +493,32 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <th class="sortable" data-sort="status">
                                                 Statut <i class="bi bi-arrow-down-up sort-icon"></i>
                                             </th>
-                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         <?php foreach ($contracts as $contract): ?>
                                             <tr>
-                                                <td data-label="Client" data-sort-value="<?php echo htmlspecialchars(strtolower($client['name'] ?? '')); ?>">
-                                                    <?php echo htmlspecialchars($client['name'] ?? '-'); ?>
+                                                <td data-label="Nom" data-sort-value="<?php echo htmlspecialchars(strtolower($contract['name'] ?? '')); ?>">
+                                                    <?php 
+                                                    // Déterminer l'URL selon le type de contrat
+                                                    $contractName = $contract['name'] ?? '';
+                                                    $isHorsContratFacturable = (strpos(strtolower($contractName), 'hors contrat facturable') !== false);
+                                                    $isHorsContratNonFacturable = (strpos(strtolower($contractName), 'hors contrat non facturable') !== false);
+                                                    
+                                                    if ($isHorsContratFacturable) {
+                                                        $viewUrl = BASE_URL . 'hors_contrat_facturable/view/' . $contract['id'];
+                                                    } elseif ($isHorsContratNonFacturable) {
+                                                        $viewUrl = BASE_URL . 'hors_contrat_non_facturable/view/' . $contract['id'];
+                                                    } else {
+                                                        $viewUrl = BASE_URL . 'contracts/view/' . $contract['id'];
+                                                    }
+                                                    ?>
+                                                    <a href="<?php echo $viewUrl; ?>?return_to=client&client_id=<?php echo $client['id']; ?>&active_tab=contracts-tab" class="text-decoration-none fw-bold" title="Voir le contrat">
+                                                        <?php echo htmlspecialchars($contract['name'] ?? '-'); ?>
+                                                    </a>
                                                 </td>
                                                 <td data-label="Type de contrat" data-sort-value="<?php echo htmlspecialchars(strtolower($contract['contract_type_name'] ?? '')); ?>">
                                                     <?php echo htmlspecialchars($contract['contract_type_name'] ?? '-'); ?>
-                                                </td>
-                                                <td data-label="Nom" data-sort-value="<?php echo htmlspecialchars(strtolower($contract['name'] ?? '')); ?>">
-                                                    <?php echo htmlspecialchars($contract['name'] ?? '-'); ?>
                                                 </td>
                                                 <td data-label="Date de fin" data-sort-value="<?php echo strtotime($contract['end_date']); ?>">
                                                     <?php echo formatDateFrench($contract['end_date']); ?>
@@ -527,18 +551,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     ?>">
                                                         <?php echo ucfirst(str_replace('_', ' ', $contract['status'])); ?>
                                                     </span>
-                                                </td>
-                                                <td class="actions">
-                                                    <div class="d-flex flex-row gap-1">
-                                                        <a href="<?php echo BASE_URL; ?>contracts/view/<?php echo $contract['id']; ?>" class="btn btn-sm btn-outline-info btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Voir">
-                                                            <i class="<?php echo getIcon('show', 'bi bi-eye'); ?>"></i>
-                                                        </a>
-                                                        <?php if (canManageContracts()): ?>
-                                                        <a href="<?php echo BASE_URL; ?>contracts/edit/<?php echo $contract['id']; ?>?return_to=client" class="btn btn-sm btn-outline-warning btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Modifier">
-                                                            <i class="<?php echo getIcon('edit', 'bi bi-pencil'); ?>"></i>
-                                                        </a>
-                                                        <?php endif; ?>
-                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -591,6 +603,29 @@ include_once __DIR__ . '/../../includes/navbar.php';
 .sortable.sort-asc,
 .sortable.sort-desc {
     background-color: rgba(0, 123, 255, 0.1);
+}
+
+/* Styles pour les cards d'onglets */
+.tab-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent !important;
+}
+
+.tab-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    border-color: #dee2e6 !important;
+}
+
+.tab-card.active {
+    border-color: #007bff !important;
+    box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+    background-color: rgba(0,123,255,0.05);
+}
+
+.tab-card.active:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,123,255,0.2);
 }
 </style>
 
@@ -701,5 +736,78 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialiser le tri pour les deux tables
     initSortableTable('contractsTable');
     initSortableTable('contactsTable');
+
+    // Récupérer le paramètre active_tab de l'URL au chargement
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeTabFromUrl = urlParams.get('active_tab');
+    
+    // Activer l'onglet spécifié dans l'URL si présent
+    if (activeTabFromUrl) {
+        const targetCard = document.getElementById(activeTabFromUrl);
+        if (targetCard) {
+            // Retirer la classe active de toutes les cards
+            document.querySelectorAll('.tab-card').forEach(c => {
+                c.classList.remove('active');
+                c.style.border = '2px solid transparent';
+            });
+            
+            // Ajouter la classe active à la card ciblée
+            targetCard.classList.add('active');
+            targetCard.style.border = '2px solid #007bff';
+            
+            // Activer le contenu de l'onglet correspondant
+            const targetPane = document.querySelector(targetCard.getAttribute('data-bs-target'));
+            if (targetPane) {
+                document.querySelectorAll('.tab-pane').forEach(pane => {
+                    pane.classList.remove('show', 'active');
+                });
+                targetPane.classList.add('show', 'active');
+            }
+        }
+    }
+
+    // Gestion des cards d'onglets
+    document.querySelectorAll('.tab-card').forEach(card => {
+        card.addEventListener('click', function() {
+            // Retirer la classe active de toutes les cards
+            document.querySelectorAll('.tab-card').forEach(c => {
+                c.classList.remove('active');
+                c.style.border = '2px solid transparent';
+            });
+            
+            // Ajouter la classe active à la card cliquée
+            this.classList.add('active');
+            this.style.border = '2px solid #007bff';
+            
+            // Stocker l'onglet actif dans le localStorage
+            const activeTab = this.id;
+            localStorage.setItem('clientActiveTab', activeTab);
+        });
+    });
+
+    // Gestion du bouton Modifier avec persistance de l'onglet
+    const editBtn = document.getElementById('editClientBtn');
+    if (editBtn) {
+        editBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Récupérer l'onglet actif
+            const activeTab = document.querySelector('.tab-card.active')?.id || 'info-tab';
+            
+            // Construire l'URL avec le paramètre de l'onglet
+            const baseUrl = this.href;
+            const separator = baseUrl.includes('?') ? '&' : '?';
+            const newUrl = baseUrl + separator + 'active_tab=' + activeTab;
+            
+            // Rediriger vers la page d'édition
+            window.location.href = newUrl;
+        });
+    }
 });
+
+function confirmDelete(clientId, clientName) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer le client "' + clientName + '" ?\n\nCette action est irréversible et supprimera définitivement le client et toutes ses données associées (sites, salles, matériel, contrats, etc.).')) {
+        window.location.href = '<?php echo BASE_URL; ?>clients/delete/' + clientId;
+    }
+}
 </script> 

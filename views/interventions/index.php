@@ -268,7 +268,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <th>Date planifiée</th>
                                         <th>Technicien</th>
                                         <th>Date création</th>
-                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -302,16 +301,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 <td data-label="Technicien"><?php echo htmlspecialchars($intervention['technician_first_name'] ?? '') . ' ' . htmlspecialchars($intervention['technician_last_name'] ?? ''); ?></td>
                                                                 <td data-label="Date création" data-order="<?php echo isset($intervention['created_at']) ? strtotime($intervention['created_at']) : 0; ?>">
                     <?php echo formatDateFrench($intervention['created_at']) . ' ' . date('H:i', strtotime($intervention['created_at'] ?? '')); ?>
-                                                </td>
-                                                <td class="actions">
-                                                    <div class="d-flex flex-row gap-1">
-                                                        <a href="<?php echo BASE_URL; ?>interventions/view/<?php echo $intervention['id']; ?>" class="btn btn-sm btn-outline-info btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Voir">
-                                                            <i class="<?php echo getIcon('visibility', 'bi bi-eye'); ?>"></i>
-                                                        </a>
-                                                        <a href="<?php echo BASE_URL; ?>interventions/edit/<?php echo $intervention['id']; ?>" class="btn btn-sm btn-outline-warning btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Modifier">
-                                                        <i class="<?php echo getIcon('edit', 'bi bi-pencil'); ?>"></i>
-                                                        </a>
-                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>

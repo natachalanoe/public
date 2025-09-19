@@ -203,6 +203,151 @@ class MailService {
         $historyId = $this->mailHistoryModel->saveToHistory($interventionId, $templateId, $recipient, $subject, $body, $attachmentPath);
         
         try {
+            // Vérifier si OAuth2 est activé
+            if ($this->config->get('oauth2_enabled', '0') == '1') {
+                $success = $this->sendEmailOAuth2($recipient['email'], $recipient['name'], $subject, $body, $attachmentPath);
+            } else {
+                $success = $this->sendEmailBasic($recipient['email'], $recipient['name'], $subject, $body, $attachmentPath);
+            }
+            
+            if ($success) {
+                // Mettre à jour l'historique
+                $this->mailHistoryModel->updateHistoryStatus($historyId, 'sent');
+                custom_log("Email envoyé avec succès à " . $recipient['email'], 'INFO');
+            } else {
+                throw new Exception("Échec de l'envoi de l'email");
+            }
+            
+        } catch (Exception $e) {
+            // Mettre à jour l'historique avec l'erreur
+            $this->mailHistoryModel->updateHistoryStatus($historyId, 'failed', $e->getMessage());
+            custom_log("Erreur envoi email à " . $recipient['email'] . " : " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Envoie un email via OAuth2 (Exchange 365)
+     */
+    private function sendEmailOAuth2($to, $toName, $subject, $body, $attachmentPath = null) {
+        try {
+            // Vérifier si le token OAuth2 est valide
+            $accessToken = $this->getValidOAuth2Token();
+            if (!$accessToken) {
+                throw new Exception("Token OAuth2 invalide ou expiré");
+            }
+
+            // Configuration SMTP pour OAuth2
+            $host = $this->config->get('mail_host', 'smtp.office365.com');
+            $port = $this->config->get('mail_port', '587');
+            $fromAddress = $this->config->get('mail_from_address', '');
+            $fromName = $this->config->get('mail_from_name', 'Support');
+
+            // Créer la socket
+            $socket = stream_socket_client("tcp://$host:$port", $errno, $errstr, 30);
+            if (!$socket) {
+                throw new Exception("Impossible de se connecter au serveur SMTP: $errstr");
+            }
+
+            // Lire la réponse initiale
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^220/', $response)) {
+                fclose($socket);
+                throw new Exception("Réponse invalide du serveur SMTP: " . trim($response));
+            }
+
+            // EHLO
+            fwrite($socket, "EHLO " . $_SERVER['HTTP_HOST'] . "\r\n");
+            $response = fgets($socket, 1024);
+
+            // STARTTLS
+            fwrite($socket, "STARTTLS\r\n");
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^220/', $response)) {
+                fclose($socket);
+                throw new Exception("STARTTLS non supporté");
+            }
+
+            // Activer TLS
+            if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                fclose($socket);
+                throw new Exception("Impossible d'activer TLS");
+            }
+
+            // EHLO après TLS
+            fwrite($socket, "EHLO " . $_SERVER['HTTP_HOST'] . "\r\n");
+            $response = fgets($socket, 1024);
+
+            // AUTH XOAUTH2
+            $authString = base64_encode("user=$fromAddress\1auth=Bearer $accessToken\1\1");
+            fwrite($socket, "AUTH XOAUTH2 $authString\r\n");
+            $response = fgets($socket, 1024);
+
+            if (!preg_match('/^235/', $response)) {
+                fclose($socket);
+                throw new Exception("Échec de l'authentification OAuth2: " . trim($response));
+            }
+
+            // MAIL FROM
+            fwrite($socket, "MAIL FROM:<$fromAddress>\r\n");
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^250/', $response)) {
+                fclose($socket);
+                throw new Exception("Erreur MAIL FROM: " . trim($response));
+            }
+
+            // RCPT TO
+            fwrite($socket, "RCPT TO:<$to>\r\n");
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^250/', $response)) {
+                fclose($socket);
+                throw new Exception("Erreur RCPT TO: " . trim($response));
+            }
+
+            // DATA
+            fwrite($socket, "DATA\r\n");
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^354/', $response)) {
+                fclose($socket);
+                throw new Exception("Erreur DATA: " . trim($response));
+            }
+
+            // En-têtes de l'email
+            $emailData = "From: $fromName <$fromAddress>\r\n";
+            $emailData .= "To: $toName <$to>\r\n";
+            $emailData .= "Subject: $subject\r\n";
+            $emailData .= "MIME-Version: 1.0\r\n";
+            $emailData .= "Content-Type: text/html; charset=UTF-8\r\n";
+            $emailData .= "\r\n";
+            $emailData .= $body . "\r\n";
+            $emailData .= ".\r\n";
+
+            fwrite($socket, $emailData);
+            $response = fgets($socket, 1024);
+
+            if (!preg_match('/^250/', $response)) {
+                fclose($socket);
+                throw new Exception("Erreur lors de l'envoi: " . trim($response));
+            }
+
+            // QUIT
+            fwrite($socket, "QUIT\r\n");
+            fclose($socket);
+
+            custom_log("Email OAuth2 envoyé avec succès à $to", 'INFO');
+            return true;
+
+        } catch (Exception $e) {
+            custom_log("Erreur OAuth2: " . $e->getMessage(), 'ERROR');
+            return false;
+        }
+    }
+
+    /**
+     * Envoie un email via authentification basique (méthode originale)
+     */
+    private function sendEmailBasic($to, $toName, $subject, $body, $attachmentPath = null) {
+        try {
             // Configuration SMTP
             $smtpConfig = [
                 'host' => $this->config->get('mail_host'),
@@ -228,21 +373,109 @@ class MailService {
                 'X-Mailer: PHP/' . phpversion()
             ];
 
-            $success = mail($recipient['email'], $subject, $body, implode("\r\n", $headers));
+            $success = mail($to, $subject, $body, implode("\r\n", $headers));
             
             if ($success) {
-                // Mettre à jour l'historique
-                $this->mailHistoryModel->updateHistoryStatus($historyId, 'sent');
-                custom_log("Email envoyé avec succès à " . $recipient['email'], 'INFO');
+                custom_log("Email envoyé avec succès à $to", 'INFO');
+                return true;
             } else {
                 throw new Exception("Échec de l'envoi via mail()");
             }
-            
+
         } catch (Exception $e) {
-            // Mettre à jour l'historique avec l'erreur
-            $this->mailHistoryModel->updateHistoryStatus($historyId, 'failed', $e->getMessage());
-            custom_log("Erreur envoi email à " . $recipient['email'] . " : " . $e->getMessage(), 'ERROR');
-            throw $e;
+            custom_log("Erreur lors de l'envoi de l'email: " . $e->getMessage(), 'ERROR');
+            return false;
+        }
+    }
+
+    /**
+     * Obtient un token OAuth2 valide (vérifie l'expiration et refresh si nécessaire)
+     */
+    private function getValidOAuth2Token() {
+        $accessToken = $this->config->get('oauth2_access_token', '');
+        $refreshToken = $this->config->get('oauth2_refresh_token', '');
+        $tokenExpires = $this->config->get('oauth2_token_expires', '');
+
+        // Si pas de token, retourner false
+        if (empty($accessToken) || empty($refreshToken)) {
+            return false;
+        }
+
+        // Vérifier si le token est expiré
+        if (!empty($tokenExpires) && strtotime($tokenExpires) <= time()) {
+            // Token expiré, essayer de le rafraîchir
+            $newToken = $this->refreshOAuth2Token($refreshToken);
+            if ($newToken) {
+                return $newToken['access_token'];
+            } else {
+                return false;
+            }
+        }
+
+        return $accessToken;
+    }
+
+    /**
+     * Rafraîchit le token OAuth2
+     */
+    private function refreshOAuth2Token($refreshToken) {
+        try {
+            $clientId = $this->config->get('oauth2_client_id', '');
+            $clientSecret = $this->config->get('oauth2_client_secret', '');
+            $tenantId = $this->config->get('oauth2_tenant_id', '');
+
+            if (empty($clientId) || empty($clientSecret) || empty($tenantId)) {
+                throw new Exception("Configuration OAuth2 incomplète");
+            }
+
+            $tokenUrl = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token";
+            
+            $postData = [
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'refresh_token' => $refreshToken,
+                'grant_type' => 'refresh_token',
+                'scope' => 'https://outlook.office365.com/SMTP.Send offline_access'
+            ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $tokenUrl);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-Type: application/x-www-form-urlencoded'
+            ]);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                throw new Exception("Erreur HTTP $httpCode lors du refresh du token");
+            }
+
+            $tokenData = json_decode($response, true);
+            if (!$tokenData || isset($tokenData['error'])) {
+                throw new Exception("Erreur lors du refresh du token: " . ($tokenData['error_description'] ?? 'Erreur inconnue'));
+            }
+
+            // Sauvegarder les nouveaux tokens
+            $this->config->set('oauth2_access_token', $tokenData['access_token']);
+            if (isset($tokenData['refresh_token'])) {
+                $this->config->set('oauth2_refresh_token', $tokenData['refresh_token']);
+            }
+            
+            $expiresIn = $tokenData['expires_in'] ?? 3600;
+            $expiresAt = date('Y-m-d H:i:s', time() + $expiresIn);
+            $this->config->set('oauth2_token_expires', $expiresAt);
+
+            custom_log("Token OAuth2 rafraîchi avec succès", 'INFO');
+            return $tokenData;
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors du refresh du token OAuth2: " . $e->getMessage(), 'ERROR');
+            return false;
         }
     }
 

@@ -12,14 +12,14 @@ document.addEventListener('DOMContentLoaded', function() {
   if (dt_users_table) {
     // Récupérer la configuration sauvegardée
     const savedConfig = window.DataTablePersistence ? 
-      window.DataTablePersistence.getTableConfig('usersTable') : 
+      window.DataTablePersistence.getTableConfig('usersTable_v2') : 
       { pageLength: 10, order: [[0, 'asc']] };
 
     let dt_users = new DataTable(dt_users_table, {
       // Configuration options avec persistance
       pageLength: savedConfig.pageLength,
       lengthMenu: [10, 25, 50, 100],
-      order: savedConfig.order, // Sort by ID ascending by default
+      order: savedConfig.order, // Sort by username ascending by default
       
       // Layout configuration
       layout: {
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
           display: DataTable.Responsive.display.modal({
             header: function (row) {
               var data = row.data();
-              return 'Détails de l\'utilisateur ' + (data[2] || '') + ' ' + (data[3] || '');
+              return 'Détails de l\'utilisateur ' + (data[1] || '') + ' ' + (data[2] || '');
             }
           }),
           type: 'column',
@@ -101,51 +101,39 @@ document.addEventListener('DOMContentLoaded', function() {
       // Column definitions
       columnDefs: [
         {
-          // ID column
+          // Username column
           targets: 0,
           responsivePriority: 1
         },
         {
-          // Username column
+          // Last name column
           targets: 1,
           responsivePriority: 2
         },
         {
-          // Last name column
+          // First name column
           targets: 2,
           responsivePriority: 3
         },
         {
-          // First name column
+          // Email column
           targets: 3,
           responsivePriority: 4
         },
         {
-          // Email column
+          // Type column
           targets: 4,
           responsivePriority: 5
         },
         {
-          // Type column
+          // Status column
           targets: 5,
           responsivePriority: 6
         },
         {
-          // Status column
+          // Created date column
           targets: 6,
           responsivePriority: 7
-        },
-        {
-          // Created date column
-          targets: 7,
-          responsivePriority: 8
-        },
-        {
-          // Actions column - always visible
-          targets: 8,
-          orderable: false,
-          searchable: false,
-          responsivePriority: 1
         }
       ],
 
@@ -159,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function() {
       drawCallback: function(settings) {
         // Sauvegarder la configuration actuelle
         if (window.DataTablePersistence) {
-          window.DataTablePersistence.saveTableConfig('usersTable', {
+          window.DataTablePersistence.saveTableConfig('usersTable_v2', {
             pageLength: settings._iDisplayLength,
             order: settings.aaSorting,
             page: settings._iDisplayStart / settings._iDisplayLength

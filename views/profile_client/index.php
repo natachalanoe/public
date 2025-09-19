@@ -98,12 +98,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="mt-4">
-                                <a href="<?= BASE_URL ?>dashboard" class="btn btn-secondary">
-                                    <i class="bi bi-arrow-left"></i> Retour au tableau de bord
-                                </a>
-                            </div>
                         </div>
                     </div>
                 </div>

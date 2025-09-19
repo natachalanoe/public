@@ -27,6 +27,22 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'contracts';
 
+// Déterminer l'URL de retour dynamiquement
+$returnTo = $_GET['return_to'] ?? null;
+$clientId = $_GET['client_id'] ?? null;
+$activeTab = $_GET['active_tab'] ?? null;
+
+if ($returnTo === 'client' && $clientId) {
+    // Si on vient de la vue du client, retourner à cette vue avec l'onglet actif
+    $returnUrl = BASE_URL . 'clients/view/' . $clientId;
+    if ($activeTab) {
+        $returnUrl .= '?active_tab=' . $activeTab;
+    }
+} else {
+    // Par défaut, retourner à la liste des contrats
+    $returnUrl = BASE_URL . 'contracts';
+}
+
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
@@ -39,12 +55,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Détails du contrat</h4></div>
 
     <div class="ms-auto p-2 bd-highlight">
-        <a href="<?php echo BASE_URL; ?>contracts" class="btn btn-secondary me-2">
+        <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
             <i class="bi bi-arrow-left me-1"></i> Retour
         </a>
 
         <?php if (canManageContracts()): ?>
-            <a href="<?php echo BASE_URL; ?>contracts/edit/<?php echo $contract['id']; ?>?return_to=contracts" class="btn btn-warning me-2">
+            <a href="<?php echo BASE_URL; ?>contracts/edit/<?php echo $contract['id']; ?>?return_to=<?php echo $returnTo; ?><?php echo $clientId ? '&client_id=' . $clientId : ''; ?><?php echo $activeTab ? '&active_tab=' . $activeTab : ''; ?>" class="btn btn-warning me-2">
                 <i class="bi bi-pencil me-1 me-1"></i>Modifier
             </a>
             
@@ -73,8 +89,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
         
         <?php if ($isAdmin && !empty($contract['contract_type_id'])): ?>
             <!-- DEBUG: isAdmin = <?php echo var_export($isAdmin, true); ?> -->
-            <button type="button" class="btn btn-danger me-2" onclick="confirmDelete(<?php echo $contract['id']; ?>, '<?php echo htmlspecialchars($contract['name'] ?? ''); ?>')">
-                <i class="bi bi-trash me-1"></i>Supprimer
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDelete(<?php echo $contract['id']; ?>, '<?php echo htmlspecialchars($contract['name'] ?? ''); ?>')" title="Supprimer le contrat">
+                <i class="bi bi-trash"></i>
             </button>
         <?php endif; ?>
     </div>
@@ -462,14 +478,17 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <th>Durée</th>
                             <th>Tickets utilisés</th>
                             <th>Statut</th>
-                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if (!empty($interventions)): ?>
                             <?php foreach ($interventions as $intervention): ?>
                             <tr>
-                                <td><?= htmlspecialchars($intervention['reference'] ?? '') ?></td>
+                                <td>
+                                    <a href="<?= BASE_URL ?>interventions/view/<?= $intervention['id'] ?>" class="text-decoration-none">
+                                        <?= htmlspecialchars($intervention['reference'] ?? '') ?>
+                                    </a>
+                                </td>
                                 <td><?= htmlspecialchars($intervention['title'] ?? '') ?></td>
                                 <td><?= !empty($intervention['date_planif']) ? date('d/m/Y', strtotime($intervention['date_planif'])) . (!empty($intervention['heure_planif']) ? ' ' . $intervention['heure_planif'] : '') : date('d/m/Y H:i', strtotime($intervention['created_at'])) ?></td>
                                 <td><?= htmlspecialchars($intervention['technician_name'] ?? '') ?></td>
@@ -480,17 +499,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <?= htmlspecialchars($intervention['status_name'] ?? 'Non défini') ?>
                                     </span>
                                 </td>
-                                <td>
-                                    <a href="<?= BASE_URL ?>interventions/view/<?= $intervention['id'] ?>" 
-                                    class="btn btn-sm btn-outline-info btn-action" title="Voir l'intervention">
-                                        <i class="<?php echo getIcon('show', 'bi bi-file-earmark-arrow-up'); ?>"></i>
-                                    </a>
-                                </td>
                             </tr>
                             <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="8" class="text-center">Aucune intervention associée</td>
+                                <td colspan="7" class="text-center">Aucune intervention associée</td>
                             </tr>
                         <?php endif; ?>
                     </tbody>

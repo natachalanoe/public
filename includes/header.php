@@ -59,7 +59,7 @@ if (!isset($currentPageName)) $currentPageName = 'index';
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/vendor/libs/pickr/pickr-themes.css" />
 
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/vendor/css/core.css" />
-    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/demo.css" />
+    <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/avision.css" />
 
     <!-- Vendors CSS -->
 

@@ -158,17 +158,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         </table>
                     </div>
                 </div>
-                
-                <?php if (!empty($contract['comment'])): ?>
-                <div class="row mt-3">
-                    <div class="col-md-12">
-                        <h5>Commentaires</h5>
-                        <div class="alert alert-info">
-                            <?= nl2br(h($contract['comment'])) ?>
-                        </div>
-                    </div>
-                </div>
-                <?php endif; ?>
             </div>
         </div>
 

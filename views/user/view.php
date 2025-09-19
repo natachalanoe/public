@@ -40,9 +40,14 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <a href="<?php echo BASE_URL; ?>user" class="btn btn-secondary me-2">
             <i class="bi bi-arrow-left me-1"></i> Retour
         </a>
-        <a href="<?php echo BASE_URL; ?>user/edit/<?php echo $user['id']; ?>" class="btn btn-warning">
+        <a href="<?php echo BASE_URL; ?>user/edit/<?php echo $user['id']; ?>" class="btn btn-warning me-2">
             <i class="bi bi-pencil me-1"></i> Modifier
         </a>
+        <?php if (isAdmin()): ?>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDelete(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username'] ?? ''); ?>')" title="Supprimer l'utilisateur">
+                <i class="bi bi-trash"></i>
+            </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -272,5 +277,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </div>
     </div>
 </div>
+
+<script>
+function confirmDelete(userId, username) {
+    if (confirm('Êtes-vous sûr de vouloir supprimer l\'utilisateur "' + username + '" ?\n\nCette action est irréversible et supprimera définitivement l\'utilisateur et toutes ses données associées.')) {
+        window.location.href = '<?php echo BASE_URL; ?>user/delete/' + userId;
+    }
+}
+</script>
 
 <?php include_once __DIR__ . '/../../includes/footer.php'; ?> 

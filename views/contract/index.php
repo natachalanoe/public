@@ -143,35 +143,28 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <table id="contractsTable" class="table table-striped table-hover dt-responsive">
                             <thead>
                                 <tr>
+                                    <th>Nom</th>
                                     <th>Client</th>
                                     <th>Type de contrat</th>
-                                    <th>Nom</th>
                                     <th>Date de fin</th>
-                                    <th>Tickets initiaux</th>
                                     <th>Tickets restants</th>
                                     <th>Statut</th>
-                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php if (!empty($contracts)): ?>
                                     <?php foreach ($contracts as $contract): ?>
                                         <tr>
+                                            <td data-label="Nom">
+                                                <a href="<?php echo BASE_URL; ?>contracts/view/<?php echo $contract['id']; ?>" 
+                                                   class="text-decoration-none fw-bold" 
+                                                   title="Voir le contrat">
+                                                    <?php echo htmlspecialchars($contract['name'] ?? '-'); ?>
+                                                </a>
+                                            </td>
                                             <td data-label="Client"><?php echo htmlspecialchars($contract['client_name'] ?? '-'); ?></td>
                                             <td data-label="Type de contrat"><?php echo htmlspecialchars($contract['contract_type_name'] ?? '-'); ?></td>
-                                            <td data-label="Nom"><?php echo htmlspecialchars($contract['name'] ?? '-'); ?></td>
                                             <td data-label="Date de fin" data-order="<?php echo strtotime($contract['end_date']); ?>"><?php echo formatDateFrench($contract['end_date']); ?></td>
-                                            <td data-label="Tickets initiaux" data-order="<?php echo $contract['tickets_number']; ?>">
-                                                <?php if ($contract['tickets_number'] > 0): ?>
-                                                    <span class="badge bg-info">
-                                                        <?php echo $contract['tickets_number']; ?>
-                                                    </span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-secondary">
-                                                        Sans tickets
-                                                    </span>
-                                                <?php endif; ?>
-                                            </td>
                                             <td data-label="Tickets restants" data-order="<?php echo $contract['tickets_remaining']; ?>">
                                                 <?php if ($contract['tickets_number'] > 0): ?>
                                                     <span class="badge bg-<?php echo $contract['tickets_remaining'] > 3 ? 'success' : 'danger'; ?>">
@@ -192,23 +185,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <?php echo ucfirst(str_replace('_', ' ', $contract['status'])); ?>
                                                 </span>
                                             </td>
-                                            <td class="actions">
-                                                <div class="d-flex flex-row gap-1">
-                                                    <a href="<?php echo BASE_URL; ?>contracts/view/<?php echo $contract['id']; ?>" class="btn btn-sm btn-outline-info btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Voir">
-                                                        <i class="<?php echo getIcon('show', 'bi bi-eye'); ?>"></i>
-                                                    </a>
-                                                    <?php if (canManageContracts()): ?>
-                                                    <a href="<?php echo BASE_URL; ?>contracts/edit/<?php echo $contract['id']; ?>?return_to=contracts" class="btn btn-sm btn-outline-warning btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Modifier">
-                                                        <i class="<?php echo getIcon('edit', 'bi bi-pencil'); ?>"></i>
-                                                    </a>
-                                                    <?php endif; ?>
-                                                    <?php if ($isAdmin): ?>
-                                                    <button type="button" class="btn btn-sm btn-outline-danger btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" onclick="confirmDelete(<?php echo $contract['id']; ?>, '<?php echo htmlspecialchars($contract['name'] ?? ''); ?>')" title="Supprimer">
-                                                        <i class="<?php echo getIcon('delete', 'bi bi-trash'); ?>"></i>
-                                                    </button>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php else: ?>
@@ -223,14 +199,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 </div>
 
-<!-- Script pour la confirmation de suppression -->
-<script>
-function confirmDelete(contractId, contractName) {
-    if (confirm('Êtes-vous sûr de vouloir supprimer le contrat "' + contractName + '" ?')) {
-        window.location.href = '<?php echo BASE_URL; ?>contracts/delete/' + contractId;
-    }
-}
-</script>
 
 <!-- DataTable Persistence -->
 <script src="<?php echo BASE_URL; ?>assets/js/datatable-persistence.js"></script>

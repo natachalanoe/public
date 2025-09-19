@@ -493,7 +493,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <th class="sortable" data-sort="created_at">
                                                 Date de création <i class="bi bi-arrow-down-up sort-icon"></i>
                                             </th>
-                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -531,11 +530,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             </td>
                                             <td data-label="Date de création" data-sort-value="<?php echo strtotime($intervention['created_at']); ?>">
                                                 <?php echo formatDate($intervention['created_at']); ?>
-                                            </td>
-                                            <td>
-                                                <a href="<?php echo BASE_URL; ?>interventions/view/<?php echo $intervention['id']; ?>" class="btn btn-sm btn-outline-info btn-action p-1 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Voir">
-                                                    <i class="<?php echo getIcon('visibility', 'bi bi-eye'); ?>"></i>
-                                                </a>
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>

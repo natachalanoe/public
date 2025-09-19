@@ -249,7 +249,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <div class="col-12 mt-3">
                         <div class="card">
                             <div class="card-header py-2">
-                                <h6 class="card-title mb-0">Description</h6>
+                                <h6 class="card-title mb-0">Demande/description du problème</h6>
                             </div>
                             <div class="card-body py-2">
                                 <textarea class="form-control bg-body text-body" id="description" name="description" rows="5"></textarea>

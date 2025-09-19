@@ -150,13 +150,6 @@ document.addEventListener('DOMContentLoaded', function() {
           targets: 9,
           responsivePriority: 10
         },
-        {
-          // Actions column - always visible
-          targets: 10,
-          orderable: false,
-          searchable: false,
-          responsivePriority: 1
-        }
       ],
 
       // Initialization complete callback

@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Récupérer la configuration sauvegardée
     const savedConfig = window.DataTablePersistence ? 
       window.DataTablePersistence.getTableConfig('contractsTable') : 
-      { pageLength: 10, order: [[3, 'asc']] };
+      { pageLength: 10, order: [[2, 'asc']] };
 
     let dt_contracts = new DataTable(dt_contracts_table, {
       // Configuration options avec persistance
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
           display: DataTable.Responsive.display.modal({
             header: function (row) {
               var data = row.data();
-              return 'Détails du contrat ' + (data[2] || '');
+              return 'Détails du contrat ' + (data[0] || '');
             }
           }),
           type: 'column',
@@ -101,17 +101,17 @@ document.addEventListener('DOMContentLoaded', function() {
       // Column definitions
       columnDefs: [
         {
-          // Client column
+          // Contract name column
           targets: 0,
           responsivePriority: 1
         },
         {
-          // Contract type column
+          // Client column
           targets: 1,
           responsivePriority: 2
         },
         {
-          // Contract name column
+          // Contract type column
           targets: 2,
           responsivePriority: 3
         },
@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function() {
           responsivePriority: 4
         },
         {
-          // Tickets remaining column
+          // Remaining tickets column
           targets: 4,
           responsivePriority: 5
         },
@@ -129,13 +129,6 @@ document.addEventListener('DOMContentLoaded', function() {
           // Status column
           targets: 5,
           responsivePriority: 6
-        },
-        {
-          // Actions column - always visible (only for admin)
-          targets: 6,
-          orderable: false,
-          searchable: false,
-          responsivePriority: 1
         }
       ],
 

@@ -60,7 +60,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <th>Tickets restants</th>
                     <th>Pièces jointes</th>
                     <th>Statut</th>
-                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -69,7 +68,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <tr>
                             <td data-label="Client"><?= h($contract['client_name'] ?? '-') ?></td>
                             <td data-label="Type de contrat"><?= h($contract['contract_type_name'] ?? '-') ?></td>
-                            <td data-label="Nom"><?= h($contract['name'] ?? '-') ?></td>
+                            <td data-label="Nom">
+                                <a href="<?= BASE_URL ?>contracts_client/view/<?= $contract['id']; ?>" class="text-decoration-none">
+                                    <?= h($contract['name'] ?? '-') ?>
+                                </a>
+                            </td>
                                             <td data-label="Date de fin" data-order="<?= strtotime($contract['end_date']); ?>">
                     <?= formatDateFrench($contract['end_date']); ?>
                             </td>
@@ -95,12 +98,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <span class="badge bg-<?= $contract['status'] === 'actif' ? 'success' : 'danger'; ?>">
                                     <?= ucfirst($contract['status']); ?>
                                 </span>
-                            </td>
-                            <td class="actions">
-                                <a href="<?= BASE_URL ?>contracts_client/view/<?= $contract['id']; ?>" 
-                                   class="btn btn-sm btn-outline-info" title="Voir">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                </a>
                             </td>
                         </tr>
                     <?php endforeach; ?>

@@ -419,15 +419,36 @@ foreach ($materiel_list as $materiel) {
                                                         <th>MAC</th>
                                                         <th>Expiration</th>
                                                         <th>Pièces jointes</th>
-                                                        <th>Actions</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     <?php foreach ($materiels as $materiel): ?>
                                                         <tr>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['marque']) && !$visibilites_champs[$materiel['id']]['marque']) || (isset($visibilites_champs[$materiel['id']]['modele']) && !$visibilites_champs[$materiel['id']]['modele']) ? 'bg-warning bg-opacity-25' : '' ?>">
-                                                                <div class="fw-bold"><?= htmlspecialchars($materiel['marque'] ?? 'Marque non définie') ?></div>
-                                                                <small class="text-muted"><?= htmlspecialchars($materiel['modele'] ?? 'Modèle non défini') ?></small>
+                                                                <?php
+                                                                // Construire les paramètres de filtres pour les liens
+                                                                $filterParams = [];
+                                                                if (!empty($filters['client_id'])) {
+                                                                    $filterParams['client_id'] = $filters['client_id'];
+                                                                }
+                                                                if (!empty($filters['site_id'])) {
+                                                                    $filterParams['site_id'] = $filters['site_id'];
+                                                                }
+                                                                if (!empty($filters['salle_id'])) {
+                                                                    $filterParams['salle_id'] = $filters['salle_id'];
+                                                                }
+                                                                
+                                                                $viewUrl = BASE_URL . 'materiel/view/' . $materiel['id'];
+                                                                if (!empty($filterParams)) {
+                                                                    $viewUrl .= '?' . http_build_query($filterParams);
+                                                                }
+                                                                ?>
+                                                                <a href="<?= $viewUrl ?>" 
+                                                                   class="text-decoration-none" 
+                                                                   title="Voir le matériel">
+                                                                    <div class="fw-bold"><?= htmlspecialchars($materiel['marque'] ?? 'Marque non définie') ?></div>
+                                                                    <small class="text-muted"><?= htmlspecialchars($materiel['modele'] ?? 'Modèle non défini') ?></small>
+                                                                </a>
                                                             </td>
                                                             <td>
                                                                 <?= htmlspecialchars($materiel['type_nom'] ?? 'Type non défini') ?>
@@ -501,53 +522,10 @@ foreach ($materiel_list as $materiel) {
                                                                     </button>
                                                                 <?php endif; ?>
                                                             </td>
-                                                            <td>
-                                                                <?php
-                                                                // Construire les paramètres de filtres pour les liens
-                                                                $filterParams = [];
-                                                                if (!empty($filters['client_id'])) {
-                                                                    $filterParams['client_id'] = $filters['client_id'];
-                                                                }
-                                                                if (!empty($filters['site_id'])) {
-                                                                    $filterParams['site_id'] = $filters['site_id'];
-                                                                }
-                                                                if (!empty($filters['salle_id'])) {
-                                                                    $filterParams['salle_id'] = $filters['salle_id'];
-                                                                }
-                                                                
-                                                                $viewUrl = BASE_URL . 'materiel/view/' . $materiel['id'];
-                                                                $editUrl = BASE_URL . 'materiel/edit/' . $materiel['id'];
-                                                                
-                                                                if (!empty($filterParams)) {
-                                                                    $viewUrl .= '?' . http_build_query($filterParams);
-                                                                    $editUrl .= '?' . http_build_query($filterParams);
-                                                                }
-                                                                ?>
-                                                                <div class="d-flex">
-                                                                    <a href="<?= $viewUrl ?>" 
-                                                                       class="btn btn-sm btn-outline-info btn-action me-1" 
-                                                                       title="Voir">
-                                                                        <i class="<?php echo getIcon('show', 'bi bi-info-circle'); ?>"></i>
-                                                                    </a>
-                                                                    <a href="<?= $editUrl ?>" 
-                                                                       class="btn btn-sm btn-outline-warning btn-action me-1" 
-                                                                       title="Modifier">
-                                                                        <i class="<?php echo getIcon('edit', 'bi bi-pencil'); ?>"></i>
-                                                                    </a>
-                                                                    <?php if ($userType === 'admin'): ?>
-                                                                        <button type="button" 
-                                                                                class="btn btn-sm btn-outline-danger btn-action" 
-                                                                                onclick="deleteMateriel(<?= $materiel['id'] ?>)" 
-                                                                                title="Supprimer">
-                                                                            <i class="<?php echo getIcon('delete', 'bi bi-trash'); ?>"></i>
-                                                                        </button>
-                                                                    <?php endif; ?>
-                                                                </div>
-                                                            </td>
                                                         </tr>
                                                         <!-- Ligne d'accordéon pour les pièces jointes -->
                                                         <tr id="attachments-<?= $materiel['id'] ?>" class="attachments-row" style="display: none;">
-                                                            <td colspan="9" class="p-0">
+                                                            <td colspan="8" class="p-0">
                                                                 <div class="card border-0 m-2">
                                                                     <div class="card-body p-3">
                                                                         <div class="d-flex justify-content-between align-items-center mb-3">
