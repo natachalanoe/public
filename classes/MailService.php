@@ -34,13 +34,20 @@ class MailService {
             $oauth2Enabled = $this->config->get('oauth2_enabled', '0');
             
             if ($oauth2Enabled === '1') {
+                // Vérifier le token OAuth2 avant l'envoi
+                $accessToken = $this->getValidOAuth2Token();
+                if (!$accessToken) {
+                    throw new Exception("Token OAuth2 invalide ou expiré. Vérifiez la configuration OAuth2.");
+                }
+                
+                custom_log("Token OAuth2 valide trouvé, tentative d'envoi", 'INFO');
                 return $this->sendEmailOAuth2($to, '', $subject, $body);
             } else {
                 return $this->sendEmailBasic($to, '', $subject, $body);
             }
         } catch (Exception $e) {
             custom_log("Erreur lors de l'envoi de l'email de test: " . $e->getMessage(), 'ERROR');
-            return false;
+            throw $e; // Re-throw pour avoir l'erreur détaillée
         }
     }
 
