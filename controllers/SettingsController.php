@@ -1274,6 +1274,10 @@ class SettingsController {
      * Test d'envoi d'email
      */
     public function testEmailSend() {
+        // Désactiver l'affichage des erreurs pour éviter les problèmes JSON
+        error_reporting(0);
+        ini_set('display_errors', 0);
+        
         $this->checkAdmin();
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -1354,6 +1358,12 @@ class SettingsController {
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur fatale: ' . $e->getMessage()
+            ]);
+        } catch (Throwable $e) {
+            custom_log("Erreur inattendue lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur inattendue: ' . $e->getMessage()
             ]);
         }
         exit;
