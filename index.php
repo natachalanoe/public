@@ -1375,6 +1375,13 @@ try {
                 case 'testOAuth2':
                     $settingsController->testOAuth2();
                     break;
+                case 'oauth2':
+                    if ($action === 'callback') {
+                        $settingsController->oauth2Callback();
+                    } else {
+                        header('Location: ' . BASE_URL . 'settings');
+                    }
+                    break;
                 case 'oauth2Callback':
                     $settingsController->oauth2Callback();
                     break;

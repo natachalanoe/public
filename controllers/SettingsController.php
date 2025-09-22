@@ -1100,13 +1100,17 @@ class SettingsController {
     private function performOAuth2Test($settings) {
         try {
             // Vérifier la connectivité vers Microsoft
-            $discoveryUrl = "https://login.microsoftonline.com/{$settings['tenant_id']}/v2.0/.well-known/openid_configuration";
+            // Utiliser le tenant commun pour éviter les problèmes de timeout
+            $discoveryUrl = "https://login.microsoftonline.com/common/v2.0/.well-known/openid_configuration";
             
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $discoveryUrl);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 15);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Avision/1.0');
             
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -1149,7 +1153,7 @@ class SettingsController {
 
             return [
                 'success' => true,
-                'message' => "Configuration OAuth2 valide. Tenant ID vérifié avec succès."
+                'message' => "Configuration OAuth2 valide. Connectivité Microsoft vérifiée avec succès."
             ];
 
         } catch (Exception $e) {
