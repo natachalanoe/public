@@ -1388,6 +1388,9 @@ try {
                 case 'testEmailSend':
                     $settingsController->testEmailSend();
                     break;
+                case 'testSmtp':
+                    $settingsController->testSmtp();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'settings');
                     break;

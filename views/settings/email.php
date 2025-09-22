@@ -243,11 +243,8 @@ $config = Config::getInstance();
                                 <button type="button" class="btn btn-outline-success" id="testEmailSendBtn">
                                     <i class="bi bi-envelope-check me-1"></i> Tester envoi email
                                 </button>
-                                <button type="button" class="btn btn-outline-warning" id="disableOAuth2Btn">
-                                    <i class="bi bi-x-circle me-1"></i> Désactiver OAuth2
-                                </button>
-                                <button type="button" class="btn btn-outline-danger" id="emergencyDisableBtn">
-                                    <i class="bi bi-exclamation-triangle me-1"></i> Désactivation d'urgence
+                                <button type="button" class="btn btn-outline-primary" id="testSmtpBtn">
+                                    <i class="bi bi-gear me-1"></i> Tester SMTP simple
                                 </button>
                             </div>
                             
@@ -260,6 +257,7 @@ $config = Config::getInstance();
                                         <li><strong>Tester OAuth2</strong> : Vérifie la connectivité et la configuration</li>
                                         <li><strong>Autoriser l'application</strong> : Lance le processus d'autorisation avec votre compte Exchange 365</li>
                                         <li><strong>Tester envoi email</strong> : Envoie un email de test pour vérifier le fonctionnement</li>
+                                        <li><strong>Tester SMTP simple</strong> : Teste la configuration SMTP classique</li>
                                         <li><strong>Sauvegarder</strong> : Enregistre tous les paramètres (SMTP + OAuth2)</li>
                                     </ol>
                                 </div>
@@ -601,55 +599,7 @@ document.getElementById('testEmailSendBtn').addEventListener('click', function()
     });
 });
 
-// Désactiver OAuth2
-document.getElementById('disableOAuth2Btn').addEventListener('click', function() {
-    if (confirm('Êtes-vous sûr de vouloir désactiver OAuth2 ? Cela basculera vers SMTP classique.')) {
-        const formData = new FormData();
-        formData.append('oauth2_enabled', '0');
-        
-        fetch('<?= BASE_URL ?>settings/saveEmailSettings', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.text())
-        .then(() => {
-            showModal('success', 'OAuth2 désactivé', 'OAuth2 a été désactivé. Vous pouvez maintenant utiliser SMTP classique.');
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        })
-        .catch(error => {
-            showModal('danger', 'Erreur', 'Erreur lors de la désactivation d\'OAuth2: ' + error.message);
-        });
-    }
-});
-
-// Désactivation d'urgence
-document.getElementById('emergencyDisableBtn').addEventListener('click', function() {
-    if (confirm('DÉSACTIVATION D\'URGENCE : OAuth2 sera désactivé et SMTP classique activé. Continuer ?')) {
-        const formData = new FormData();
-        formData.append('oauth2_enabled', '0');
-        formData.append('mail_host', 'smtp.gmail.com');
-        formData.append('mail_port', '587');
-        formData.append('mail_encryption', 'tls');
-        
-        fetch('<?= BASE_URL ?>settings/saveEmailSettings', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.text())
-        .then(() => {
-            showModal('success', 'Désactivation d\'urgence', 'OAuth2 désactivé. Configurez SMTP classique ou un service relais.');
-            setTimeout(() => {
-                location.reload();
-            }, 2000);
-        })
-        .catch(error => {
-            showModal('danger', 'Erreur', 'Erreur lors de la désactivation d\'urgence: ' + error.message);
-        });
-    }
-});
-
+// Test SMTP simple
 document.getElementById('testSmtpBtn').addEventListener('click', function() {
     const btn = this;
     const originalText = btn.innerHTML;
@@ -659,16 +609,22 @@ document.getElementById('testSmtpBtn').addEventListener('click', function() {
     btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Test en cours...';
     
     // Récupérer les valeurs du formulaire
-    const formData = new FormData();
-    formData.append('mail_host', document.getElementById('mail_host').value);
-    formData.append('mail_port', document.getElementById('mail_port').value);
-    formData.append('mail_username', document.getElementById('mail_username').value);
-    formData.append('mail_password', document.getElementById('mail_password').value);
-    formData.append('mail_encryption', document.getElementById('mail_encryption').value);
-    formData.append('mail_from_address', document.getElementById('mail_from_address').value);
-    formData.append('mail_from_name', document.getElementById('mail_from_name').value);
+    const mailHost = document.getElementById('mail_host').value;
+    const mailPort = document.getElementById('mail_port').value;
+    const mailUsername = document.getElementById('mail_username').value;
+    const mailPassword = document.getElementById('mail_password').value;
+    const mailEncryption = document.getElementById('mail_encryption').value;
     
-    // Envoyer la requête de test
+    // Créer les données à envoyer
+    const formData = new FormData();
+    formData.append('test_smtp', '1');
+    formData.append('mail_host', mailHost);
+    formData.append('mail_port', mailPort);
+    formData.append('mail_username', mailUsername);
+    formData.append('mail_password', mailPassword);
+    formData.append('mail_encryption', mailEncryption);
+    
+    // Envoyer la requête
     fetch('<?= BASE_URL ?>settings/testSmtp', {
         method: 'POST',
         body: formData
@@ -676,16 +632,13 @@ document.getElementById('testSmtpBtn').addEventListener('click', function() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Afficher un message de succès
-            showModal('success', 'Test SMTP réussi !', data.message);
+            showModal('success', 'Test SMTP réussi', data.message);
         } else {
-            // Afficher un message d'erreur
             showModal('danger', 'Test SMTP échoué', data.message);
         }
     })
     .catch(error => {
-        console.error('Erreur:', error);
-        showModal('danger', 'Erreur lors du test SMTP', error.message);
+        showModal('danger', 'Erreur', 'Erreur lors du test SMTP: ' + error.message);
     })
     .finally(() => {
         // Réactiver le bouton
@@ -693,6 +646,7 @@ document.getElementById('testSmtpBtn').addEventListener('click', function() {
         btn.innerHTML = originalText;
     });
 });
+
 
 function showModal(type, title, message) {
     // Supprimer les anciennes modales de test SMTP

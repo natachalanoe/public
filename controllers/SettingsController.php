@@ -1368,4 +1368,189 @@ class SettingsController {
         }
         exit;
     }
+
+    /**
+     * Test SMTP simple (sans OAuth2)
+     */
+    public function testSmtp() {
+        error_reporting(0);
+        ini_set('display_errors', 0);
+        
+        try {
+            // Vérifier si c'est une requête de test SMTP
+            if (!isset($_POST['test_smtp'])) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Paramètre de test manquant'
+                ]);
+                exit;
+            }
+
+            // Récupérer les paramètres SMTP
+            $mailHost = $_POST['mail_host'] ?? '';
+            $mailPort = $_POST['mail_port'] ?? '';
+            $mailUsername = $_POST['mail_username'] ?? '';
+            $mailPassword = $_POST['mail_password'] ?? '';
+            $mailEncryption = $_POST['mail_encryption'] ?? '';
+            $mailFromAddress = $_POST['mail_from_address'] ?? '';
+            $mailFromName = $_POST['mail_from_name'] ?? '';
+
+            // Validation des paramètres
+            if (empty($mailHost) || empty($mailPort) || empty($mailUsername) || empty($mailPassword)) {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Paramètres SMTP manquants (host, port, username, password requis)'
+                ]);
+                exit;
+            }
+
+            // Test de connexion SMTP
+            $result = $this->testSmtpConnection($mailHost, $mailPort, $mailUsername, $mailPassword, $mailEncryption);
+            
+            if ($result['success']) {
+                // Test d'envoi d'email
+                $emailResult = $this->sendTestEmailSmtp($mailHost, $mailPort, $mailUsername, $mailPassword, $mailEncryption, $mailFromAddress, $mailFromName);
+                
+                if ($emailResult['success']) {
+                    echo json_encode([
+                        'success' => true,
+                        'message' => 'Test SMTP réussi ! Connexion et envoi d\'email fonctionnent correctement.'
+                    ]);
+                } else {
+                    echo json_encode([
+                        'success' => false,
+                        'message' => 'Connexion SMTP réussie mais échec de l\'envoi : ' . $emailResult['message']
+                    ]);
+                }
+            } else {
+                echo json_encode([
+                    'success' => false,
+                    'message' => 'Échec de la connexion SMTP : ' . $result['message']
+                ]);
+            }
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors du test SMTP: " . $e->getMessage(), 'ERROR');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur: ' . $e->getMessage()
+            ]);
+        } catch (Throwable $e) {
+            custom_log("Erreur inattendue lors du test SMTP: " . $e->getMessage(), 'ERROR');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur inattendue: ' . $e->getMessage()
+            ]);
+        }
+        exit;
+    }
+
+    /**
+     * Test de connexion SMTP
+     */
+    private function testSmtpConnection($host, $port, $username, $password, $encryption) {
+        try {
+            // Test de connexion basique
+            $connection = @fsockopen($host, $port, $errno, $errstr, 10);
+            
+            if (!$connection) {
+                return [
+                    'success' => false,
+                    'message' => "Impossible de se connecter à $host:$port (Code: $errno - $errstr)"
+                ];
+            }
+            
+            fclose($connection);
+            
+            // Test avec PHPMailer si disponible
+            if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+                return $this->testSmtpWithPHPMailer($host, $port, $username, $password, $encryption);
+            }
+            
+            return [
+                'success' => true,
+                'message' => 'Connexion SMTP réussie'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur de connexion : ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Test SMTP avec PHPMailer
+     */
+    private function testSmtpWithPHPMailer($host, $port, $username, $password, $encryption) {
+        try {
+            require_once __DIR__ . '/../vendor/autoload.php';
+            
+            $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = $host;
+            $mail->SMTPAuth = true;
+            $mail->Username = $username;
+            $mail->Password = $password;
+            $mail->SMTPSecure = $encryption === 'ssl' ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = $port;
+            $mail->Timeout = 10;
+            
+            // Test de connexion
+            $mail->smtpConnect();
+            $mail->smtpClose();
+            
+            return [
+                'success' => true,
+                'message' => 'Connexion SMTP avec PHPMailer réussie'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur PHPMailer : ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Envoi d'email de test SMTP
+     */
+    private function sendTestEmailSmtp($host, $port, $username, $password, $encryption, $fromAddress, $fromName) {
+        try {
+            require_once __DIR__ . '/../vendor/autoload.php';
+            
+            $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+            $mail->isSMTP();
+            $mail->Host = $host;
+            $mail->SMTPAuth = true;
+            $mail->Username = $username;
+            $mail->Password = $password;
+            $mail->SMTPSecure = $encryption === 'ssl' ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port = $port;
+            $mail->Timeout = 15;
+            
+            // Configuration de l'email
+            $mail->setFrom($fromAddress ?: $username, $fromName ?: 'Test SMTP');
+            $mail->addAddress($username); // Envoyer à soi-même pour le test
+            $mail->Subject = 'Test SMTP - ' . date('Y-m-d H:i:s');
+            $mail->Body = 'Ceci est un email de test SMTP envoyé le ' . date('Y-m-d H:i:s') . '.';
+            $mail->isHTML(false);
+            
+            // Envoi
+            $mail->send();
+            
+            return [
+                'success' => true,
+                'message' => 'Email de test envoyé avec succès'
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'success' => false,
+                'message' => 'Erreur d\'envoi : ' . $e->getMessage()
+            ];
+        }
+    }
 } 
