@@ -142,8 +142,8 @@ ini_set('max_execution_time', 60);
         echo '<h2>🔧 Configuration OAuth2</h2>';
         
         try {
-            if (file_exists('../../config/config.php')) {
-                require_once '../../config/config.php';
+            if (file_exists('../config/config.php')) {
+                require_once '../config/config.php';
                 $config = Config::getInstance();
                 
                 $clientId = $config->get('oauth2_client_id', '');
