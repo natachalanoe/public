@@ -683,6 +683,53 @@ include_once __DIR__ . '/../../includes/navbar.php';
     </div>
 </div>
 
+<!-- Modal d'information sur la gestion des tickets -->
+<div class="modal fade" id="ticketManagementInfoModal" tabindex="-1" aria-labelledby="ticketManagementInfoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ticketManagementInfoModalLabel">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Gestion automatique des tickets
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-lightbulb me-2"></i>Information importante</h6>
+                    <p class="mb-0">
+                        Cette intervention est fermée et des tickets ont déjà été déduits. 
+                        Si vous changez le contrat associé, la gestion des tickets se fera automatiquement :
+                    </p>
+                </div>
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                        <strong>Contrat à tickets → Contrat à tickets :</strong> Les tickets seront transférés automatiquement
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-arrow-right-circle text-success me-2"></i>
+                        <strong>Contrat à tickets → Contrat sans tickets :</strong> Les tickets seront recrédités à l'ancien contrat
+                    </li>
+                    <li class="mb-2">
+                        <i class="bi bi-arrow-right-circle text-warning me-2"></i>
+                        <strong>Contrat sans tickets → Contrat à tickets :</strong> Les tickets seront déduits du nouveau contrat
+                    </li>
+                </ul>
+                <div class="alert alert-warning">
+                    <small>
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Toutes les modifications de tickets sont enregistrées dans l'historique des contrats.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Compris</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Script pour mettre à jour les sites et les salles en fonction du client sélectionné -->
 <script>
     // Initialiser BASE_URL pour JavaScript
@@ -723,6 +770,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 const option = contractSelect.querySelector(`option[value="${contract.id}"]`);
                                 if (option) {
                                     option.selected = true;
+                                    // Vérifier si on doit afficher la modal d'information sur les tickets
+                                    checkAndShowTicketManagementModal();
                                 }
                             }, 100);
                         }
@@ -733,6 +782,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
         
         typeSelect.addEventListener('change', function() {
             updateTypeRequiresTravel('type_id', 'type_requires_travel', 'type_requires_travel');
+        });
+
+        // Gestion du changement de contrat pour les interventions fermées
+        contractSelect.addEventListener('change', function() {
+            checkAndShowTicketManagementModal();
         });
 
         // Gestion des contacts clients
@@ -991,8 +1045,29 @@ document.getElementById('editAttachmentNameForm').addEventListener('submit', fun
         // Réactiver le bouton
         submitBtn.disabled = false;
         submitBtn.innerHTML = originalText;
+        });
     });
-});
+
+    // Fonction pour vérifier et afficher la modal de gestion des tickets
+    function checkAndShowTicketManagementModal() {
+        // Vérifier si l'intervention est fermée (status_id = 6)
+        const statusId = <?php echo $intervention['status_id'] ?? 0; ?>;
+        const ticketsUsed = <?php echo $intervention['tickets_used'] ?? 0; ?>;
+        const originalContractId = '<?php echo $intervention['contract_id'] ?? ''; ?>';
+        const currentContractId = document.getElementById('contract_id').value;
+        
+        // Afficher la modal seulement si :
+        // 1. L'intervention est fermée (status_id = 6)
+        // 2. Des tickets ont été utilisés
+        // 3. Le contrat a changé
+        if (statusId == 6 && ticketsUsed > 0 && originalContractId !== currentContractId && currentContractId !== '') {
+            // Attendre un peu pour que l'utilisateur voie le changement
+            setTimeout(() => {
+                const modal = new bootstrap.Modal(document.getElementById('ticketManagementInfoModal'));
+                modal.show();
+            }, 500);
+        }
+    }
 </script>
 
 <style>

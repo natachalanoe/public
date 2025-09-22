@@ -984,10 +984,23 @@ class ContractModel {
             ]);
             
             if ($result) {
-                error_log("DEBUG - recordTicketModification: Enregistrement réussi dans contract_history");
-                return true;
+                // Maintenant mettre à jour les tickets restants dans la table contracts
+                $updateSql = "UPDATE contracts SET tickets_remaining = :tickets_remaining WHERE id = :contract_id";
+                $updateStmt = $this->db->prepare($updateSql);
+                $updateResult = $updateStmt->execute([
+                    ':tickets_remaining' => $ticketsAfter,
+                    ':contract_id' => $contractId
+                ]);
+                
+                if ($updateResult) {
+                    error_log("DEBUG - recordTicketModification: Mise à jour des tickets restants réussie: $ticketsBefore → $ticketsAfter");
+                    return true;
+                } else {
+                    error_log("ERROR - recordTicketModification: Échec de la mise à jour des tickets restants");
+                    return false;
+                }
             } else {
-                error_log("ERROR - recordTicketModification: Échec de l'exécution de la requête");
+                error_log("ERROR - recordTicketModification: Échec de l'exécution de la requête d'historique");
                 return false;
             }
             

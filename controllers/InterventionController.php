@@ -438,7 +438,7 @@ class InterventionController {
             'status_id' => $_POST['status_id'] ?? $intervention['status_id'],
             'priority_id' => $_POST['priority_id'] ?? $intervention['priority_id'],
             'type_id' => $_POST['type_id'] ?? $intervention['type_id'],
-            'duration' => $_POST['duration'] ?? $intervention['duration'],
+            'duration' => !empty($_POST['duration']) ? $_POST['duration'] : ($intervention['duration'] ?? null),
             'description' => $_POST['description'] ?? $intervention['description'],
             'demande_par' => $_POST['demande_par'] ?? $intervention['demande_par'],
             'ref_client' => $_POST['ref_client'] ?? $intervention['ref_client'],
@@ -516,6 +516,9 @@ class InterventionController {
             }
         }
         
+        // Gestion des tickets lors du changement de contrat pour une intervention fermée
+        $ticketManagementResult = $this->handleTicketManagementOnContractChange($id, $intervention, $data);
+        
         // Valider le format de l'email si renseigné
         if (!empty($data['contact_client'])) {
             if (!filter_var($data['contact_client'], FILTER_VALIDATE_EMAIL)) {
@@ -543,7 +546,11 @@ class InterventionController {
                 $this->recordChanges($id, $intervention, $data);
             }
             
-            $_SESSION['success'] = "Intervention mise à jour avec succès.";
+            $successMessage = "Intervention mise à jour avec succès.";
+            if ($ticketManagementResult) {
+                $successMessage .= " La gestion des tickets a été effectuée automatiquement.";
+            }
+            $_SESSION['success'] = $successMessage;
         } else {
             $_SESSION['error'] = "Erreur lors de la mise à jour de l'intervention.";
         }
@@ -2760,5 +2767,210 @@ class InterventionController {
         ]);
 
         return $filePath;
+    }
+
+    /**
+     * Gère les tickets lors du changement de contrat pour une intervention fermée
+     * @param int $interventionId ID de l'intervention
+     * @param array $oldIntervention Données de l'intervention avant modification
+     * @param array $newData Nouvelles données de l'intervention
+     */
+    private function handleTicketManagementOnContractChange($interventionId, $oldIntervention, $newData) {
+        // Vérifier si l'intervention était fermée (tickets déjà déduits)
+        if ($oldIntervention['status_id'] != 6) {
+            return false; // Intervention pas fermée, pas de gestion des tickets
+        }
+
+        // Vérifier si le contrat a changé
+        $oldContractId = $oldIntervention['contract_id'] ?? null;
+        $newContractId = $newData['contract_id'] ?? null;
+        
+        if ($oldContractId == $newContractId) {
+            return false; // Pas de changement de contrat
+        }
+
+        // Vérifier si l'intervention avait des tickets utilisés
+        $ticketsUsed = $oldIntervention['tickets_used'] ?? 0;
+        if ($ticketsUsed <= 0) {
+            return false; // Pas de tickets utilisés
+        }
+
+        // Récupérer les informations des contrats
+        $oldContract = $this->getContractTicketInfo($oldContractId);
+        $newContract = $this->getContractTicketInfo($newContractId);
+
+        // Déterminer les actions à effectuer
+        $oldIsTicketContract = $oldContract && $oldContract['tickets_number'] > 0;
+        $newIsTicketContract = $newContract && $newContract['tickets_number'] > 0;
+
+        // Historiser le changement de contrat dans l'historique de l'intervention
+        $this->recordContractChangeInInterventionHistory($interventionId, $oldContract, $newContract, $ticketsUsed);
+
+        // Si on passe d'un contrat à tickets à un autre contrat à tickets
+        if ($oldIsTicketContract && $newIsTicketContract) {
+            $this->handleTicketContractToTicketContract($oldContractId, $newContractId, $ticketsUsed, $interventionId);
+            return true;
+        }
+        // Si on passe d'un contrat à tickets à un contrat sans tickets
+        elseif ($oldIsTicketContract && !$newIsTicketContract) {
+            $this->handleTicketContractToNonTicketContract($oldContractId, $ticketsUsed, $interventionId);
+            return true;
+        }
+        // Si on passe d'un contrat sans tickets à un contrat à tickets
+        elseif (!$oldIsTicketContract && $newIsTicketContract) {
+            $this->handleNonTicketContractToTicketContract($newContractId, $ticketsUsed, $interventionId);
+            return true;
+        }
+        
+        return true; // Retourner true car on a historisé le changement même sans gestion de tickets
+    }
+
+    /**
+     * Récupère les informations d'un contrat pour la gestion des tickets
+     * @param int|null $contractId ID du contrat
+     * @return array|null Informations du contrat
+     */
+    private function getContractTicketInfo($contractId) {
+        if (!$contractId) {
+            return null;
+        }
+
+        $sql = "SELECT id, name, tickets_number, tickets_remaining FROM contracts WHERE id = :contract_id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':contract_id' => $contractId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Gère le passage d'un contrat à tickets à un autre contrat à tickets
+     * @param int $oldContractId ID de l'ancien contrat
+     * @param int $newContractId ID du nouveau contrat
+     * @param int $ticketsUsed Nombre de tickets utilisés
+     * @param int $interventionId ID de l'intervention
+     */
+    private function handleTicketContractToTicketContract($oldContractId, $newContractId, $ticketsUsed, $interventionId) {
+        $contractModel = new ContractModel($this->db);
+        
+        // Récupérer la référence de l'intervention
+        $interventionRef = $this->getInterventionReference($interventionId);
+        
+        // Recréditer l'ancien contrat
+        $creditComment = $interventionRef . ' - Recrédit automatique - Changement de contrat';
+        $contractModel->recordTicketModification($oldContractId, -$ticketsUsed, $creditComment);
+        
+        // Déduire du nouveau contrat
+        $debitComment = $interventionRef . ' - Déduction automatique - Changement de contrat';
+        $contractModel->recordTicketModification($newContractId, $ticketsUsed, $debitComment);
+        
+        custom_log("Tickets transférés de contrat $oldContractId vers contrat $newContractId pour intervention $interventionId", 'INFO');
+    }
+
+    /**
+     * Gère le passage d'un contrat à tickets à un contrat sans tickets
+     * @param int $oldContractId ID de l'ancien contrat
+     * @param int $ticketsUsed Nombre de tickets utilisés
+     * @param int $interventionId ID de l'intervention
+     */
+    private function handleTicketContractToNonTicketContract($oldContractId, $ticketsUsed, $interventionId) {
+        $contractModel = new ContractModel($this->db);
+        
+        // Récupérer la référence de l'intervention
+        $interventionRef = $this->getInterventionReference($interventionId);
+        
+        // Recréditer l'ancien contrat
+        $creditComment = $interventionRef . ' - Recrédit automatique - Changement vers contrat sans tickets';
+        $contractModel->recordTicketModification($oldContractId, -$ticketsUsed, $creditComment);
+        
+        custom_log("Tickets recrédités au contrat $oldContractId pour intervention $interventionId (changement vers contrat sans tickets)", 'INFO');
+    }
+
+    /**
+     * Gère le passage d'un contrat sans tickets à un contrat à tickets
+     * @param int $newContractId ID du nouveau contrat
+     * @param int $ticketsUsed Nombre de tickets utilisés
+     * @param int $interventionId ID de l'intervention
+     */
+    private function handleNonTicketContractToTicketContract($newContractId, $ticketsUsed, $interventionId) {
+        $contractModel = new ContractModel($this->db);
+        
+        // Récupérer la référence de l'intervention
+        $interventionRef = $this->getInterventionReference($interventionId);
+        
+        // Déduire du nouveau contrat
+        $debitComment = $interventionRef . ' - Déduction automatique - Changement depuis contrat sans tickets';
+        $contractModel->recordTicketModification($newContractId, $ticketsUsed, $debitComment);
+        
+        custom_log("Tickets déduits du contrat $newContractId pour intervention $interventionId (changement depuis contrat sans tickets)", 'INFO');
+    }
+
+    /**
+     * Récupère la référence d'une intervention
+     * @param int $interventionId ID de l'intervention
+     * @return string Référence de l'intervention
+     */
+    private function getInterventionReference($interventionId) {
+        $sql = "SELECT reference FROM interventions WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([':id' => $interventionId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result ? $result['reference'] : "Intervention #$interventionId";
+    }
+
+    /**
+     * Enregistre le changement de contrat dans l'historique de l'intervention
+     * @param int $interventionId ID de l'intervention
+     * @param array|null $oldContract Ancien contrat
+     * @param array|null $newContract Nouveau contrat
+     * @param int $ticketsUsed Nombre de tickets utilisés
+     */
+    private function recordContractChangeInInterventionHistory($interventionId, $oldContract, $newContract, $ticketsUsed) {
+        try {
+            // Préparer les valeurs d'affichage
+            $oldContractName = $oldContract ? $oldContract['name'] : 'Aucun contrat';
+            $newContractName = $newContract ? $newContract['name'] : 'Aucun contrat';
+            
+            // Construire la description détaillée
+            $description = "Changement de contrat : $oldContractName → $newContractName";
+            
+            // Ajouter des détails sur la gestion des tickets
+            $oldIsTicketContract = $oldContract && $oldContract['tickets_number'] > 0;
+            $newIsTicketContract = $newContract && $newContract['tickets_number'] > 0;
+            
+            if ($oldIsTicketContract && $newIsTicketContract) {
+                $description .= " (Transfert de $ticketsUsed tickets)";
+            } elseif ($oldIsTicketContract && !$newIsTicketContract) {
+                $description .= " (Recrédit de $ticketsUsed tickets à l'ancien contrat)";
+            } elseif (!$oldIsTicketContract && $newIsTicketContract) {
+                $description .= " (Déduction de $ticketsUsed tickets du nouveau contrat)";
+            } elseif ($oldIsTicketContract || $newIsTicketContract) {
+                $description .= " (Gestion des tickets effectuée)";
+            }
+            
+            // Enregistrer dans l'historique de l'intervention
+            $sql = "INSERT INTO intervention_history (
+                        intervention_id, field_name, old_value, new_value, changed_by, description
+                    ) VALUES (
+                        :intervention_id, :field_name, :old_value, :new_value, :changed_by, :description
+                    )";
+            
+            $stmt = $this->db->prepare($sql);
+            $result = $stmt->execute([
+                ':intervention_id' => $interventionId,
+                ':field_name' => 'Contrat associé',
+                ':old_value' => $oldContractName,
+                ':new_value' => $newContractName,
+                ':changed_by' => $_SESSION['user']['id'],
+                ':description' => $description
+            ]);
+            
+            if ($result) {
+                custom_log("Changement de contrat historisé pour intervention $interventionId : $oldContractName → $newContractName", 'INFO');
+            } else {
+                custom_log("Erreur lors de l'historisation du changement de contrat pour intervention $interventionId", 'ERROR');
+            }
+            
+        } catch (Exception $e) {
+            custom_log("Exception lors de l'historisation du changement de contrat pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
+        }
     }
 } 

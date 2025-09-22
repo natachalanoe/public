@@ -97,48 +97,48 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </div>
 
         <!-- Onglets pour les différentes sections -->
-        <div class="row g-3 mb-4" id="clientTabs" role="tablist">
-            <div class="col-md-3">
+        <div class="row g-2 mb-4" id="clientTabs" role="tablist">
+            <div class="col">
                 <div class="card tab-card active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" role="tab" aria-controls="info" aria-selected="true" style="cursor: pointer; border: 2px solid #007bff;">
-                    <div class="card-body text-center p-3">
-                        <div class="mb-2">
-                            <i class="<?php echo getIcon('info', 'bi bi-info-circle'); ?> fs-2 text-primary"></i>
+                    <div class="card-body text-center p-2">
+                        <div class="mb-1">
+                            <i class="<?php echo getIcon('info', 'bi bi-info-circle'); ?> fs-3 text-primary"></i>
                         </div>
-                        <h6 class="card-title mb-1">Informations</h6>
-                        <small class="text-muted">Détails du client</small>
+                        <h6 class="card-title mb-1 fs-6">Informations</h6>
+                        <small class="text-muted d-block">Détails du client</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="card tab-card" id="contacts-tab" data-bs-toggle="tab" data-bs-target="#contacts" role="tab" aria-controls="contacts" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
-                    <div class="card-body text-center p-3">
-                        <div class="mb-2">
-                            <i class="<?php echo getIcon('contact', 'bi bi-person-lines-fill'); ?> fs-2 text-success"></i>
+                    <div class="card-body text-center p-2">
+                        <div class="mb-1">
+                            <i class="<?php echo getIcon('contact', 'bi bi-person-lines-fill'); ?> fs-3 text-success"></i>
                         </div>
-                        <h6 class="card-title mb-1">Contacts</h6>
-                        <small class="text-muted"><?php echo count($contacts); ?> contact(s)</small>
+                        <h6 class="card-title mb-1 fs-6">Contacts</h6>
+                        <small class="text-muted d-block"><?php echo count($contacts); ?> contact(s)</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="card tab-card" id="sites-tab" data-bs-toggle="tab" data-bs-target="#sites" role="tab" aria-controls="sites" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
-                    <div class="card-body text-center p-3">
-                        <div class="mb-2">
-                            <i class="<?php echo getIcon('site', 'bi bi-building'); ?> fs-2 text-warning"></i>
+                    <div class="card-body text-center p-2">
+                        <div class="mb-1">
+                            <i class="<?php echo getIcon('site', 'bi bi-building'); ?> fs-3 text-warning"></i>
                         </div>
-                        <h6 class="card-title mb-1">Sites</h6>
-                        <small class="text-muted"><?php echo $stats['site_count'] ?? 0; ?> site(s) • <?php echo $stats['room_count'] ?? 0; ?> salle(s)</small>
+                        <h6 class="card-title mb-1 fs-6">Sites</h6>
+                        <small class="text-muted d-block"><?php echo $stats['site_count'] ?? 0; ?> site(s) • <?php echo $stats['room_count'] ?? 0; ?> salle(s)</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            <div class="col">
                 <div class="card tab-card" id="contracts-tab" data-bs-toggle="tab" data-bs-target="#contracts" role="tab" aria-controls="contracts" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
-                    <div class="card-body text-center p-3">
-                        <div class="mb-2">
-                            <i class="<?php echo getIcon('contract', 'bi bi-file-earmark-text'); ?> fs-2 text-info"></i>
+                    <div class="card-body text-center p-2">
+                        <div class="mb-1">
+                            <i class="<?php echo getIcon('contract', 'bi bi-file-earmark-text'); ?> fs-3 text-info"></i>
                         </div>
-                        <h6 class="card-title mb-1">Contrats</h6>
-                        <small class="text-muted">
+                        <h6 class="card-title mb-1 fs-6">Contrats</h6>
+                        <small class="text-muted d-block">
                             <?php echo $stats['contract_count'] ?? 0; ?> contrat(s)
                             <?php 
                             // Calculer la somme des tickets restants pour les contrats avec tickets
@@ -153,7 +153,35 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 }
                             }
                             if ($contractsWithTickets > 0) {
-                                echo ' • ' . $totalTicketsRemaining . ' ticket(s) restant(s)';
+                                echo ' • ' . $totalTicketsRemaining . ' ticket(s)';
+                            }
+                            ?>
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="col">
+                <div class="card tab-card" id="interventions-tab" data-bs-toggle="tab" data-bs-target="#interventions" role="tab" aria-controls="interventions" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
+                    <div class="card-body text-center p-2">
+                        <div class="mb-1">
+                            <i class="<?php echo getIcon('intervention', 'bi bi-tools'); ?> fs-3 text-danger"></i>
+                        </div>
+                        <h6 class="card-title mb-1 fs-6">Interventions</h6>
+                        <small class="text-muted d-block">
+                            <?php 
+                            $totalInterventions = 0;
+                            $preventiveCount = 0;
+                            $correctiveCount = 0;
+                            if (!empty($interventionsGrouped)) {
+                                foreach ($interventionsGrouped as $contractGroup) {
+                                    $totalInterventions += count($contractGroup['preventive']) + count($contractGroup['corrective']);
+                                    $preventiveCount += count($contractGroup['preventive']);
+                                    $correctiveCount += count($contractGroup['corrective']);
+                                }
+                            }
+                            echo $totalInterventions . ' intervention(s)';
+                            if ($preventiveCount > 0 || $correctiveCount > 0) {
+                                echo ' • ' . $preventiveCount . ' préventive(s) • ' . $correctiveCount . ' corrective(s)';
                             }
                             ?>
                         </small>
@@ -563,6 +591,175 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     </div>
                 </div>
             </div>
+
+            <!-- Onglet Interventions -->
+            <div class="tab-pane fade" id="interventions" role="tabpanel" aria-labelledby="interventions-tab">
+                <div class="card">
+                    <div class="card-header py-2">
+                        <h5 class="card-title mb-0">Interventions</h5>
+                    </div>
+                    <div class="card-body py-2">
+                        <?php if (!empty($interventionsGrouped)): ?>
+                            <div class="accordion" id="interventionsAccordion">
+                                <?php foreach ($interventionsGrouped as $contractId => $contractGroup): ?>
+                                    <div class="accordion-item">
+                                        <h2 class="accordion-header" id="contractHeading<?php echo $contractId; ?>">
+                                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#contractCollapse<?php echo $contractId; ?>" aria-expanded="false" aria-controls="contractCollapse<?php echo $contractId; ?>">
+                                                <div class="d-flex justify-content-between align-items-center w-100 me-3">
+                                                    <span><?php echo htmlspecialchars($contractGroup['contract_name']); ?></span>
+                                                    <div class="d-flex gap-2">
+                                                        <?php if (!empty($contractGroup['preventive'])): ?>
+                                                            <span class="badge bg-success"><?php echo count($contractGroup['preventive']); ?> préventive(s)</span>
+                                                        <?php endif; ?>
+                                                        <?php if (!empty($contractGroup['corrective'])): ?>
+                                                            <span class="badge bg-warning"><?php echo count($contractGroup['corrective']); ?> corrective(s)</span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        </h2>
+                                        <div id="contractCollapse<?php echo $contractId; ?>" class="accordion-collapse collapse" aria-labelledby="contractHeading<?php echo $contractId; ?>" data-bs-parent="#interventionsAccordion">
+                                            <div class="accordion-body">
+                                                <!-- Interventions Préventives -->
+                                                <?php if (!empty($contractGroup['preventive'])): ?>
+                                                    <div class="mb-4">
+                                                        <h6 class="fw-bold text-success mb-3">
+                                                            <i class="bi bi-shield-check me-2"></i>Interventions Préventives (<?php echo count($contractGroup['preventive']); ?>)
+                                                        </h6>
+                                                        <div class="table-responsive">
+                                                            <table class="table table-sm table-striped">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Référence</th>
+                                                                        <th>Titre</th>
+                                                                        <th>Date</th>
+                                                                        <th>Technicien</th>
+                                                                        <th>Durée</th>
+                                                                        <th>Tickets utilisés</th>
+                                                                        <th>Statut</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <?php foreach ($contractGroup['preventive'] as $intervention): ?>
+                                                                        <tr>
+                                                                            <td>
+                                                                                <a href="<?php echo BASE_URL; ?>interventions/view/<?php echo $intervention['id']; ?>?return_to=client&client_id=<?php echo $client['id']; ?>&active_tab=interventions-tab" class="text-decoration-none fw-bold" title="Voir l'intervention">
+                                                                                    <?php echo htmlspecialchars($intervention['reference'] ?? 'INT-' . $intervention['id']); ?>
+                                                                                </a>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo htmlspecialchars($intervention['title'] ?? '-'); ?></small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo formatDateFrench($intervention['created_at']); ?></small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo htmlspecialchars($intervention['technician_name'] ?? '-'); ?></small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo $intervention['duration'] ?? '-'; ?>h</small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small>
+                                                                                    <?php if (($intervention['tickets_used'] ?? 0) > 0): ?>
+                                                                                        <span class="badge bg-info"><?php echo $intervention['tickets_used']; ?></span>
+                                                                                    <?php else: ?>
+                                                                                        <span class="text-muted">-</span>
+                                                                                    <?php endif; ?>
+                                                                                </small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <span class="badge rounded-pill" style="background-color: <?php echo $intervention['status_color'] ?? '#6c757d'; ?>">
+                                                                                    <?php echo htmlspecialchars($intervention['status_name'] ?? '-'); ?>
+                                                                                </span>
+                                                                            </td>
+                                                                        </tr>
+                                                                    <?php endforeach; ?>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <!-- Interventions Correctives -->
+                                                <?php if (!empty($contractGroup['corrective'])): ?>
+                                                    <div class="mb-4">
+                                                        <h6 class="fw-bold text-warning mb-3">
+                                                            <i class="bi bi-tools me-2"></i>Interventions Correctives (<?php echo count($contractGroup['corrective']); ?>)
+                                                        </h6>
+                                                        <div class="table-responsive">
+                                                            <table class="table table-sm table-striped">
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th>Référence</th>
+                                                                        <th>Titre</th>
+                                                                        <th>Date</th>
+                                                                        <th>Technicien</th>
+                                                                        <th>Durée</th>
+                                                                        <th>Tickets utilisés</th>
+                                                                        <th>Statut</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <?php foreach ($contractGroup['corrective'] as $intervention): ?>
+                                                                        <tr>
+                                                                            <td>
+                                                                                <a href="<?php echo BASE_URL; ?>interventions/view/<?php echo $intervention['id']; ?>?return_to=client&client_id=<?php echo $client['id']; ?>&active_tab=interventions-tab" class="text-decoration-none fw-bold" title="Voir l'intervention">
+                                                                                    <?php echo htmlspecialchars($intervention['reference'] ?? 'INT-' . $intervention['id']); ?>
+                                                                                </a>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo htmlspecialchars($intervention['title'] ?? '-'); ?></small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo formatDateFrench($intervention['created_at']); ?></small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo htmlspecialchars($intervention['technician_name'] ?? '-'); ?></small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small><?php echo $intervention['duration'] ?? '-'; ?>h</small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <small>
+                                                                                    <?php if (($intervention['tickets_used'] ?? 0) > 0): ?>
+                                                                                        <span class="badge bg-info"><?php echo $intervention['tickets_used']; ?></span>
+                                                                                    <?php else: ?>
+                                                                                        <span class="text-muted">-</span>
+                                                                                    <?php endif; ?>
+                                                                                </small>
+                                                                            </td>
+                                                                            <td>
+                                                                                <span class="badge rounded-pill" style="background-color: <?php echo $intervention['status_color'] ?? '#6c757d'; ?>">
+                                                                                    <?php echo htmlspecialchars($intervention['status_name'] ?? '-'); ?>
+                                                                                </span>
+                                                                            </td>
+                                                                        </tr>
+                                                                    <?php endforeach; ?>
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+                                                <?php endif; ?>
+
+                                                <?php if (empty($contractGroup['preventive']) && empty($contractGroup['corrective'])): ?>
+                                                    <div class="alert alert-info">
+                                                        <i class="bi bi-info-circle me-2"></i> Aucune intervention enregistrée pour ce contrat.
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i> Aucune intervention enregistrée pour ce client.
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
         </div>
     <?php else: ?>
         <div class="alert alert-danger">
@@ -647,6 +844,7 @@ initBaseUrl('<?php echo BASE_URL; ?>');
 console.log('Client:', <?php echo json_encode($client); ?>);
 console.log('Sites:', <?php echo json_encode($sites); ?>);
 console.log('Stats:', <?php echo json_encode($stats); ?>);
+console.log('Interventions Grouped:', <?php echo json_encode($interventionsGrouped); ?>);
 
 // Fonction pour charger les salles d'un site via AJAX si nécessaire
 function loadRoomsForSite(siteId, callback) {
@@ -733,7 +931,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Initialiser le tri pour les deux tables
+    // Initialiser le tri pour les tables
     initSortableTable('contractsTable');
     initSortableTable('contactsTable');
 

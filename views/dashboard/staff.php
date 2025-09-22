@@ -40,6 +40,7 @@ $db = $config->getDb();
 
 // Récupération des statistiques des interventions
 try {
+    // Statistiques générales par statut (pour référence)
     $statsByStatus = $db->query("
         SELECT s.name as status, s.color as color, COUNT(i.id) as count
         FROM interventions i
@@ -49,15 +50,30 @@ try {
         ORDER BY s.id
     ")->fetchAll(PDO::FETCH_ASSOC);
 
-    $statsByClient = $db->query("
-        SELECT c.name as client, COUNT(i.id) as count
+    // Statistiques des interventions NON préventives par statut
+    $statsByStatusNonPreventive = $db->query("
+        SELECT s.name as status, s.color as color, COUNT(i.id) as count
         FROM interventions i
-        JOIN clients c ON i.client_id = c.id
+        JOIN intervention_statuses s ON i.status_id = s.id
+        JOIN intervention_priorities p ON i.priority_id = p.id
         WHERE i.status_id NOT IN (6, 7)
-        GROUP BY c.name
-        ORDER BY count DESC
-        LIMIT 5
+        AND p.name != 'Préventif'
+        GROUP BY s.name, s.id, s.color
+        ORDER BY s.id
     ")->fetchAll(PDO::FETCH_ASSOC);
+
+    // Statistiques des interventions préventives par statut
+    $statsByStatusPreventive = $db->query("
+        SELECT s.name as status, s.color as color, COUNT(i.id) as count
+        FROM interventions i
+        JOIN intervention_statuses s ON i.status_id = s.id
+        JOIN intervention_priorities p ON i.priority_id = p.id
+        WHERE i.status_id NOT IN (6, 7)
+        AND p.name = 'Préventif'
+        GROUP BY s.name, s.id, s.color
+        ORDER BY s.id
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
 
     $statsByPriority = $db->query("
         SELECT p.name as priority, p.color as color, COUNT(i.id) as count
@@ -180,7 +196,8 @@ try {
 } catch (Exception $e) {
     // En cas d'erreur, initialiser les variables avec des tableaux vides
     $statsByStatus = [];
-    $statsByClient = [];
+    $statsByStatusNonPreventive = [];
+    $statsByStatusPreventive = [];
     $statsByPriority = [];
     $expiringContracts = [];
     $lowTicketsContracts = [];
@@ -195,15 +212,27 @@ try {
     custom_log("Erreur lors du chargement des statistiques du dashboard : " . $e->getMessage(), 'ERROR');
 }
 
-// Préparer les données pour le graphique camembert
-$pieChartLabels = [];
-$pieChartSeries = [];
-$pieChartColors = [];
+// Préparer les données pour les graphiques camembert
+// Données pour les interventions NON préventives
+$pieChartLabelsNonPreventive = [];
+$pieChartSeriesNonPreventive = [];
+$pieChartColorsNonPreventive = [];
 
-foreach ($statsByStatus as $stat) {
-    $pieChartLabels[] = $stat['status'];
-    $pieChartSeries[] = (int)$stat['count'];
-    $pieChartColors[] = $stat['color'];
+foreach ($statsByStatusNonPreventive as $stat) {
+    $pieChartLabelsNonPreventive[] = $stat['status'];
+    $pieChartSeriesNonPreventive[] = (int)$stat['count'];
+    $pieChartColorsNonPreventive[] = $stat['color'];
+}
+
+// Données pour les interventions préventives
+$pieChartLabelsPreventive = [];
+$pieChartSeriesPreventive = [];
+$pieChartColorsPreventive = [];
+
+foreach ($statsByStatusPreventive as $stat) {
+    $pieChartLabelsPreventive[] = $stat['status'];
+    $pieChartSeriesPreventive[] = (int)$stat['count'];
+    $pieChartColorsPreventive[] = $stat['color'];
 }
 
 // Inclure le header qui contient le menu latéral
@@ -268,43 +297,26 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
             <!-- Cartes de statistiques -->
             <div class="row">
-                <!-- Graphique camembert des tickets par statut -->
+                <!-- Graphique camembert des interventions NON préventives -->
                 <div class="col-md-3">
                     <div class="card h-100">
                         <div class="card-header text-dark">
-                            <i class="bi bi-pie-chart me-1"></i> Interventions ouvertes
+                            <i class="bi bi-pie-chart me-1"></i> Interventions ouvertes (Non préventives)
                         </div>
                         <div class="card-body d-flex align-items-center justify-content-center">
-                            <div id="ticketsStatusPieChart" style="width: 100%; height: 300px;"></div>
+                            <div id="interventionsNonPreventivePieChart" style="width: 100%; height: 300px;"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Interventions par client -->
+                <!-- Graphique camembert des interventions préventives -->
                 <div class="col-md-3">
                     <div class="card h-100">
                         <div class="card-header text-dark">
-                            <i class="bi bi-building me-1"></i> Top 5 - Interventions par Client
+                            <i class="bi bi-pie-chart me-1"></i> Interventions ouvertes (Préventives)
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Client</th>
-                                            <th>Nombre</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($statsByClient as $stat): ?>
-                                        <tr>
-                                            <td><?php echo h($stat['client']); ?></td>
-                                            <td><?php echo $stat['count']; ?></td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="card-body d-flex align-items-center justify-content-center">
+                            <div id="interventionsPreventivePieChart" style="width: 100%; height: 300px;"></div>
                         </div>
                     </div>
                 </div>
@@ -621,29 +633,26 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 </div>
 
-<!-- Script pour le graphique camembert -->
+<!-- Script pour les graphiques camembert -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Configuration du graphique camembert
-    const pieChartEl = document.querySelector('#ticketsStatusPieChart');
-    
-    if (pieChartEl) {
-        // Couleurs par défaut si les couleurs de la base de données ne sont pas définies
-        const defaultColors = [
-            config.colors.primary,
-            config.colors.success,
-            config.colors.warning,
-            config.colors.info,
-            config.colors.danger,
-            config.colors.secondary
-        ];
-        
-        // Utiliser les couleurs de la base de données ou les couleurs par défaut
-        const chartColors = <?php echo json_encode($pieChartColors); ?>.map((color, index) => {
+    // Couleurs par défaut si les couleurs de la base de données ne sont pas définies
+    const defaultColors = [
+        config.colors.primary,
+        config.colors.success,
+        config.colors.warning,
+        config.colors.info,
+        config.colors.danger,
+        config.colors.secondary
+    ];
+
+    // Configuration commune pour les graphiques camembert
+    function createPieChartConfig(labels, series, colors, title) {
+        const chartColors = colors.map((color, index) => {
             return color || defaultColors[index % defaultColors.length];
         });
-        
-        const pieChartConfig = {
+
+        return {
             chart: {
                 height: '100%',
                 type: 'donut',
@@ -651,8 +660,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     show: false
                 }
             },
-            labels: <?php echo json_encode($pieChartLabels); ?>,
-            series: <?php echo json_encode($pieChartSeries); ?>,
+            labels: labels,
+            series: series,
             colors: chartColors,
             stroke: {
                 show: false,
@@ -771,9 +780,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             ]
         };
+    }
 
-        const pieChart = new ApexCharts(pieChartEl, pieChartConfig);
-        pieChart.render();
+    // Graphique camembert pour les interventions NON préventives
+    const nonPreventiveChartEl = document.querySelector('#interventionsNonPreventivePieChart');
+    if (nonPreventiveChartEl) {
+        const nonPreventiveConfig = createPieChartConfig(
+            <?php echo json_encode($pieChartLabelsNonPreventive); ?>,
+            <?php echo json_encode($pieChartSeriesNonPreventive); ?>,
+            <?php echo json_encode($pieChartColorsNonPreventive); ?>,
+            'Interventions Non Préventives'
+        );
+        const nonPreventiveChart = new ApexCharts(nonPreventiveChartEl, nonPreventiveConfig);
+        nonPreventiveChart.render();
+    }
+
+    // Graphique camembert pour les interventions préventives
+    const preventiveChartEl = document.querySelector('#interventionsPreventivePieChart');
+    if (preventiveChartEl) {
+        const preventiveConfig = createPieChartConfig(
+            <?php echo json_encode($pieChartLabelsPreventive); ?>,
+            <?php echo json_encode($pieChartSeriesPreventive); ?>,
+            <?php echo json_encode($pieChartColorsPreventive); ?>,
+            'Interventions Préventives'
+        );
+        const preventiveChart = new ApexCharts(preventiveChartEl, preventiveConfig);
+        preventiveChart.render();
     }
 });
 

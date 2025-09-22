@@ -1049,4 +1049,76 @@ class InterventionModel {
         $stmt->execute([$interventionId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    /**
+     * Récupère les interventions d'un client groupées par contrat et par type (préventif/non-préventif)
+     * @param int $clientId ID du client
+     * @return array Interventions groupées par contrat et par type
+     */
+    public function getInterventionsByClientGrouped($clientId) {
+        $sql = "SELECT i.*, 
+                c.name as client_name,
+                s.name as site_name,
+                r.name as room_name,
+                u.first_name as technician_first_name,
+                u.last_name as technician_last_name,
+                its.name as status_name,
+                its.color as status_color,
+                it.name as type_name,
+                it.requires_travel as type_requires_travel,
+                ip.name as priority_name,
+                ip.color as priority_color,
+                co.name as contract_name,
+                co.id as contract_id,
+                ct.name as contract_type_name
+                FROM " . $this->table . " i
+                LEFT JOIN clients c ON i.client_id = c.id
+                LEFT JOIN sites s ON i.site_id = s.id
+                LEFT JOIN rooms r ON i.room_id = r.id
+                LEFT JOIN users u ON i.technician_id = u.id
+                LEFT JOIN intervention_statuses its ON i.status_id = its.id
+                LEFT JOIN intervention_types it ON i.type_id = it.id
+                LEFT JOIN intervention_priorities ip ON i.priority_id = ip.id
+                LEFT JOIN contracts co ON i.contract_id = co.id
+                LEFT JOIN contract_types ct ON co.contract_type_id = ct.id
+                WHERE i.client_id = ?
+                ORDER BY co.name ASC, i.created_at DESC";
+        
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$clientId]);
+        $interventions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Grouper les interventions par contrat et par type préventif
+        $groupedInterventions = [];
+        
+        foreach ($interventions as $intervention) {
+            $contractName = $intervention['contract_name'] ?: 'Sans contrat';
+            $contractId = $intervention['contract_id'] ?: 'no_contract';
+            
+            // Déterminer si l'intervention est préventive basé sur la priorité
+            $priorityName = strtolower($intervention['priority_name'] ?? '');
+            $isPreventive = (strpos($priorityName, 'préventif') !== false || 
+                           strpos($priorityName, 'preventif') !== false) ? 'preventive' : 'corrective';
+            
+            // Ajouter le nom complet du technicien
+            if (!empty($intervention['technician_first_name']) && !empty($intervention['technician_last_name'])) {
+                $intervention['technician_name'] = $intervention['technician_first_name'] . ' ' . $intervention['technician_last_name'];
+            } else {
+                $intervention['technician_name'] = null;
+            }
+            
+            if (!isset($groupedInterventions[$contractId])) {
+                $groupedInterventions[$contractId] = [
+                    'contract_name' => $contractName,
+                    'contract_id' => $contractId,
+                    'preventive' => [],
+                    'corrective' => []
+                ];
+            }
+            
+            $groupedInterventions[$contractId][$isPreventive][] = $intervention;
+        }
+        
+        return $groupedInterventions;
+    }
 } 

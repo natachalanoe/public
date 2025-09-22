@@ -39,8 +39,27 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Détails de l'intervention</h4></div>
 
     <div class="ms-auto p-2 bd-highlight">
-        <a href="<?php echo BASE_URL; ?>interventions" class="btn btn-secondary me-2">
-            <i class="bi bi-arrow-left me-1"></i> Retour
+        <?php
+        // Gérer le retour dynamique
+        $returnUrl = BASE_URL . 'interventions'; // URL par défaut
+        $returnText = 'Retour';
+        
+        if (isset($_GET['return_to']) && isset($_GET['client_id'])) {
+            $returnTo = $_GET['return_to'];
+            $clientId = $_GET['client_id'];
+            $activeTab = $_GET['active_tab'] ?? '';
+            
+            if ($returnTo === 'client') {
+                $returnUrl = BASE_URL . 'clients/view/' . $clientId;
+                if ($activeTab) {
+                    $returnUrl .= '?active_tab=' . $activeTab;
+                }
+                $returnText = 'Retour au client';
+            }
+        }
+        ?>
+        <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
+            <i class="bi bi-arrow-left me-1"></i> <?php echo $returnText; ?>
         </a>
 
         <?php 

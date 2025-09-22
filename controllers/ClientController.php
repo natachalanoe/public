@@ -4,6 +4,7 @@ require_once __DIR__ . '/../models/SiteModel.php';
 require_once __DIR__ . '/../models/ContractModel.php';
 require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../models/ContactModel.php';
+require_once __DIR__ . '/../models/InterventionModel.php';
 
 class ClientController {
     private $db;
@@ -12,6 +13,7 @@ class ClientController {
     private $contractModel;
     private $roomModel;
     private $contactModel;
+    private $interventionModel;
 
     public function __construct() {
         global $db;
@@ -21,6 +23,7 @@ class ClientController {
         $this->contractModel = new ContractModel($this->db);
         $this->roomModel = new RoomModel($this->db);
         $this->contactModel = new ContactModel($this->db);
+        $this->interventionModel = new InterventionModel($this->db);
     }
 
     /**
@@ -95,6 +98,9 @@ class ClientController {
 
         // Récupérer les contacts du client
         $contacts = $this->contactModel->getContactsByClientId($id);
+
+        // Récupérer les interventions groupées par contrat et par type
+        $interventionsGrouped = $this->interventionModel->getInterventionsByClientGrouped($id);
 
         // Charger la vue avec les données structurées
         require_once VIEWS_PATH . '/client/view.php';
