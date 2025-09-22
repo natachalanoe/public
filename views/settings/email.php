@@ -243,6 +243,12 @@ $config = Config::getInstance();
                                 <button type="button" class="btn btn-outline-success" id="testEmailSendBtn">
                                     <i class="bi bi-envelope-check me-1"></i> Tester envoi email
                                 </button>
+                                <button type="button" class="btn btn-outline-warning" id="disableOAuth2Btn">
+                                    <i class="bi bi-x-circle me-1"></i> Désactiver OAuth2
+                                </button>
+                                <button type="button" class="btn btn-outline-danger" id="emergencyDisableBtn">
+                                    <i class="bi bi-exclamation-triangle me-1"></i> Désactivation d'urgence
+                                </button>
                             </div>
                             
                             <!-- Aide pour les tests -->
@@ -554,7 +560,7 @@ document.getElementById('authorizeOAuth2Btn').addEventListener('click', function
         `client_id=${encodeURIComponent(clientId)}&` +
         `response_type=code&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `scope=${encodeURIComponent('https://outlook.office365.com/SMTP.Send offline_access')}&` +
+        `scope=${encodeURIComponent('https://outlook.office.com/SMTP.Send offline_access')}&` +
         `response_mode=query&` +
         `state=oauth2_auth`;
     
@@ -593,6 +599,55 @@ document.getElementById('testEmailSendBtn').addEventListener('click', function()
         btn.disabled = false;
         btn.innerHTML = originalText;
     });
+});
+
+// Désactiver OAuth2
+document.getElementById('disableOAuth2Btn').addEventListener('click', function() {
+    if (confirm('Êtes-vous sûr de vouloir désactiver OAuth2 ? Cela basculera vers SMTP classique.')) {
+        const formData = new FormData();
+        formData.append('oauth2_enabled', '0');
+        
+        fetch('<?= BASE_URL ?>settings/saveEmailSettings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(() => {
+            showModal('success', 'OAuth2 désactivé', 'OAuth2 a été désactivé. Vous pouvez maintenant utiliser SMTP classique.');
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        })
+        .catch(error => {
+            showModal('danger', 'Erreur', 'Erreur lors de la désactivation d\'OAuth2: ' + error.message);
+        });
+    }
+});
+
+// Désactivation d'urgence
+document.getElementById('emergencyDisableBtn').addEventListener('click', function() {
+    if (confirm('DÉSACTIVATION D\'URGENCE : OAuth2 sera désactivé et SMTP classique activé. Continuer ?')) {
+        const formData = new FormData();
+        formData.append('oauth2_enabled', '0');
+        formData.append('mail_host', 'smtp.gmail.com');
+        formData.append('mail_port', '587');
+        formData.append('mail_encryption', 'tls');
+        
+        fetch('<?= BASE_URL ?>settings/saveEmailSettings', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(() => {
+            showModal('success', 'Désactivation d\'urgence', 'OAuth2 désactivé. Configurez SMTP classique ou un service relais.');
+            setTimeout(() => {
+                location.reload();
+            }, 2000);
+        })
+        .catch(error => {
+            showModal('danger', 'Erreur', 'Erreur lors de la désactivation d\'urgence: ' + error.message);
+        });
+    }
 });
 
 document.getElementById('testSmtpBtn').addEventListener('click', function() {

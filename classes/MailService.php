@@ -464,7 +464,7 @@ class MailService {
                 'client_secret' => $clientSecret,
                 'refresh_token' => $refreshToken,
                 'grant_type' => 'refresh_token',
-                'scope' => 'https://outlook.office365.com/SMTP.Send offline_access'
+                'scope' => 'https://outlook.office.com/SMTP.Send offline_access'
             ];
 
             $ch = curl_init();

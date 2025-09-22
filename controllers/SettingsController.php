@@ -1237,7 +1237,7 @@ class SettingsController {
                 'code' => $code,
                 'grant_type' => 'authorization_code',
                 'redirect_uri' => $redirectUri,
-                'scope' => 'https://outlook.office365.com/SMTP.Send offline_access'
+                'scope' => 'https://outlook.office.com/SMTP.Send offline_access'
             ];
 
             $ch = curl_init();
