@@ -1100,7 +1100,7 @@ class SettingsController {
     private function performOAuth2Test($settings) {
         try {
             // Vérifier la connectivité vers Microsoft
-            $discoveryUrl = "https://login.microsoftonline.com/{$settings['tenant_id']}/.well-known/openid_configuration";
+            $discoveryUrl = "https://login.microsoftonline.com/{$settings['tenant_id']}/v2.0/.well-known/openid_configuration";
             
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $discoveryUrl);
@@ -1121,9 +1121,13 @@ class SettingsController {
             }
 
             if ($httpCode !== 200) {
+                $errorMsg = "Erreur HTTP $httpCode lors de la vérification du tenant";
+                if ($httpCode === 404) {
+                    $errorMsg .= ". Vérifiez que le Tenant ID est correct et que l'application est autorisée dans ce tenant.";
+                }
                 return [
                     'success' => false,
-                    'message' => "Erreur HTTP $httpCode lors de la vérification du tenant"
+                    'message' => $errorMsg
                 ];
             }
 
