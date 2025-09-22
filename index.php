@@ -1385,6 +1385,9 @@ try {
                 case 'oauth2Callback':
                     $settingsController->oauth2Callback();
                     break;
+                case 'testEmailSend':
+                    $settingsController->testEmailSend();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'settings');
                     break;

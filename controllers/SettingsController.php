@@ -1269,4 +1269,93 @@ class SettingsController {
             return false;
         }
     }
+
+    /**
+     * Test d'envoi d'email
+     */
+    public function testEmailSend() {
+        $this->checkAdmin();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Méthode non autorisée']);
+            exit;
+        }
+
+        header('Content-Type: application/json');
+
+        try {
+            $testEmail = $_POST['test_email'] ?? '';
+            
+            if (empty($testEmail)) {
+                throw new Exception('Adresse email de test requise');
+            }
+
+            // Vérifier la configuration
+            $config = Config::getInstance();
+            $oauth2Enabled = $config->get('oauth2_enabled', '0');
+            
+            if ($oauth2Enabled === '1') {
+                // Test avec OAuth2
+                require_once __DIR__ . '/../classes/MailService.php';
+                global $db;
+                $mailService = new MailService($db);
+                
+                $subject = "Test OAuth2 - Avision";
+                $message = "Ceci est un email de test pour vérifier le fonctionnement d'OAuth2 avec Exchange 365.\n\n";
+                $message .= "Date d'envoi : " . date('Y-m-d H:i:s') . "\n";
+                $message .= "Configuration : OAuth2 activé\n";
+                $message .= "Serveur : " . $_SERVER['SERVER_NAME'] . "\n\n";
+                $message .= "Si vous recevez cet email, la configuration OAuth2 fonctionne correctement !";
+                
+                $result = $mailService->sendTestEmail($testEmail, $subject, $message);
+                
+                if ($result) {
+                    echo json_encode([
+                        'success' => true,
+                        'message' => "Email de test envoyé avec succès à $testEmail via OAuth2"
+                    ]);
+                } else {
+                    throw new Exception("Échec de l'envoi de l'email via OAuth2");
+                }
+            } else {
+                // Test avec SMTP classique
+                require_once __DIR__ . '/../classes/MailService.php';
+                global $db;
+                $mailService = new MailService($db);
+                
+                $subject = "Test SMTP - Avision";
+                $message = "Ceci est un email de test pour vérifier le fonctionnement SMTP.\n\n";
+                $message .= "Date d'envoi : " . date('Y-m-d H:i:s') . "\n";
+                $message .= "Configuration : SMTP classique\n";
+                $message .= "Serveur : " . $_SERVER['SERVER_NAME'] . "\n\n";
+                $message .= "Si vous recevez cet email, la configuration SMTP fonctionne correctement !";
+                
+                $result = $mailService->sendTestEmail($testEmail, $subject, $message);
+                
+                if ($result) {
+                    echo json_encode([
+                        'success' => true,
+                        'message' => "Email de test envoyé avec succès à $testEmail via SMTP"
+                    ]);
+                } else {
+                    throw new Exception("Échec de l'envoi de l'email via SMTP");
+                }
+            }
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur: ' . $e->getMessage()
+            ]);
+        } catch (Error $e) {
+            custom_log("Erreur fatale lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
+            echo json_encode([
+                'success' => false,
+                'message' => 'Erreur fatale: ' . $e->getMessage()
+            ]);
+        }
+        exit;
+    }
 } 

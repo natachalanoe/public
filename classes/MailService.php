@@ -23,6 +23,28 @@ class MailService {
     }
 
     /**
+     * Envoie un email de test (méthode publique pour les tests)
+     * @param string $to Adresse email destinataire
+     * @param string $subject Sujet de l'email
+     * @param string $body Corps de l'email
+     * @return bool Succès de l'envoi
+     */
+    public function sendTestEmail($to, $subject, $body) {
+        try {
+            $oauth2Enabled = $this->config->get('oauth2_enabled', '0');
+            
+            if ($oauth2Enabled === '1') {
+                return $this->sendEmailOAuth2($to, '', $subject, $body);
+            } else {
+                return $this->sendEmailBasic($to, '', $subject, $body);
+            }
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'envoi de l'email de test: " . $e->getMessage(), 'ERROR');
+            return false;
+        }
+    }
+
+    /**
      * Envoie un email de création d'intervention
      * @param int $interventionId ID de l'intervention
      * @return bool Succès de l'envoi

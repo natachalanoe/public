@@ -240,6 +240,9 @@ $config = Config::getInstance();
                                 <button type="button" class="btn btn-outline-info" id="authorizeOAuth2Btn">
                                     <i class="bi bi-person-check me-1"></i> Autoriser l'application
                                 </button>
+                                <button type="button" class="btn btn-outline-success" id="testEmailSendBtn">
+                                    <i class="bi bi-envelope-check me-1"></i> Tester envoi email
+                                </button>
                             </div>
                             
                             <!-- Aide pour les tests -->
@@ -250,6 +253,7 @@ $config = Config::getInstance();
                                     <ol class="mb-0 mt-2 small">
                                         <li><strong>Tester OAuth2</strong> : Vérifie la connectivité et la configuration</li>
                                         <li><strong>Autoriser l'application</strong> : Lance le processus d'autorisation avec votre compte Exchange 365</li>
+                                        <li><strong>Tester envoi email</strong> : Envoie un email de test pour vérifier le fonctionnement</li>
                                         <li><strong>Sauvegarder</strong> : Enregistre tous les paramètres (SMTP + OAuth2)</li>
                                     </ol>
                                 </div>
@@ -556,6 +560,39 @@ document.getElementById('authorizeOAuth2Btn').addEventListener('click', function
     
     // Ouvrir la fenêtre d'autorisation
     window.open(authUrl, 'oauth2_auth', 'width=600,height=700,scrollbars=yes,resizable=yes');
+});
+
+// Test d'envoi d'email
+document.getElementById('testEmailSendBtn').addEventListener('click', function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i> Envoi en cours...';
+    
+    const formData = new FormData();
+    formData.append('test_email', document.getElementById('test_email').value);
+    
+    fetch('<?= BASE_URL ?>settings/testEmailSend', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showModal('success', 'Email envoyé avec succès !', data.message);
+        } else {
+            showModal('danger', 'Erreur lors de l\'envoi', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Erreur:', error);
+        showModal('danger', 'Erreur lors de l\'envoi', error.message);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    });
 });
 
 document.getElementById('testSmtpBtn').addEventListener('click', function() {
