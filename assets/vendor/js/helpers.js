@@ -933,25 +933,16 @@ const Helpers = {
   },
 
   setTheme: theme => {
-    console.log('setTheme called with theme:', theme, 'VERSION 2.0');
+    console.log('setTheme called with theme:', theme, 'VERSION 3.0');
     
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
       console.log('System theme detected:', systemTheme);
       document.documentElement.setAttribute('data-bs-theme', systemTheme);
-    } else if (theme === 'semi-dark') {
-      // Mode semi-dark : menu sombre, reste clair
-      console.log('Setting semi-dark theme - VERSION 2.0');
-      document.documentElement.setAttribute('data-bs-theme', 'light');
-      document.documentElement.setAttribute('data-semidark-menu', 'true');
-      console.log('Semi-dark attributes applied:', {
-        'data-bs-theme': document.documentElement.getAttribute('data-bs-theme'),
-        'data-semidark-menu': document.documentElement.getAttribute('data-semidark-menu')
-      });
     } else {
+      // Tous les thèmes (light, dark, semi-dark) sont maintenant des vrais thèmes Bootstrap
       console.log('Setting theme to:', theme);
       document.documentElement.setAttribute('data-bs-theme', theme);
-      document.documentElement.removeAttribute('data-semidark-menu');
     }
     
     // Trigger a custom event for theme change

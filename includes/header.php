@@ -60,6 +60,75 @@ if (!isset($currentPageName)) $currentPageName = 'index';
 
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/vendor/css/core.css" />
     <link rel="stylesheet" href="<?php echo BASE_URL; ?>assets/css/avision.css" />
+    
+    <!-- CSS critique pour le thème semi-dark (doit être chargé après core.css) -->
+    <style>
+        /* Variables pour le thème semi-dark - chargement critique */
+        [data-bs-theme=semi-dark] {
+          /* Contenu principal reste clair */
+          --bs-body-color: #646e78;
+          --bs-body-color-rgb: 100, 110, 120;
+          --bs-body-bg: #f5f5f9;
+          --bs-body-bg-rgb: 245, 245, 249;
+          --bs-emphasis-color: #22303e;
+          --bs-emphasis-color-rgb: 34, 48, 62;
+          --bs-secondary-color: #a7acb2;
+          --bs-secondary-color-rgb: 167, 172, 178;
+          --bs-secondary-bg: #e4e6e8;
+          --bs-secondary-bg-rgb: 228, 230, 232;
+          --bs-tertiary-color: rgba(100, 110, 120, 0.5);
+          --bs-tertiary-color-rgb: 100, 110, 120;
+          --bs-tertiary-bg: #e9eaec;
+          --bs-tertiary-bg-rgb: 233, 234, 236;
+          
+          /* Paper background reste clair */
+          --bs-paper-bg: #fff;
+          --bs-paper-bg-rgb: 255, 255, 255;
+          
+          /* Menu devient sombre */
+          --bs-menu-bg: #2b2c40;
+          --bs-menu-bg-rgb: 43, 44, 64;
+          --bs-menu-color: #b2b2c4;
+          --bs-menu-color-rgb: 178, 178, 196;
+          --bs-menu-hover-bg: rgba(230, 230, 241, 0.06);
+          --bs-menu-hover-color: #b2b2c4;
+          --bs-menu-active-bg: var(--bs-primary);
+          --bs-menu-active-color: #fff;
+          --bs-menu-active-toggle-bg: rgba(230, 230, 241, 0.08);
+          --bs-menu-active-toggle-color: #b2b2c4;
+          --bs-menu-sub-bg: rgba(0, 0, 0, 0.2);
+          --bs-menu-sub-color: #b2b2c4;
+          --bs-menu-sub-hover-bg: rgba(230, 230, 241, 0.06);
+          --bs-menu-sub-hover-color: #b2b2c4;
+          --bs-menu-sub-active-bg: rgba(230, 230, 241, 0.08);
+          --bs-menu-sub-active-color: #b2b2c4;
+          --bs-menu-header-color: #b2b2c4;
+          --bs-menu-border-color: rgba(230, 230, 241, 0.08);
+          --bs-menu-box-shadow: 0 0 0 1px rgba(230, 230, 241, 0.08);
+          
+          /* Navbar reste clair */
+          --bs-navbar-bg: var(--bs-paper-bg);
+          --bs-navbar-color: var(--bs-body-color);
+          --bs-navbar-hover-color: var(--bs-emphasis-color);
+          --bs-navbar-disabled-color: var(--bs-secondary-color);
+          --bs-navbar-active-color: var(--bs-emphasis-color);
+          --bs-navbar-brand-color: var(--bs-emphasis-color);
+          --bs-navbar-brand-hover-color: var(--bs-emphasis-color);
+          --bs-navbar-toggler-border-color: var(--bs-border-color);
+          --bs-navbar-toggler-icon-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23646e78' d='M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z'/%3E%3C/svg%3E");
+          
+          /* Border et autres éléments restent clairs */
+          --bs-border-color: #e4e6e8;
+          --bs-border-color-translucent: rgba(0, 0, 0, 0.175);
+          --bs-heading-color: var(--bs-emphasis-color);
+          --bs-link-color: var(--bs-primary);
+          --bs-link-hover-color: var(--bs-primary);
+          --bs-link-color-rgb: var(--bs-primary-rgb);
+          --bs-link-hover-color-rgb: var(--bs-primary-rgb);
+          --bs-code-color: #e83e8c;
+          --bs-highlight-bg: #fff3cd;
+        }
+    </style>
 
     <!-- Vendors CSS -->
 
@@ -114,6 +183,7 @@ if (!isset($currentPageName)) $currentPageName = 'index';
           if (theme === 'system') {
             theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           }
+          // Le thème semi-dark est maintenant un vrai thème Bootstrap
           document.documentElement.setAttribute('data-bs-theme', theme);
         }
       } catch(e) {}

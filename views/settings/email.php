@@ -165,7 +165,7 @@ $config = Config::getInstance();
                                 <i class="bi bi-check-lg me-1"></i> Sauvegarder la configuration SMTP
                             </button>
                             <button type="button" class="btn btn-outline-success" id="testSmtpBtn">
-                                <i class="bi bi-envelope-check me-1"></i> Tester la configuration
+                                <i class="bi bi-gear me-1"></i> Tester SMTP simple
                             </button>
                         </div>
                         
@@ -243,9 +243,6 @@ $config = Config::getInstance();
                                 <button type="button" class="btn btn-outline-success" id="testEmailSendBtn">
                                     <i class="bi bi-envelope-check me-1"></i> Tester envoi email
                                 </button>
-                                <button type="button" class="btn btn-outline-primary" id="testSmtpBtn">
-                                    <i class="bi bi-gear me-1"></i> Tester SMTP simple
-                                </button>
                             </div>
                             
                             <!-- Aide pour les tests -->
@@ -257,7 +254,6 @@ $config = Config::getInstance();
                                         <li><strong>Tester OAuth2</strong> : Vérifie la connectivité et la configuration</li>
                                         <li><strong>Autoriser l'application</strong> : Lance le processus d'autorisation avec votre compte Exchange 365</li>
                                         <li><strong>Tester envoi email</strong> : Envoie un email de test pour vérifier le fonctionnement</li>
-                                        <li><strong>Tester SMTP simple</strong> : Teste la configuration SMTP classique</li>
                                         <li><strong>Sauvegarder</strong> : Enregistre tous les paramètres (SMTP + OAuth2)</li>
                                     </ol>
                                 </div>

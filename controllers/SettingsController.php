@@ -1399,36 +1399,89 @@ class SettingsController {
     }
 
     /**
-     * Envoi d'email de test SMTP (simulation)
+     * Envoi d'email de test SMTP (vrai envoi)
      */
     private function sendTestEmailSmtp($host, $port, $username, $password, $encryption, $fromAddress, $fromName) {
         try {
-            // Pour le test, on simule l'envoi d'email
-            // En réalité, on a déjà testé la connexion et l'authentification
+            // Utiliser la classe MailService pour un vrai envoi
+            require_once __DIR__ . '/../classes/MailService.php';
             
-            $testEmail = [
-                'from' => $fromAddress ?: $username,
-                'from_name' => $fromName ?: 'Test SMTP',
-                'to' => $username,
-                'subject' => 'Test SMTP - ' . date('Y-m-d H:i:s'),
-                'body' => 'Ceci est un email de test SMTP envoyé le ' . date('Y-m-d H:i:s') . '.',
-                'host' => $host,
-                'port' => $port,
-                'encryption' => $encryption
-            ];
+            // Créer une instance de MailService avec la base de données
+            $config = Config::getInstance();
+            $db = $config->getDb();
+            $mailService = new MailService($db);
             
-            // Log du test d'envoi
-            custom_log("Test d'envoi d'email SMTP simulé: " . json_encode($testEmail), 'INFO');
+            // Configuration temporaire pour le test SMTP
+            $originalOAuth2Enabled = $config->get('oauth2_enabled');
+            $originalMailHost = $config->get('mail_host');
+            $originalMailPort = $config->get('mail_port');
+            $originalMailUsername = $config->get('mail_username');
+            $originalMailPassword = $config->get('mail_password');
+            $originalMailEncryption = $config->get('mail_encryption');
+            $originalMailFromAddress = $config->get('mail_from_address');
+            $originalMailFromName = $config->get('mail_from_name');
             
-            return [
-                'success' => true,
-                'message' => 'Test d\'envoi d\'email simulé avec succès (connexion et authentification validées)'
-            ];
+            // Configurer temporairement les paramètres SMTP pour le test
+            $config->set('oauth2_enabled', '0'); // Désactiver OAuth2 pour le test
+            $config->set('mail_host', $host);
+            $config->set('mail_port', $port);
+            $config->set('mail_username', $username);
+            $config->set('mail_password', $password);
+            $config->set('mail_encryption', $encryption);
+            $config->set('mail_from_address', $fromAddress ?: $username);
+            $config->set('mail_from_name', $fromName ?: 'Test SMTP');
+            
+            // Envoyer l'email de test
+            $to = $username; // Envoyer à l'utilisateur configuré
+            $subject = 'Test SMTP - ' . date('Y-m-d H:i:s');
+            $body = 'Ceci est un email de test SMTP envoyé le ' . date('Y-m-d H:i:s') . '.<br><br>' .
+                   'Configuration testée :<br>' .
+                   '• Serveur : ' . $host . '<br>' .
+                   '• Port : ' . $port . '<br>' .
+                   '• Chiffrement : ' . $encryption . '<br>' .
+                   '• Utilisateur : ' . $username . '<br><br>' .
+                   'Si vous recevez cet email, la configuration SMTP fonctionne correctement !';
+            
+            $result = $mailService->sendEmail($to, $subject, $body);
+            
+            // Restaurer les paramètres originaux
+            $config->set('oauth2_enabled', $originalOAuth2Enabled);
+            $config->set('mail_host', $originalMailHost);
+            $config->set('mail_port', $originalMailPort);
+            $config->set('mail_username', $originalMailUsername);
+            $config->set('mail_password', $originalMailPassword);
+            $config->set('mail_encryption', $originalMailEncryption);
+            $config->set('mail_from_address', $originalMailFromAddress);
+            $config->set('mail_from_name', $originalMailFromName);
+            
+            if ($result) {
+                return [
+                    'success' => true,
+                    'message' => 'Email de test envoyé avec succès à ' . $to . ' ! Vérifiez votre boîte de réception.'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'message' => 'Échec de l\'envoi de l\'email de test'
+                ];
+            }
             
         } catch (Exception $e) {
+            // Restaurer les paramètres en cas d'erreur
+            if (isset($config)) {
+                $config->set('oauth2_enabled', $originalOAuth2Enabled ?? '0');
+                $config->set('mail_host', $originalMailHost ?? '');
+                $config->set('mail_port', $originalMailPort ?? '587');
+                $config->set('mail_username', $originalMailUsername ?? '');
+                $config->set('mail_password', $originalMailPassword ?? '');
+                $config->set('mail_encryption', $originalMailEncryption ?? 'tls');
+                $config->set('mail_from_address', $originalMailFromAddress ?? '');
+                $config->set('mail_from_name', $originalMailFromName ?? '');
+            }
+            
             return [
                 'success' => false,
-                'message' => 'Erreur lors du test d\'envoi : ' . $e->getMessage()
+                'message' => 'Erreur lors de l\'envoi de l\'email de test : ' . $e->getMessage()
             ];
         }
     }

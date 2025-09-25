@@ -133,23 +133,19 @@ window.isDarkStyle = window.Helpers.isDarkStyle();
         const theme = toggle.getAttribute('data-bs-theme-value');
         window.Helpers.setStoredTheme(templateName, theme);
         
-        // Gestion spéciale pour le mode semi-dark
-        if (theme === 'semi-dark') {
-          document.documentElement.setAttribute('data-bs-theme', 'light');
-          document.documentElement.setAttribute('data-semidark-menu', 'true');
-          window.Helpers.showActiveTheme(theme, true);
-          window.Helpers.syncCustomOptions(theme);
-          window.Helpers.switchImage('light');
-        } else {
-          window.Helpers.setTheme(theme);
-          window.Helpers.showActiveTheme(theme, true);
-          window.Helpers.syncCustomOptions(theme);
-          let currTheme = theme;
-          if (theme === 'system') {
-            currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          }
-          window.Helpers.switchImage(currTheme);
+        // Appliquer le thème (semi-dark est maintenant un vrai thème)
+        window.Helpers.setTheme(theme);
+        window.Helpers.showActiveTheme(theme, true);
+        window.Helpers.syncCustomOptions(theme);
+        
+        let currTheme = theme;
+        if (theme === 'system') {
+          currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        } else if (theme === 'semi-dark') {
+          currTheme = 'light'; // Pour les images, utiliser le thème light
         }
+        
+        window.Helpers.switchImage(currTheme);
         
         new bootstrap.Tooltip(styleSwitcherIcon, {
           title: theme.charAt(0).toUpperCase() + theme.slice(1) + ' Mode',
