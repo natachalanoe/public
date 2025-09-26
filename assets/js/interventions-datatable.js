@@ -24,6 +24,11 @@ document.addEventListener('DOMContentLoaded', function() {
       // Layout configuration
       layout: {
         topStart: {
+          search: {
+            placeholder: 'Rechercher...'
+          }
+        },
+        topEnd: {
           rowClass: 'row mx-3 my-0 justify-content-between',
           features: [
             {
@@ -33,11 +38,6 @@ document.addEventListener('DOMContentLoaded', function() {
               }
             }
           ]
-        },
-        topEnd: {
-          search: {
-            placeholder: 'Rechercher...'
-          }
         },
         bottomStart: {
           rowClass: 'row mx-3 justify-content-between',

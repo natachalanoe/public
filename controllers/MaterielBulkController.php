@@ -404,7 +404,7 @@ class MaterielBulkController {
             $materiels = $this->materielModel->getMaterielsForBulkExport($client_id, $site_id);
             
             // Utiliser le template existant comme base
-            $templatePath = ROOT_PATH . '/assets/templates/materiel_import_template.xlsx';
+            $templatePath = ASSETS_PATH . '/templates/materiel_import_template.xlsx';
             
             if (!file_exists($templatePath)) {
                 $_SESSION['error'] = "Template non trouvé.";
@@ -539,7 +539,7 @@ class MaterielBulkController {
 
         try {
             // Utiliser le template existant comme base
-            $templatePath = ROOT_PATH . '/assets/templates/materiel_import_template.xlsx';
+            $templatePath = ASSETS_PATH . '/templates/materiel_import_template.xlsx';
             
             if (!file_exists($templatePath)) {
                 $_SESSION['error'] = "Template non trouvé.";
@@ -651,3 +651,4 @@ class MaterielBulkController {
         }
     }
 }
+
