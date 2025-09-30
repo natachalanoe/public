@@ -59,8 +59,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
             <i class="bi bi-arrow-left me-1"></i> Retour
         </a>
+        <!-- Documentation temporairement masqué
         <a href="<?php echo BASE_URL; ?>documentation/view/<?php echo $client['id'] ?? ''; ?>" class="btn btn-info me-2">
             Documentation
+        </a>
+        -->
+        <a href="<?php echo BASE_URL; ?>materiel?client_id=<?php echo $client['id'] ?? ''; ?>" class="btn btn-primary me-2">
+            <i class="bi bi-box-seam me-1"></i> Matériel
         </a>
         <?php if ($canModifyClient): ?>
             <a href="<?php echo BASE_URL; ?>clients/edit/<?php echo $client['id'] ?? ''; ?>" class="btn btn-warning me-2" id="editClientBtn">
@@ -129,6 +134,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <small class="text-muted d-block"><?php echo count($contacts); ?> contact(s)</small>
                     </div>
                 </div>
+                <?php if ($canModifyClient): ?>
+                    <div class="text-center mt-2">
+                        <a href="<?php echo BASE_URL; ?>contact/add/<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                            <i class="bi bi-plus me-1"></i> Ajouter un contact
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="col">
                 <div class="card tab-card" id="sites-tab" data-bs-toggle="tab" data-bs-target="#sites" role="tab" aria-controls="sites" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
@@ -140,6 +152,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <small class="text-muted d-block"><?php echo $stats['site_count'] ?? 0; ?> site(s) • <?php echo $stats['room_count'] ?? 0; ?> salle(s)</small>
                     </div>
                 </div>
+                <?php if ($canModifyClient): ?>
+                    <div class="text-center mt-2">
+                        <a href="<?php echo BASE_URL; ?>site/add/<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                            <i class="bi bi-plus me-1"></i> Ajouter un site
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="col">
                 <div class="card tab-card" id="contracts-tab" data-bs-toggle="tab" data-bs-target="#contracts" role="tab" aria-controls="contracts" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
@@ -172,6 +191,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         </small>
                     </div>
                 </div>
+                <?php if (canManageContracts()): ?>
+                    <div class="text-center mt-2">
+                        <a href="<?php echo BASE_URL; ?>contracts/add/<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                            <i class="bi bi-plus me-1"></i> Ajouter un contrat
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="col">
                 <div class="card tab-card" id="interventions-tab" data-bs-toggle="tab" data-bs-target="#interventions" role="tab" aria-controls="interventions" aria-selected="false" style="cursor: pointer; border: 2px solid transparent;">
@@ -199,6 +225,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         </small>
                     </div>
                 </div>
+                <?php if (canModifyInterventions()): ?>
+                    <div class="text-center mt-2">
+                        <a href="<?php echo BASE_URL; ?>interventions/add?client_id=<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                            <i class="bi bi-plus me-1"></i> Ajouter une intervention
+                        </a>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
@@ -345,8 +378,18 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <!-- Onglet Sites -->
             <div class="tab-pane fade" id="sites" role="tabpanel" aria-labelledby="sites-tab">
                 <div class="card">
-                    <div class="card-header py-2">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Sites</h5>
+                        <?php if (!empty($sites)): ?>
+                            <div class="btn-group" role="group" aria-label="Contrôles accordéon">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="expandAllSites" title="Déplier tout">
+                                    <i class="bi bi-arrows-expand me-1"></i> Déplier tout
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAllSites" title="Replier tout">
+                                    <i class="bi bi-arrows-collapse me-1"></i> Replier tout
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body py-2">
                         <?php if (!empty($sites)): ?>
@@ -607,8 +650,18 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <!-- Onglet Interventions -->
             <div class="tab-pane fade" id="interventions" role="tabpanel" aria-labelledby="interventions-tab">
                 <div class="card">
-                    <div class="card-header py-2">
+                    <div class="card-header py-2 d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Interventions</h5>
+                        <?php if (!empty($interventionsGrouped)): ?>
+                            <div class="btn-group" role="group" aria-label="Contrôles accordéon">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="expandAllInterventions" title="Déplier tout">
+                                    <i class="bi bi-arrows-expand me-1"></i> Déplier tout
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="collapseAllInterventions" title="Replier tout">
+                                    <i class="bi bi-arrows-collapse me-1"></i> Replier tout
+                                </button>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body py-2">
                         <?php if (!empty($interventionsGrouped)): ?>
@@ -946,6 +999,84 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialiser le tri pour les tables
     initSortableTable('contractsTable');
     initSortableTable('contactsTable');
+
+    // Gestion des boutons déplier/replier tout pour les interventions
+    const expandAllBtn = document.getElementById('expandAllInterventions');
+    const collapseAllBtn = document.getElementById('collapseAllInterventions');
+    
+    if (expandAllBtn) {
+        expandAllBtn.addEventListener('click', function() {
+            const accordion = document.getElementById('interventionsAccordion');
+            if (accordion) {
+                const collapseElements = accordion.querySelectorAll('.accordion-collapse');
+                collapseElements.forEach(collapse => {
+                    const bsCollapse = new bootstrap.Collapse(collapse, {
+                        show: true
+                    });
+                });
+            }
+        });
+    }
+    
+    if (collapseAllBtn) {
+        collapseAllBtn.addEventListener('click', function() {
+            const accordion = document.getElementById('interventionsAccordion');
+            if (accordion) {
+                const collapseElements = accordion.querySelectorAll('.accordion-collapse.show');
+                collapseElements.forEach(collapse => {
+                    const bsCollapse = bootstrap.Collapse.getInstance(collapse);
+                    if (bsCollapse) {
+                        bsCollapse.hide();
+                    } else {
+                        // Si l'instance n'existe pas, créer une nouvelle instance et cacher
+                        const newBsCollapse = new bootstrap.Collapse(collapse, {
+                            show: false
+                        });
+                        newBsCollapse.hide();
+                    }
+                });
+            }
+        });
+    }
+
+    // Gestion des boutons déplier/replier tout pour les sites
+    const expandAllSitesBtn = document.getElementById('expandAllSites');
+    const collapseAllSitesBtn = document.getElementById('collapseAllSites');
+    
+    if (expandAllSitesBtn) {
+        expandAllSitesBtn.addEventListener('click', function() {
+            const accordion = document.getElementById('sitesAccordion');
+            if (accordion) {
+                const collapseElements = accordion.querySelectorAll('.accordion-collapse');
+                collapseElements.forEach(collapse => {
+                    const bsCollapse = new bootstrap.Collapse(collapse, {
+                        show: true
+                    });
+                });
+            }
+        });
+    }
+    
+    if (collapseAllSitesBtn) {
+        collapseAllSitesBtn.addEventListener('click', function() {
+            const accordion = document.getElementById('sitesAccordion');
+            if (accordion) {
+                const collapseElements = accordion.querySelectorAll('.accordion-collapse.show');
+                collapseElements.forEach(collapse => {
+                    const bsCollapse = bootstrap.Collapse.getInstance(collapse);
+                    if (bsCollapse) {
+                        bsCollapse.hide();
+                    } else {
+                        // Si l'instance n'existe pas, créer une nouvelle instance et cacher
+                        const newBsCollapse = new bootstrap.Collapse(collapse, {
+                            show: false
+                        });
+                        newBsCollapse.hide();
+                    }
+                });
+            }
+        });
+    }
 
     // Récupérer le paramètre active_tab de l'URL au chargement
     const urlParams = new URLSearchParams(window.location.search);

@@ -161,6 +161,14 @@ foreach ($materiel_list as $materiel) {
                 </div>
                 <div class="d-flex gap-2">
                     <?php
+                    // Bouton retour vers le client si on vient d'un client
+                    if (!empty($filters['client_id'])) {
+                        $clientId = $filters['client_id'];
+                        echo '<a href="' . BASE_URL . 'clients/view/' . $clientId . '" class="btn btn-secondary me-2">';
+                        echo '<i class="bi bi-arrow-left me-1"></i> Retour au client';
+                        echo '</a>';
+                    }
+                    
                     // Construire l'URL d'ajout avec les paramètres de filtres
                     $addParams = [];
                     if (!empty($filters['client_id'])) {

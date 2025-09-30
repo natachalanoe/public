@@ -745,6 +745,50 @@ class DocumentationController {
             }
         }
         
+        // Récupération des pièces jointes
+        $attachmentsQuery = "SELECT pj.*, s.name as site_name, r.name as room_name
+                            FROM pieces_jointes pj
+                            INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                            LEFT JOIN sites s ON lpj.entite_id = s.id AND lpj.type_liaison = 'documentation_site'
+                            LEFT JOIN rooms r ON lpj.entite_id = r.id AND lpj.type_liaison = 'documentation_room'
+                            WHERE (lpj.type_liaison = 'documentation_client' AND lpj.entite_id = :client_id1)
+                               OR (lpj.type_liaison = 'documentation_site' AND s.client_id = :client_id2)
+                               OR (lpj.type_liaison = 'documentation_room' AND r.site_id IN (SELECT id FROM sites WHERE client_id = :client_id3))";
+        
+        $attachmentsParams = [
+            ':client_id1' => $clientId,
+            ':client_id2' => $clientId,
+            ':client_id3' => $clientId
+        ];
+        
+        if ($siteId) {
+            $attachmentsQuery .= " AND ((lpj.type_liaison = 'documentation_site' AND lpj.entite_id = :site_id) OR (lpj.type_liaison = 'documentation_room' AND r.site_id = :site_id_room))";
+            $attachmentsParams[':site_id'] = $siteId;
+            $attachmentsParams[':site_id_room'] = $siteId;
+        }
+        
+        if ($roomId) {
+            $attachmentsQuery .= " AND lpj.type_liaison = 'documentation_room' AND lpj.entite_id = :room_id";
+            $attachmentsParams[':room_id'] = $roomId;
+        }
+        
+        $attachmentsQuery .= " ORDER BY pj.date_creation DESC";
+        
+        $attachmentsStmt = $this->db->prepare($attachmentsQuery);
+        $attachmentsStmt->execute($attachmentsParams);
+        $attachments = $attachmentsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Ajouter les pièces jointes comme une catégorie spéciale
+        if (!empty($attachments)) {
+            $documentsByCategory['attachments'] = [
+                'category' => [
+                    'id' => 'attachments',
+                    'name' => 'Pièces jointes'
+                ],
+                'documents' => $attachments
+            ];
+        }
+        
         require_once __DIR__ . '/../views/documentation/view.php';
     }
 
@@ -765,6 +809,270 @@ class DocumentationController {
         
         header('Content-Type: application/json');
         echo json_encode($rooms);
+        exit;
+    }
+
+    /**
+     * Récupère les pièces jointes pour un client avec filtres
+     */
+    public function getAttachments() {
+        $this->checkAccess();
+        
+        $clientId = isset($_GET['client_id']) ? (int)$_GET['client_id'] : null;
+        $siteId = isset($_GET['site_id']) ? (int)$_GET['site_id'] : null;
+        $roomId = isset($_GET['room_id']) ? (int)$_GET['room_id'] : null;
+        $typeFilter = isset($_GET['type_filter']) ? $_GET['type_filter'] : null;
+        
+        if (!$clientId) {
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Client ID requis']);
+            exit;
+        }
+        
+        $query = "SELECT pj.*, s.name as site_name, r.name as room_name
+                  FROM pieces_jointes pj
+                  INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                  LEFT JOIN sites s ON lpj.entite_id = s.id AND lpj.type_liaison = 'documentation_site'
+                  LEFT JOIN rooms r ON lpj.entite_id = r.id AND lpj.type_liaison = 'documentation_room'
+                  WHERE (lpj.type_liaison = 'documentation_client' AND lpj.entite_id = :client_id1)
+                     OR (lpj.type_liaison = 'documentation_site' AND s.client_id = :client_id2)
+                     OR (lpj.type_liaison = 'documentation_room' AND r.site_id IN (SELECT id FROM sites WHERE client_id = :client_id3))";
+        
+        $params = [
+            ':client_id1' => $clientId,
+            ':client_id2' => $clientId,
+            ':client_id3' => $clientId
+        ];
+        
+        if ($siteId) {
+            $query .= " AND ((lpj.type_liaison = 'documentation_site' AND lpj.entite_id = :site_id) OR (lpj.type_liaison = 'documentation_room' AND r.site_id = :site_id_room))";
+            $params[':site_id'] = $siteId;
+            $params[':site_id_room'] = $siteId;
+        }
+        
+        if ($roomId) {
+            $query .= " AND lpj.type_liaison = 'documentation_room' AND lpj.entite_id = :room_id";
+            $params[':room_id'] = $roomId;
+        }
+        
+        if ($typeFilter) {
+            switch ($typeFilter) {
+                case 'pdf':
+                    $query .= " AND pj.type_fichier = 'pdf'";
+                    break;
+                case 'image':
+                    $query .= " AND pj.type_fichier IN ('jpg', 'jpeg', 'png', 'gif')";
+                    break;
+                case 'excel':
+                    $query .= " AND pj.type_fichier IN ('xls', 'xlsx')";
+                    break;
+                case 'word':
+                    $query .= " AND pj.type_fichier IN ('doc', 'docx')";
+                    break;
+                case 'other':
+                    $query .= " AND pj.type_fichier NOT IN ('pdf', 'jpg', 'jpeg', 'png', 'gif', 'xls', 'xlsx', 'doc', 'docx')";
+                    break;
+            }
+        }
+        
+        $query .= " ORDER BY pj.date_creation DESC";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        header('Content-Type: application/json');
+        echo json_encode(['attachments' => $attachments]);
+        exit;
+    }
+
+    /**
+     * Upload de pièces jointes pour la documentation
+     */
+    public function uploadAttachment() {
+        $this->checkAccess();
+        
+        // Log pour debug
+        error_log("[DEBUG] DocumentationController::uploadAttachment - Début de l'upload");
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Méthode non autorisée']);
+            exit;
+        }
+        
+        $clientId = isset($_POST['client_id']) ? (int)$_POST['client_id'] : null;
+        $siteId = isset($_POST['site_id']) ? (int)$_POST['site_id'] : null;
+        $roomId = isset($_POST['room_id']) ? (int)$_POST['room_id'] : null;
+        $masqueClient = isset($_POST['masque_client']) ? 1 : 0;
+        
+        // Log pour debug
+        error_log("[DEBUG] DocumentationController::uploadAttachment - clientId: $clientId, siteId: $siteId, roomId: $roomId");
+        
+        if (!$clientId) {
+            error_log("[ERROR] DocumentationController::uploadAttachment - Client ID manquant");
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Client ID requis']);
+            exit;
+        }
+        
+        if (!isset($_FILES['files']) || empty($_FILES['files']['name'][0])) {
+            error_log("[ERROR] DocumentationController::uploadAttachment - Aucun fichier sélectionné");
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Aucun fichier sélectionné']);
+            exit;
+        }
+        
+        // Log pour debug
+        error_log("[DEBUG] DocumentationController::uploadAttachment - Fichiers reçus: " . count($_FILES['files']['name']));
+        
+        $uploadDir = __DIR__ . '/../../uploads/documentation/' . $clientId . '/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $uploadedFiles = [];
+        $errors = [];
+        
+        foreach ($_FILES['files']['name'] as $key => $filename) {
+            if ($_FILES['files']['error'][$key] === UPLOAD_ERR_OK) {
+                $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+                $allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'zip', 'rar'];
+                
+                if (!in_array($fileExtension, $allowedExtensions)) {
+                    $errors[] = "Extension non autorisée pour le fichier: $filename";
+                    continue;
+                }
+                
+                $newFilename = uniqid() . '_' . $filename;
+                $filePath = $uploadDir . $newFilename;
+                
+                if (move_uploaded_file($_FILES['files']['tmp_name'][$key], $filePath)) {
+                    // Enregistrer en base de données
+                    $query = "INSERT INTO pieces_jointes (nom_fichier, chemin_fichier, type_fichier, taille_fichier, masque_client, created_by, date_creation) 
+                              VALUES (:nom_fichier, :chemin_fichier, :type_fichier, :taille_fichier, :masque_client, :created_by, NOW())";
+                    
+                    $stmt = $this->db->prepare($query);
+                    $result = $stmt->execute([
+                        ':nom_fichier' => $filename,
+                        ':chemin_fichier' => 'uploads/documentation/' . $clientId . '/' . $newFilename,
+                        ':type_fichier' => $fileExtension,
+                        ':taille_fichier' => $_FILES['files']['size'][$key],
+                        ':masque_client' => $masqueClient,
+                        ':created_by' => $_SESSION['user']['id']
+                    ]);
+                    
+                    if ($result) {
+                        $attachmentId = $this->db->lastInsertId();
+                        
+                        // Créer la liaison selon le niveau
+                        if ($roomId) {
+                            // Liaison avec une salle
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation_room', :room_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $attachmentId,
+                                ':room_id' => $roomId
+                            ]);
+                        } elseif ($siteId) {
+                            // Liaison avec un site
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation_site', :site_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $attachmentId,
+                                ':site_id' => $siteId
+                            ]);
+                        } else {
+                            // Liaison avec le client
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation_client', :client_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $attachmentId,
+                                ':client_id' => $clientId
+                            ]);
+                        }
+                        
+                        $uploadedFiles[] = $filename;
+                    } else {
+                        $errors[] = "Erreur lors de l'enregistrement en base pour: $filename";
+                        unlink($filePath); // Supprimer le fichier si l'enregistrement en base échoue
+                    }
+                } else {
+                    $errors[] = "Erreur lors de l'upload de: $filename";
+                }
+            } else {
+                $errors[] = "Erreur d'upload pour: $filename";
+            }
+        }
+        
+        if (!empty($uploadedFiles)) {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'uploaded_files' => $uploadedFiles,
+                'errors' => $errors
+            ]);
+        } else {
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'error' => 'Aucun fichier n\'a pu être uploadé',
+                'errors' => $errors
+            ]);
+        }
+        exit;
+    }
+
+    /**
+     * Supprime une pièce jointe
+     */
+    public function deleteAttachment($attachmentId) {
+        $this->checkAccess();
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Méthode non autorisée']);
+            exit;
+        }
+        
+        // Récupérer les informations de la pièce jointe
+        $query = "SELECT pj.* FROM pieces_jointes pj WHERE pj.id = :id";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([':id' => $attachmentId]);
+        $attachment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$attachment) {
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Pièce jointe introuvable']);
+            exit;
+        }
+        
+        // Supprimer le fichier physique
+        $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
+        if (file_exists($filePath)) {
+            unlink($filePath);
+        }
+        
+        // Supprimer les liaisons
+        $linkQuery = "DELETE FROM liaisons_pieces_jointes WHERE piece_jointe_id = :id";
+        $linkStmt = $this->db->prepare($linkQuery);
+        $linkStmt->execute([':id' => $attachmentId]);
+        
+        // Supprimer la pièce jointe
+        $deleteQuery = "DELETE FROM pieces_jointes WHERE id = :id";
+        $deleteStmt = $this->db->prepare($deleteQuery);
+        $result = $deleteStmt->execute([':id' => $attachmentId]);
+        
+        if ($result) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true]);
+        } else {
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Erreur lors de la suppression']);
+        }
         exit;
     }
 } 

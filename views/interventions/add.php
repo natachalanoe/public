@@ -31,6 +31,9 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'interventions';
 
+// Récupérer le client_id depuis l'URL si présent
+$selectedClientId = $_GET['client_id'] ?? null;
+
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
@@ -105,7 +108,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <select class="form-select bg-body text-body" id="client_id" name="client_id" required>
                                     <option value="">Sélectionner un client</option>
                                     <?php foreach ($clients as $client): ?>
-                                        <option value="<?= $client['id'] ?>">
+                                        <option value="<?= $client['id'] ?>" <?= ($selectedClientId && $client['id'] == $selectedClientId) ? 'selected' : '' ?>>
                                             <?= h($client['name'] ?? '') ?>
                                         </option>
                                     <?php endforeach; ?>
@@ -309,6 +312,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const typeRequiresTravelInput = document.getElementById('type_requires_travel');
     const typeRequiresTravelHidden = document.querySelector('input[name="type_requires_travel"]');
     const contractSelect = document.getElementById('contract_id');
+    
+    // Charger automatiquement les sites et salles si un client est présélectionné
+    <?php if ($selectedClientId): ?>
+    if (clientSelect.value) {
+        loadSites(clientSelect.value, 'site_id', null, null, function() {
+            updateSelectedContract('client_id', 'site_id', 'room_id', 'contract_id');
+        });
+    }
+    <?php endif; ?>
     
     // Utiliser les fonctions centralisées pour charger les sites et salles dynamiquement
     clientSelect.addEventListener('change', function() {

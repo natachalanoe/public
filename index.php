@@ -309,6 +309,20 @@ try {
                 case 'get_rooms':
                     $documentationController->get_rooms();
                     break;
+                case 'get_attachments':
+                    $documentationController->getAttachments();
+                    break;
+                case 'upload_attachment':
+                    $documentationController->uploadAttachment();
+                    break;
+                case 'delete_attachment':
+                    if ($id) {
+                        $documentationController->deleteAttachment($id);
+                    } else {
+                        header('Content-Type: application/json');
+                        echo json_encode(['error' => 'ID manquant']);
+                    }
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'documentation');
                     break;
