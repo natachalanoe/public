@@ -24,7 +24,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">
                         <i class="bi bi-qr-code me-2"></i>
-                        QR Codes - <?php echo htmlspecialchars($site['name']); ?>
+                        QR Codes - <?php echo h($site['name']); ?>
                     </h4>
                     <div>
                         <button type="button" class="btn btn-primary" onclick="window.print()">
@@ -48,7 +48,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <div class="card h-100 border">
                                         <div class="card-body text-center">
                                             <h6 class="card-title mb-3">
-                                                <?php echo htmlspecialchars($salle['name']); ?>
+                                                <?php echo h($salle['name']); ?>
                                             </h6>
                                             
                                                                                                                                       <!-- QR Codes côte à côte -->

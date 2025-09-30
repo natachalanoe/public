@@ -933,31 +933,22 @@ const Helpers = {
   },
 
   setTheme: theme => {
-    console.log('setTheme called with theme:', theme, 'VERSION 3.0');
-    
     if (theme === 'system') {
       const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      console.log('System theme detected:', systemTheme);
       document.documentElement.setAttribute('data-bs-theme', systemTheme);
     } else {
       // Tous les thèmes (light, dark, semi-dark) sont maintenant des vrais thèmes Bootstrap
-      console.log('Setting theme to:', theme);
       document.documentElement.setAttribute('data-bs-theme', theme);
     }
     
     // Trigger a custom event for theme change
     window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } }));
-    
-    console.log('Theme set successfully. Current theme:', document.documentElement.getAttribute('data-bs-theme'));
   },
 
   showActiveTheme: (theme, focus = false) => {
-    console.log('showActiveTheme called with theme:', theme);
-    
     const themeSwitcher = document.querySelector('#nav-theme')
 
     if (!themeSwitcher) {
-      console.warn('Theme switcher not found');
       return
     }
 
@@ -966,19 +957,16 @@ const Helpers = {
     const btnToActive = document.querySelector(`[data-bs-theme-value="${theme}"]`)
     
     if (!btnToActive) {
-      console.warn('Theme button not found for theme:', theme);
       return;
     }
     
     const svgOfActiveBtn = btnToActive.querySelector('i')
     if (!svgOfActiveBtn) {
-      console.warn('Icon not found in theme button');
       return;
     }
     
     const dataIcon = svgOfActiveBtn.getAttribute('data-icon')
     if (!dataIcon) {
-      console.warn('data-icon attribute not found');
       return;
     }
     
@@ -1008,8 +996,6 @@ const Helpers = {
     if (focus) {
       themeSwitcher.focus()
     }
-    
-    console.log('showActiveTheme completed successfully');
   },
 
   syncThemeToggles: e => {

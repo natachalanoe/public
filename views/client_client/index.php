@@ -64,7 +64,7 @@ $sites = $sites ?? [];
                     <div class="card h-100">
                         <div class="card-header py-2">
                             <div class="d-flex justify-content-between align-items-center">
-                                <h5 class="card-title mb-0"><?php echo htmlspecialchars($site['name']); ?></h5>
+                                <h5 class="card-title mb-0"><?php echo h($site['name']); ?></h5>
                                 <span class="badge bg-primary">
                                     <?php echo count($site['rooms'] ?? []); ?> salles
                                 </span>
@@ -72,7 +72,7 @@ $sites = $sites ?? [];
                         </div>
                         <div class="card-body">
                             <div class="mb-3">
-                                <strong>Client :</strong> <?php echo htmlspecialchars($site['client_name']); ?>
+                                <strong>Client :</strong> <?php echo h($site['client_name']); ?>
                             </div>
                             
                             <div class="mb-3">
@@ -84,10 +84,10 @@ $sites = $sites ?? [];
                             <?php if (!empty($site['phone']) || !empty($site['email'])): ?>
                                 <div class="mb-3">
                                     <?php if (!empty($site['phone'])): ?>
-                                        <div><strong>Téléphone :</strong> <?php echo htmlspecialchars($site['phone']); ?></div>
+                                        <div><strong>Téléphone :</strong> <?php echo h($site['phone']); ?></div>
                                     <?php endif; ?>
                                     <?php if (!empty($site['email'])): ?>
-                                        <div><strong>Email :</strong> <?php echo htmlspecialchars($site['email']); ?></div>
+                                        <div><strong>Email :</strong> <?php echo h($site['email']); ?></div>
                                     <?php endif; ?>
                                 </div>
                             <?php endif; ?>
@@ -126,7 +126,7 @@ $sites = $sites ?? [];
                                         <?php foreach ($site['rooms'] as $room): ?>
                                             <div class="d-flex justify-content-between align-items-center py-1 border-bottom">
                                                 <div class="d-flex align-items-center">
-                                                    <span><?php echo htmlspecialchars($room['name']); ?></span>
+                                                    <span><?php echo h($room['name']); ?></span>
                                                 </div>
                                                 <span class="badge bg-<?php echo ($room['status'] ?? 0) == 1 ? 'success' : 'danger'; ?>">
                                                     <?php echo ($room['status'] ?? 0) == 1 ? 'Actif' : 'Inactif'; ?>
@@ -140,7 +140,7 @@ $sites = $sites ?? [];
                             <?php if (!empty($site['comment'])): ?>
                                 <div class="mb-3">
                                     <strong>Commentaire :</strong><br>
-                                    <small class="text-muted"><?php echo nl2br(htmlspecialchars($site['comment'])); ?></small>
+                                    <small class="text-muted"><?php echo nl2br(h($site['comment'])); ?></small>
                                 </div>
                             <?php endif; ?>
                         </div>

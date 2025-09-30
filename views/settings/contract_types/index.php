@@ -67,11 +67,11 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <strong><?= htmlspecialchars($type['name']) ?></strong>
+                                        <strong><?= h($type['name']) ?></strong>
                                     </td>
                                     <td>
                                         <?php if (!empty($type['description'])): ?>
-                                            <?= htmlspecialchars($type['description']) ?>
+                                            <?= h($type['description']) ?>
                                         <?php else: ?>
                                             <span class="text-muted">Aucune description</span>
                                         <?php endif; ?>
@@ -112,7 +112,7 @@
                                             <button type="button" 
                                                     class="btn btn-sm btn-outline-danger" 
                                                     title="Supprimer"
-                                                    onclick="confirmDelete(<?= $type['id'] ?>, '<?= htmlspecialchars($type['name']) ?>')">
+                                                    onclick="confirmDelete(<?= $type['id'] ?>, '<?= h($type['name']) ?>')">
                                                 <i class="bi bi-trash me-1"></i>
                                             </button>
                                         <?php else: ?>

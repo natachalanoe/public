@@ -28,7 +28,7 @@ $contractTypes = $contractTypes ?? [];
 
 // Définir le titre de la page et le lien de retour
 if ($client) {
-    $pageTitle = "Ajouter un contrat pour : " . htmlspecialchars($client['name']);
+    $pageTitle = "Ajouter un contrat pour : " . h($client['name']);
     $backLink = BASE_URL . 'clients/edit/' . $client['id'] . '#contracts';
 } else {
     $pageTitle = "Ajouter un nouveau contrat";
@@ -84,7 +84,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
             <form id="contractForm" action="<?php echo BASE_URL; ?>contracts/create" method="POST">
                 <?php if ($client): ?>
                 <input type="hidden" name="client_id" value="<?php echo $client['id']; ?>">
-                    <p class="mb-3"><strong>Client :</strong> <?php echo htmlspecialchars($client['name']); ?></p>
+                    <p class="mb-3"><strong>Client :</strong> <?php echo h($client['name']); ?></p>
                 <?php else: ?>
                     <div class="mb-3">
                         <label for="client_id_select" class="form-label">Client <span class="text-danger">*</span></label>
@@ -94,7 +94,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                                 <?php foreach ($allClientsForDropdown as $c): ?>
                                     <option value="<?php echo $c['id']; ?>"
                                             <?php echo (isset($formData['client_id']) && $formData['client_id'] == $c['id']) ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($c['name']); ?>
+                                        <?php echo h($c['name']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             <?php endif; ?>
@@ -117,7 +117,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                                 <?php foreach ($contractTypes as $type): ?>
                                     <option value="<?php echo $type['id']; ?>" 
                                             <?php echo (isset($formData['contract_type_id']) && $formData['contract_type_id'] == $type['id']) ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($type['name']); ?>
+                                        <?php echo h($type['name']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -179,7 +179,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                                     <?php foreach ($accessLevels as $level): ?>
                                         <option value="<?php echo $level['id']; ?>" 
                                                 <?php echo (isset($formData['access_level_id']) && $formData['access_level_id'] == $level['id']) ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($level['name']) ?> - <?php echo htmlspecialchars($level['description']) ?>
+                                            <?php echo h($level['name']) ?> - <?php echo h($level['description']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 <?php endif; ?>

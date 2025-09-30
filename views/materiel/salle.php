@@ -24,7 +24,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="card-title mb-0">
                         <i class="bi bi-building me-2"></i>
-                        Matériel - <?php echo htmlspecialchars($site['name']); ?> - <?php echo htmlspecialchars($salle['name']); ?>
+                        Matériel - <?php echo h($site['name']); ?> - <?php echo h($salle['name']); ?>
                     </h4>
                     <div>
                         <a href="<?php echo BASE_URL; ?>materiel" class="btn btn-secondary">

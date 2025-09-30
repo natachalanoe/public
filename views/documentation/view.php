@@ -96,7 +96,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <?php if (isset($sites) && is_array($sites)): ?>
                             <?php foreach ($sites as $site): ?>
                                 <option value="<?= $site['id'] ?>" <?= $siteId == $site['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($site['name']) ?>
+                                    <?= h($site['name']) ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -109,7 +109,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <option value="">Toutes les salles</option>
                         <?php foreach ($rooms as $room): ?>
                             <option value="<?= $room['id'] ?>" <?= $roomId == $room['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($room['name']) ?>
+                                <?= h($room['name']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -151,7 +151,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <div class="col-md-3 mb-3">
                                         <div class="card h-100">
                                             <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                                                <h6 class="card-title mb-0"><?= htmlspecialchars($document['title']) ?></h6>
+                                                <h6 class="card-title mb-0"><?= h($document['title']) ?></h6>
                                                 <div>
                                                     <?php
                                                         // $userType is already defined at the top of the view
@@ -173,7 +173,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                         <?php if ($userType === 'admin'): ?>
                                                             <a href="<?= BASE_URL ?>documentation/delete/<?= $document['id'] ?>" 
                                                                class="btn btn-sm btn-outline-danger btn-action" 
-                                                               onclick="return confirmDelete('<?= htmlspecialchars($document['title']) ?>');"
+                                                               onclick="return confirmDelete('<?= h($document['title']) ?>');"
                                                                title="Supprimer le document">
                                                                 <i class="bi bi-trash me-1"></i>
                                                             </a>
@@ -182,7 +182,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 </div>
                                             </div>
                                             <div class="card-body py-2">
-                                                <p class="card-text small mb-2"><?= nl2br(htmlspecialchars($document['description'])) ?></p>
+                                                <p class="card-text small mb-2"><?= nl2br(h($document['description'])) ?></p>
                                                 
                                                 <?php if (!empty($document['content'])): ?>
                                                     <button type="button" 
@@ -226,7 +226,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <div class="modal-dialog modal-lg">
                                             <div class="modal-content">
                                                 <div class="modal-header">
-                                                    <h5 class="modal-title" id="contentModalLabel<?= $document['id'] ?>"><?= htmlspecialchars($document['title']) ?></h5>
+                                                    <h5 class="modal-title" id="contentModalLabel<?= $document['id'] ?>"><?= h($document['title']) ?></h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                 </div>
                                                 <div class="modal-body">
@@ -248,7 +248,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <div class="modal-dialog modal-xl">
                                             <div class="modal-content">
                                                 <div class="modal-header">
-                                                    <h5 class="modal-title"><?= htmlspecialchars($document['title']) ?></h5>
+                                                    <h5 class="modal-title"><?= h($document['title']) ?></h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                 </div>
                                                 <div class="modal-body">
@@ -262,7 +262,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                         <?php elseif (in_array(strtolower(pathinfo($document['attachment_path'], PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'gif'])): ?>
                                                             <img src="<?= BASE_URL . $document['attachment_path'] ?>" 
                                                                  class="img-fluid" 
-                                                                 alt="<?= htmlspecialchars($document['title']) ?>">
+                                                                 alt="<?= h($document['title']) ?>">
                                                         <?php else: ?>
                                                             <div class="alert alert-info">
                                                                 <i class="bi bi-info-circle me-1"></i> 

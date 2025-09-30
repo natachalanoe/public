@@ -98,13 +98,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <form method="POST" action="<?= BASE_URL ?>materiel/store" class="needs-validation" novalidate>
                 <!-- Champs cachés pour conserver les filtres -->
                 <?php if (isset($_GET['client_id']) && !empty($_GET['client_id'])): ?>
-                    <input type="hidden" name="return_client_id" value="<?= htmlspecialchars($_GET['client_id']) ?>">
+                    <input type="hidden" name="return_client_id" value="<?= h($_GET['client_id']) ?>">
                 <?php endif; ?>
                 <?php if (isset($_GET['site_id']) && !empty($_GET['site_id'])): ?>
-                    <input type="hidden" name="return_site_id" value="<?= htmlspecialchars($_GET['site_id']) ?>">
+                    <input type="hidden" name="return_site_id" value="<?= h($_GET['site_id']) ?>">
                 <?php endif; ?>
                 <?php if (isset($_GET['salle_id']) && !empty($_GET['salle_id'])): ?>
-                    <input type="hidden" name="return_salle_id" value="<?= htmlspecialchars($_GET['salle_id']) ?>">
+                    <input type="hidden" name="return_salle_id" value="<?= h($_GET['salle_id']) ?>">
                 <?php endif; ?>
                 <div class="row">
                     <!-- Colonne gauche : Formulaire principal -->
@@ -127,7 +127,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <option value="">Sélectionner un client</option>
                                             <?php foreach ($clients as $client): ?>
                                                 <option value="<?= $client['id'] ?>" <?= (isset($_GET['client_id']) && $_GET['client_id'] == $client['id']) ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($client['name']) ?>
+                                                    <?= h($client['name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -141,7 +141,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <?php if (!empty($sites)): ?>
                                                 <?php foreach ($sites as $site): ?>
                                                     <option value="<?= $site['id'] ?>" <?= (isset($_GET['site_id']) && $_GET['site_id'] == $site['id']) ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($site['name']) ?>
+                                                        <?= h($site['name']) ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
@@ -156,7 +156,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <?php if (!empty($salles)): ?>
                                                 <?php foreach ($salles as $salle): ?>
                                                     <option value="<?= $salle['id'] ?>" <?= (isset($_GET['salle_id']) && $_GET['salle_id'] == $salle['id']) ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($salle['name']) ?>
+                                                        <?= h($salle['name']) ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
@@ -266,7 +266,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <option value="">Sélectionner un type</option>
                                             <?php foreach ($types_materiel as $type): ?>
                                                 <option value="<?= $type['id'] ?>">
-                                                    <?= htmlspecialchars($type['nom']) ?>
+                                                    <?= h($type['nom']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -368,7 +368,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <i class="bi bi-eye me-2 me-1"></i>Visibilité Client
                                     <?php if (isset($contractAccessLevel)): ?>
                                         <span class="badge bg-light text-dark ms-2">
-                                            Niveau: <?= htmlspecialchars($contractAccessLevel['name']) ?>
+                                            Niveau: <?= h($contractAccessLevel['name']) ?>
                                         </span>
                                     <?php endif; ?>
                                 </h6>
@@ -395,7 +395,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                name="visibilite_<?= $nom_champ ?>" 
                                                <?= $info['visible_client'] ? 'checked' : '' ?>>
                                         <label class="form-check-label" for="visibilite_<?= $nom_champ ?>">
-                                            <?= htmlspecialchars($info['label']) ?>
+                                            <?= h($info['label']) ?>
                                         </label>
                                     </div>
                                 <?php endforeach; ?>

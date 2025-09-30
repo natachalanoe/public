@@ -70,12 +70,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <div class="mb-3">
                                 <label for="first_name" class="form-label">Prénom <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="first_name" name="first_name" 
-                                       value="<?php echo htmlspecialchars($contact['first_name']); ?>" required>
+                                       value="<?php echo h($contact['first_name']); ?>" required>
                             </div>
                             <div class="mb-3">
                                 <label for="last_name" class="form-label">Nom <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="last_name" name="last_name" 
-                                       value="<?php echo htmlspecialchars($contact['last_name']); ?>" required>
+                                       value="<?php echo h($contact['last_name']); ?>" required>
                             </div>
                             <div class="mb-3">
                                 <label for="fonction" class="form-label">Fonction</label>
@@ -98,7 +98,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <div class="mb-3">
                                 <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
                                 <input type="email" class="form-control" id="email" name="email" 
-                                       value="<?php echo htmlspecialchars($contact['email']); ?>" required>
+                                       value="<?php echo h($contact['email']); ?>" required>
                             </div>
                             <div class="mb-3">
                                 <label for="comment" class="form-label">Commentaire</label>

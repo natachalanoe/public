@@ -401,7 +401,7 @@ class InterventionsClientController {
                 }
 
                 // Créer le dossier de stockage s'il n'existe pas
-                $uploadDir = __DIR__ . '/../uploads/interventions/' . $interventionId;
+                $uploadDir = __DIR__ . '/../../uploads/interventions/' . $interventionId;
                 if (!file_exists($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
                 }

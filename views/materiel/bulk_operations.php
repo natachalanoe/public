@@ -93,7 +93,7 @@ $selectedSiteId = $_GET['site_id'] ?? '';
                                     <option value="">Sélectionner un client</option>
                                     <?php foreach ($clients as $client): ?>
                                         <option value="<?= $client['id'] ?>" <?= $selectedClientId == $client['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($client['name']) ?>
+                                            <?= h($client['name']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -107,7 +107,7 @@ $selectedSiteId = $_GET['site_id'] ?? '';
                                     <?php if (!empty($sites)): ?>
                                         <?php foreach ($sites as $site): ?>
                                             <option value="<?= $site['id'] ?>" <?= $selectedSiteId == $site['id'] ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($site['name']) ?>
+                                                <?= h($site['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
@@ -239,7 +239,7 @@ $selectedSiteId = $_GET['site_id'] ?? '';
                                         <?php foreach ($salles as $salle): ?>
                                             <tr>
                                                 <td class="fw-bold text-primary"><?= $salle['id'] ?></td>
-                                                <td><?= htmlspecialchars($salle['name']) ?></td>
+                                                <td><?= h($salle['name']) ?></td>
                                                 <td>
                                                     <small class="text-muted">
                                                         <?= htmlspecialchars($salle['site_name'] ?? 'N/A') ?>

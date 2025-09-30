@@ -178,10 +178,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <div class="flex-grow-1">
                                         <div class="d-flex align-items-center mb-1">
                                             <i class="<?php echo getIcon('attachment', 'bi bi-paperclip'); ?> me-2 text-muted"></i>
-                                            <span class="fw-medium"><?= htmlspecialchars($att['nom_fichier']) ?></span>
+                                            <span class="fw-medium"><?= h($att['nom_fichier']) ?></span>
                                         </div>
                                         <?php if (!empty($att['commentaire'])): ?>
-                                            <small class="text-muted d-block"><?= htmlspecialchars($att['commentaire']) ?></small>
+                                            <small class="text-muted d-block"><?= h($att['commentaire']) ?></small>
                                         <?php endif; ?>
                                         <small class="text-muted">
                                             <?= number_format(($att['taille_fichier'] ?? 0) / 1024, 1) ?> KB • 
@@ -189,7 +189,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         </small>
                                     </div>
                                     <div class="ms-3">
-                                        <a href="<?= BASE_URL . $att['chemin_fichier'] ?>" 
+                                        <a href="<?= BASE_URL; ?>contracts/download?attachment_id=<?= $att['id'] ?>" 
                                            target="_blank" 
                                            class="btn btn-sm btn-outline-primary" 
                                            title="Télécharger">

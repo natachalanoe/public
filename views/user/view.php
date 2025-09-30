@@ -75,7 +75,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <div class="d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                     <?php echo htmlspecialchars($user['first_name'] . ' ' . $user['last_name']); ?>
-                    <small class="text-muted">(<?php echo htmlspecialchars($user['username']); ?>)</small>
+                    <small class="text-muted">(<?php echo h($user['username']); ?>)</small>
                 </h5>
                 <span class="badge bg-<?php echo $user['status'] ? 'success' : 'danger'; ?>">
                     <?php echo $user['status'] ? 'Actif' : 'Inactif'; ?>
@@ -90,19 +90,19 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <table class="table table-borderless">
                         <tr>
                             <th style="width: 150px;">Nom d'utilisateur :</th>
-                            <td><?php echo htmlspecialchars($user['username']); ?></td>
+                            <td><?php echo h($user['username']); ?></td>
                         </tr>
                         <tr>
                             <th>Email :</th>
-                            <td><?php echo htmlspecialchars($user['email']); ?></td>
+                            <td><?php echo h($user['email']); ?></td>
                         </tr>
                         <tr>
                             <th>Prénom :</th>
-                            <td><?php echo htmlspecialchars($user['first_name']); ?></td>
+                            <td><?php echo h($user['first_name']); ?></td>
                         </tr>
                         <tr>
                             <th>Nom :</th>
-                            <td><?php echo htmlspecialchars($user['last_name']); ?></td>
+                            <td><?php echo h($user['last_name']); ?></td>
                         </tr>
                         <tr>
                             <th>Type :</th>
@@ -153,7 +153,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <?php foreach ($permissions as $permission): ?>
                                         <li>
                                             <i class="bi bi-check text-success me-2 me-1"></i>
-                                            <?php echo htmlspecialchars($permission['description']); ?>
+                                            <?php echo h($permission['description']); ?>
                                         </li>
                                     <?php endforeach; ?>
                                 </ul>
@@ -214,7 +214,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             ?>
                                 <div class="card mb-3">
                                     <div class="card-header py-2">
-                                        <h6 class="mb-0"><?php echo htmlspecialchars($client['name']); ?></h6>
+                                        <h6 class="mb-0"><?php echo h($client['name']); ?></h6>
                                     </div>
                                     <div class="card-body py-2">
                                         <?php if ($locations['client_full']): ?>
@@ -230,7 +230,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     ?>
                                                         <li>
                                                             <i class="bi bi-building text-primary me-2 me-1"></i>
-                                                            <?php echo htmlspecialchars($site['name']); ?>
+                                                            <?php echo h($site['name']); ?>
                                                         </li>
                                                     <?php 
                                                         endif;

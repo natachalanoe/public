@@ -331,7 +331,7 @@ class DocumentationClientController {
 
             // Gestion de l'upload du fichier
             if (isset($_FILES['document']) && $_FILES['document']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/../uploads/documents/';
+                $uploadDir = __DIR__ . '/../../uploads/documents/';
                 if (!file_exists($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
                 }
@@ -489,7 +489,7 @@ class DocumentationClientController {
             $newlyUploadedFilePath = null;
 
             if (isset($_FILES['document']) && $_FILES['document']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/../uploads/documents/';
+                $uploadDir = __DIR__ . '/../../uploads/documents/';
                 if (!file_exists($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
                 }
@@ -529,7 +529,7 @@ class DocumentationClientController {
 
             // Supprimer l'ancien fichier si un nouveau a été uploadé
             if ($fileUploadedSuccessfully && !empty($existingDocument['attachment_path'])) {
-                $oldFilePath = __DIR__ . '/../' . $existingDocument['attachment_path'];
+                $oldFilePath = __DIR__ . '/../../' . $existingDocument['attachment_path'];
                 if (file_exists($oldFilePath)) {
                     unlink($oldFilePath);
                 }
@@ -584,7 +584,7 @@ class DocumentationClientController {
 
         // Supprimer le fichier physique s'il existe
         if (!empty($document['attachment_path'])) {
-            $filePath = __DIR__ . '/../' . $document['attachment_path'];
+            $filePath = __DIR__ . '/../../' . $document['attachment_path'];
             if (file_exists($filePath)) {
                 if (!unlink($filePath)) {
                     error_log("[ERROR] DocumentationClient Delete: Failed to delete file: " . $filePath);

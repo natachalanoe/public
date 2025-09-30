@@ -192,7 +192,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <span class="badge me-1" style="background-color: <?php echo $statusStat['color']; ?>">
                                     <?php echo $statusStat['count']; ?>
                                 </span>
-                                <?php echo htmlspecialchars($statusStat['name']); ?>
+                                <?php echo h($statusStat['name']); ?>
                             </a>
                         <?php endforeach; ?>
                     </div>
@@ -243,7 +243,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <a href="<?php echo $priorityUrl; ?>" 
                                class="btn btn-outline-secondary btn-sm priority-filter-btn <?php echo (isset($_GET['priority_id']) && $_GET['priority_id'] == $priority['id']) ? 'active' : ''; ?>">
                                 <span class="badge me-1" style="background-color: <?php echo $priority['color']; ?>">
-                                    <?php echo htmlspecialchars($priority['name']); ?>
+                                    <?php echo h($priority['name']); ?>
                                 </span>
                             </a>
                         <?php endforeach; ?>

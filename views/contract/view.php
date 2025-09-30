@@ -65,24 +65,27 @@ include_once __DIR__ . '/../../includes/navbar.php';
             </a>
             
             <?php 
-            // Vérifier si le contrat peut être renouvelé (30 jours avant la fin)
+            // Vérifier si le contrat peut être renouvelé (30 jours avant la fin OU après la fin)
             $endDate = new DateTime($contract['end_date']);
             $today = new DateTime();
             $daysUntilEnd = $today->diff($endDate)->days;
-            $canRenew = $daysUntilEnd <= 30 && $daysUntilEnd >= 0;
+            $isExpired = $today > $endDate;
+            $canRenew = ($daysUntilEnd <= 30 && $daysUntilEnd >= 0) || $isExpired;
             
-            if ($contract['renouvellement_tacite']): 
-                if ($canRenew): 
+            // Afficher le bouton de renouvellement sans contrainte de renouvellement tacite
+            if ($canRenew): 
             ?>
                 <button type="button" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#renewalModal">
                     <i class="bi bi-arrow-repeat me-1"></i>Renouveler le contrat
+                    <?php if ($isExpired): ?>
+                        <span class="badge bg-warning text-dark ms-1">Expiré</span>
+                    <?php endif; ?>
                 </button>
             <?php else: ?>
                 <span class="badge bg-secondary me-2" title="Renouvellement disponible dans <?= $daysUntilEnd - 30 ?> jours">
                     <i class="bi bi-clock me-1"></i>Renouvellement indisponible
                 </span>
             <?php 
-                endif;
             endif; 
             ?>
         <?php endif; ?>
@@ -153,13 +156,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <?php foreach ($sites as $siteName => $siteRooms): ?>
                                         <div class="mb-2">
                                             <strong class="text-primary">
-                                                <i class="bi bi-building me-1 me-1"></i><?= htmlspecialchars($siteName) ?>
+                                                <i class="bi bi-building me-1 me-1"></i><?= h($siteName) ?>
                                             </strong>
                                             <ul class="list-unstyled ms-3 mb-2">
                                                 <?php foreach ($siteRooms as $room): ?>
                                                     <li>
                                                         <i class="bi bi-door-open text-muted me-1 me-1"></i>
-                                                        <?= htmlspecialchars($room['room_name']) ?>
+                                                        <?= h($room['room_name']) ?>
                                                     </li>
                                                 <?php endforeach; ?>
                                             </ul>
@@ -180,9 +183,9 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <?php if (!empty($contract['access_level_name'])): ?>
                                     <span class="badge bg-primary">
                                         <i class="fas fa-level-up-alt me-1"></i>
-                                        <?= htmlspecialchars($contract['access_level_name']) ?>
+                                        <?= h($contract['access_level_name']) ?>
                                     </span>
-                                    <br><small class="text-muted"><?= htmlspecialchars($contract['access_level_description']) ?></small>
+                                    <br><small class="text-muted"><?= h($contract['access_level_description']) ?></small>
                                 <?php else: ?>
                                     <span class="text-muted">Non défini</span>
                                 <?php endif; ?>
@@ -277,7 +280,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <td>
                                 <?php if (!empty($contract['num_facture'])): ?>
                                     <span class="badge bg-primary">
-                                        <i class="bi bi-receipt me-1"></i><?= htmlspecialchars($contract['num_facture']) ?>
+                                        <i class="bi bi-receipt me-1"></i><?= h($contract['num_facture']) ?>
                                     </span>
                                 <?php else: ?>
                                     <span class="text-muted">Non défini</span>
@@ -301,7 +304,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <td>
                                 <?php if (!empty($contract['indice'])): ?>
                                     <span class="badge bg-info">
-                                        <i class="bi bi-graph-up me-1"></i><?= htmlspecialchars($contract['indice']) ?>
+                                        <i class="bi bi-graph-up me-1"></i><?= h($contract['indice']) ?>
                                     </span>
                                 <?php else: ?>
                                     <span class="text-muted">Non défini</span>
@@ -317,7 +320,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="col-md-12">
                     <h5>Commentaires</h5>
                     <div class="alert alert-info">
-                        <?= nl2br(htmlspecialchars($contract['comment'])) ?>
+                        <?= nl2br(h($contract['comment'])) ?>
                     </div>
                 </div>
             </div>
@@ -419,13 +422,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         $extension = strtolower(pathinfo($attachment['nom_fichier'], PATHINFO_EXTENSION));
                                         if ($extension === 'pdf'): 
                                         ?>
-                                            <iframe src="<?= BASE_URL . $attachment['chemin_fichier'] ?>" 
+                                            <iframe src="<?= BASE_URL ?>contracts/preview?attachment_id=<?= $attachment['id'] ?>" 
                                                     width="100%" 
                                                     height="600px" 
                                                     frameborder="0">
                                             </iframe>
                                         <?php elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
-                                            <img src="<?= BASE_URL . $attachment['chemin_fichier'] ?>" 
+                                            <img src="<?= BASE_URL ?>contracts/preview?attachment_id=<?= $attachment['id'] ?>" 
                                                  class="img-fluid" 
                                                  alt="<?= h($attachment['nom_fichier']) ?>"
                                                  onerror="handleImageError(this, <?= $attachment['id'] ?>, '<?= h($attachment['nom_fichier']) ?>')"
@@ -1310,7 +1313,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-6">
                                 <h6>Contrat actuel</h6>
                                 <ul class="list-unstyled">
-                                    <li><strong>Nom :</strong> <?= htmlspecialchars($contract['name']) ?></li>
+                                    <li><strong>Nom :</strong> <?= h($contract['name']) ?></li>
                                     <li><strong>Date de fin :</strong> <?= formatDateFrench($contract['end_date']) ?></li>
                                     <li><strong>Statut :</strong> <span class="badge bg-success">Actif</span></li>
                                 </ul>
@@ -1318,8 +1321,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="col-md-6">
                                 <h6>Nouveau contrat</h6>
                                 <ul class="list-unstyled">
-                                    <li><strong>Date de début :</strong> <?= formatDateFrench(date('Y-m-d', strtotime($contract['end_date'] . ' +1 day'))) ?></li>
-                                    <li><strong>Date de fin :</strong> <?= formatDateFrench(date('Y-m-d', strtotime($contract['end_date'] . ' +365 days'))) ?></li>
+                                    <?php if ($isExpired): ?>
+                                        <li><strong>Date de début :</strong> <?= formatDateFrench(date('Y-m-d')) ?> <span class="badge bg-info">Aujourd'hui</span></li>
+                                        <li><strong>Date de fin :</strong> <?= formatDateFrench(date('Y-m-d', strtotime('+364 days'))) ?></li>
+                                    <?php else: ?>
+                                        <li><strong>Date de début :</strong> <?= formatDateFrench(date('Y-m-d', strtotime($contract['end_date'] . ' +1 day'))) ?></li>
+                                        <li><strong>Date de fin :</strong> <?= formatDateFrench(date('Y-m-d', strtotime($contract['end_date'] . ' +365 days'))) ?></li>
+                                    <?php endif; ?>
                                     <li><strong>Durée :</strong> 364 jours</li>
                                 </ul>
                             </div>
@@ -1331,7 +1339,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                    class="form-control" 
                                    id="new_contract_name" 
                                    name="new_contract_name" 
-                                   value="<?= htmlspecialchars($contract['name']) ?>" 
+                                   value="<?= h($contract['name']) ?>" 
                                    required>
                         </div>
                         
@@ -1387,6 +1395,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Fonctions pour gérer l'aperçu des images
     function handleImageError(img, attachmentId, fileName) {
         console.error('Erreur lors du chargement de l\'image:', fileName);
+        console.error('URL de l\'image:', img.src);
+        console.error('Statut de l\'image:', img.complete, img.naturalWidth, img.naturalHeight);
+        
+        // Tester si l'URL est accessible directement
+        fetch(img.src)
+            .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                return response.blob();
+            })
+            .then(blob => {
+                console.log('Blob reçu:', blob.type, blob.size);
+            })
+            .catch(error => {
+                console.error('Erreur fetch:', error);
+            });
         
         // Remplacer l'image par un message d'erreur avec option de téléchargement
         const container = img.parentElement;
@@ -1394,7 +1418,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="alert alert-warning text-center">
                 <i class="bi bi-exclamation-triangle me-2"></i>
                 <strong>Impossible d'afficher l'aperçu de l'image</strong><br>
-                <small class="text-muted">${fileName}</small><br><br>
+                <small class="text-muted">${fileName}</small><br>
+                <small class="text-muted">URL: ${img.src}</small><br><br>
                 <a href="<?= BASE_URL ?>contracts/download?attachment_id=${attachmentId}" 
                    class="btn btn-sm btn-outline-primary" 
                    target="_blank">
@@ -1406,6 +1431,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function handleImageLoad(img) {
         // Image chargée avec succès
+        console.log('Image chargée avec succès:', img.src);
         img.style.display = 'block';
         img.classList.add('img-fluid');
     }

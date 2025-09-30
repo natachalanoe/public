@@ -291,7 +291,7 @@ foreach ($materiel_list as $materiel) {
                         <?php if (isset($clients) && is_array($clients)): ?>
                             <?php foreach ($clients as $client): ?>
                                 <option value="<?= $client['id'] ?>" <?= ($filters['client_id'] ?? '') == $client['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($client['name']) ?>
+                                    <?= h($client['name']) ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -305,7 +305,7 @@ foreach ($materiel_list as $materiel) {
                         <?php if (isset($sites) && is_array($sites)): ?>
                             <?php foreach ($sites as $site): ?>
                                 <option value="<?= $site['id'] ?>" <?= ($filters['site_id'] ?? '') == $site['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($site['name']) ?>
+                                    <?= h($site['name']) ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -318,7 +318,7 @@ foreach ($materiel_list as $materiel) {
                         <option value="">Toutes les salles</option>
                         <?php foreach ($salles as $salle): ?>
                             <option value="<?= $salle['id'] ?>" <?= ($filters['salle_id'] ?? '') == $salle['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($salle['name']) ?>
+                                <?= h($salle['name']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -386,7 +386,7 @@ foreach ($materiel_list as $materiel) {
                 <div class="card-header bg-body-secondary">
                     <h5 class="card-title mb-0">
                         <i class="bi bi-building me-2 text-primary me-1"></i>
-                        <?= htmlspecialchars($client_nom) ?>
+                        <?= h($client_nom) ?>
                     </h5>
                 </div>
                 <div class="card-body p-0">
@@ -395,7 +395,7 @@ foreach ($materiel_list as $materiel) {
                             <div class="p-3 bg-body-secondary bg-opacity-10">
                                 <h6 class="mb-0">
                                     <i class="bi bi-geo-alt me-2 text-success me-1"></i>
-                                    <?= htmlspecialchars($site_nom) ?>
+                                    <?= h($site_nom) ?>
                                 </h6>
                             </div>
                             <?php foreach ($salles as $salle_nom => $materiels): ?>
@@ -403,7 +403,7 @@ foreach ($materiel_list as $materiel) {
                                     <div class="p-3">
                                         <h6 class="mb-3">
                                             <i class="bi bi-door-open me-2 text-info me-1"></i>
-                                            <?= htmlspecialchars($salle_nom) ?>
+                                            <?= h($salle_nom) ?>
                                             <span class="badge bg-secondary ms-2"><?= count($materiels) ?> équipement(s)</span>
                                         </h6>
                                         
@@ -455,28 +455,28 @@ foreach ($materiel_list as $materiel) {
                                                             </td>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['numero_serie']) && !$visibilites_champs[$materiel['id']]['numero_serie']) ? 'bg-warning bg-opacity-25' : '' ?>">
                                                                 <?php if (!empty($materiel['numero_serie'])): ?>
-                                                                    <?= htmlspecialchars($materiel['numero_serie']) ?>
+                                                                    <?= h($materiel['numero_serie']) ?>
                                                                 <?php else: ?>
                                                                     <span class="text-muted">-</span>
                                                                 <?php endif; ?>
                                                             </td>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['version_firmware']) && !$visibilites_champs[$materiel['id']]['version_firmware']) ? 'bg-warning bg-opacity-25' : '' ?>">
                                                                 <?php if (!empty($materiel['version_firmware'])): ?>
-                                                                    <?= htmlspecialchars($materiel['version_firmware']) ?>
+                                                                    <?= h($materiel['version_firmware']) ?>
                                                                 <?php else: ?>
                                                                     <span class="text-muted">-</span>
                                                                 <?php endif; ?>
                                                             </td>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['adresse_ip']) && !$visibilites_champs[$materiel['id']]['adresse_ip']) ? 'bg-warning bg-opacity-25' : '' ?>">
                                                                 <?php if (!empty($materiel['adresse_ip'])): ?>
-                                                                    <?= htmlspecialchars($materiel['adresse_ip']) ?>
+                                                                    <?= h($materiel['adresse_ip']) ?>
                                                                 <?php else: ?>
                                                                     <span class="text-muted">-</span>
                                                                 <?php endif; ?>
                                                             </td>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['adresse_mac']) && !$visibilites_champs[$materiel['id']]['adresse_mac']) ? 'bg-warning bg-opacity-25' : '' ?>">
                                                                 <?php if (!empty($materiel['adresse_mac'])): ?>
-                                                                    <?= htmlspecialchars($materiel['adresse_mac']) ?>
+                                                                    <?= h($materiel['adresse_mac']) ?>
                                                                 <?php else: ?>
                                                                     <span class="text-muted">-</span>
                                                                 <?php endif; ?>
@@ -874,9 +874,9 @@ function showPreview(attachmentId, fileName, filePath, fileType) {
     // Générer le contenu de preview selon le type de fichier
     const fileTypeLower = fileType.toLowerCase();
     if (fileTypeLower === 'pdf') {
-        previewContainer.innerHTML = `<iframe src="${baseUrl}${filePath}" width="100%" height="600px" frameborder="0"></iframe>`;
+        previewContainer.innerHTML = `<iframe src="${baseUrl}materiel/preview/${attachmentId}" width="100%" height="600px" frameborder="0"></iframe>`;
     } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileTypeLower)) {
-        previewContainer.innerHTML = `<img src="${baseUrl}${filePath}" class="img-fluid" alt="${fileName}">`;
+        previewContainer.innerHTML = `<img src="${baseUrl}materiel/preview/${attachmentId}" class="img-fluid" alt="${fileName}">`;
     } else {
         previewContainer.innerHTML = `
             <div class="alert alert-info">

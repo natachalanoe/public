@@ -193,16 +193,12 @@ document.addEventListener('DOMContentLoaded', function () {
   
   // Theme initialization function
   function initializeTheme() {
-    console.log('Initializing theme...');
-    
     // Récupérer le thème stocké
     const storedTheme = localStorage.getItem(`theme-${templateName}`);
     
     // Appliquer le thème au chargement
     if (storedTheme === 'semi-dark') {
-      console.log('Initializing semi-dark theme');
       document.documentElement.setAttribute('data-bs-theme', 'semi-dark');
-      console.log('Applied theme:', document.documentElement.getAttribute('data-bs-theme'));
       window.Helpers.showActiveTheme('semi-dark');
     } else {
       // Thème classique
@@ -217,7 +213,6 @@ document.addEventListener('DOMContentLoaded', function () {
     
     // Attach theme toggle event listeners
     const themeToggles = document.querySelectorAll('[data-bs-theme-value]');
-    console.log('Found theme toggles:', themeToggles.length);
     
     themeToggles.forEach(toggle => {
       // Remove existing listeners to prevent duplicates
@@ -230,7 +225,6 @@ document.addEventListener('DOMContentLoaded', function () {
   // Theme toggle handler function
   function toggleThemeHandler() {
     const theme = this.getAttribute('data-bs-theme-value');
-    console.log('Theme toggle clicked:', theme);
     
     window.Helpers.setStoredTheme(templateName, theme);
     
@@ -272,24 +266,17 @@ document.addEventListener('DOMContentLoaded', function () {
   
   // Additional initialization after a longer delay to catch any late-loading elements
   setTimeout(() => {
-    console.log('Late theme initialization...');
     initializeTheme();
   }, 500);
   
   // Check Bootstrap initialization
   setTimeout(() => {
-    console.log('Checking Bootstrap initialization...');
-    console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
     if (typeof bootstrap !== 'undefined') {
-      console.log('Bootstrap version:', bootstrap.VERSION);
-      
       // Check if dropdowns are working
       const themeDropdown = document.querySelector('#nav-theme');
       if (themeDropdown) {
         const dropdown = bootstrap.Dropdown.getInstance(themeDropdown);
-        console.log('Theme dropdown instance:', dropdown);
         if (!dropdown) {
-          console.log('Creating new dropdown instance...');
           new bootstrap.Dropdown(themeDropdown);
         }
       }

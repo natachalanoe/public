@@ -48,7 +48,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <?php if (isset($client_docs) && !empty($client_docs)): ?>
                                     <?php foreach ($client_docs as $doc): ?>
                                         <tr>
-                                            <td data-label="Client"><?= htmlspecialchars($doc['client_name']) ?></td>
+                                            <td data-label="Client"><?= h($doc['client_name']) ?></td>
                                             <td data-label="Statut" data-order="<?= $doc['client_status'] ?>">
                                                 <?= $doc['client_status'] ? 'Actif' : 'Inactif' ?>
                                             </td>

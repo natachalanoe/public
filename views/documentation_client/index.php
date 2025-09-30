@@ -91,7 +91,7 @@ $roomId = $roomId ?? null;
                         <?php if (isset($sites) && is_array($sites)): ?>
                             <?php foreach ($sites as $site): ?>
                                 <option value="<?= $site['id'] ?>" <?= ($siteId ?? '') == $site['id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($site['name']) ?>
+                                    <?= h($site['name']) ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -104,7 +104,7 @@ $roomId = $roomId ?? null;
                         <option value="">Toutes les salles</option>
                         <?php foreach ($rooms as $room): ?>
                             <option value="<?= $room['id'] ?>" <?= ($roomId ?? '') == $room['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($room['name']) ?>
+                                <?= h($room['name']) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -152,7 +152,7 @@ $roomId = $roomId ?? null;
                                     <div class="col-md-3 mb-3">
                                         <div class="card h-100">
                                             <div class="card-header py-2">
-                                                <h6 class="card-title mb-0"><?= htmlspecialchars($document['title']) ?></h6>
+                                                <h6 class="card-title mb-0"><?= h($document['title']) ?></h6>
                                                 <?php 
                                                 // Vérifier si l'utilisateur peut modifier/supprimer ce document
                                                 $canEditDocument = false;
@@ -178,7 +178,7 @@ $roomId = $roomId ?? null;
                                                         <?php if ($canDeleteDocument): ?>
                                                             <a href="<?= BASE_URL ?>documentation_client/delete/<?= $document['id'] ?>" 
                                                                class="btn btn-sm btn-outline-danger btn-action" 
-                                                               onclick="return confirmDelete('<?= htmlspecialchars($document['title']) ?>');"
+                                                               onclick="return confirmDelete('<?= h($document['title']) ?>');"
                                                                title="Supprimer le document">
                                                                 <i class="bi bi-trash me-1"></i>
                                                             </a>
@@ -187,7 +187,7 @@ $roomId = $roomId ?? null;
                                                 <?php endif; ?>
                                             </div>
                                             <div class="card-body py-2">
-                                                <p class="card-text small mb-2"><?= nl2br(htmlspecialchars($document['description'])) ?></p>
+                                                <p class="card-text small mb-2"><?= nl2br(h($document['description'])) ?></p>
                                                 
                                                 <?php if (!empty($document['content'])): ?>
                                                     <button type="button" 
@@ -217,10 +217,10 @@ $roomId = $roomId ?? null;
                                                 <?php if (!empty($document['site_name']) || !empty($document['room_name'])): ?>
                                                     <div class="text-muted small mt-1">
                                                         <?php if (!empty($document['site_name'])): ?>
-                                                            <i class="bi bi-geo-alt me-1"></i> <?= htmlspecialchars($document['site_name']) ?>
+                                                            <i class="bi bi-geo-alt me-1"></i> <?= h($document['site_name']) ?>
                                                         <?php endif; ?>
                                                         <?php if (!empty($document['room_name'])): ?>
-                                                            <br><i class="bi bi-door-open me-1"></i> <?= htmlspecialchars($document['room_name']) ?>
+                                                            <br><i class="bi bi-door-open me-1"></i> <?= h($document['room_name']) ?>
                                                         <?php endif; ?>
                                                     </div>
                                                 <?php endif; ?>
@@ -255,19 +255,19 @@ $roomId = $roomId ?? null;
                         <div class="modal-content">
                             <div class="modal-header">
                                 <h5 class="modal-title" id="contentModalLabel<?= $document['id'] ?>">
-                                    <?= htmlspecialchars($document['title']) ?>
+                                    <?= h($document['title']) ?>
                                 </h5>
                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                             </div>
                             <div class="modal-body">
                                 <div class="mb-3">
                                     <strong>Description :</strong>
-                                    <p><?= nl2br(htmlspecialchars($document['description'])) ?></p>
+                                    <p><?= nl2br(h($document['description'])) ?></p>
                                 </div>
                                 <div>
                                     <strong>Contenu :</strong>
                                     <div class="border rounded p-3 bg-light">
-                                        <?= nl2br(htmlspecialchars($document['content'])) ?>
+                                        <?= nl2br(h($document['content'])) ?>
                                     </div>
                                 </div>
                             </div>

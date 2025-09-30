@@ -96,18 +96,18 @@ foreach ($sites as $site) {
                                                 <option value="">Sélectionner une catégorie</option>
                                                 <?php foreach ($categories as $category): ?>
                                             <option value="<?= $category['id'] ?>" <?= ($form_category_id == $category['id']) ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($category['name']) ?>
+                                                        <?= h($category['name']) ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
                                 <div class="mb-3">
                                     <label for="title" class="form-label">Titre <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="title" name="title" required value="<?= htmlspecialchars($form_title) ?>">
+                                    <input type="text" class="form-control" id="title" name="title" required value="<?= h($form_title) ?>">
                                 </div>
                                 <div class="mb-3">
                                     <label for="description" class="form-label">Description</label>
-                                    <textarea class="form-control" id="description" name="description" rows="3"><?= htmlspecialchars($form_description) ?></textarea>
+                                    <textarea class="form-control" id="description" name="description" rows="3"><?= h($form_description) ?></textarea>
                                 </div>
                                 <div class="mb-3">
                                     <label for="document_file" class="form-label">Pièce jointe</label>
@@ -155,7 +155,7 @@ foreach ($sites as $site) {
                                         <option value="">Sélectionner un client</option>
                                         <?php foreach ($authorizedClients as $clientId => $clientName): ?>
                                             <option value="<?= $clientId ?>" <?= (isset($_GET['client_id']) && $_GET['client_id'] == $clientId) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($clientName) ?>
+                                                <?= h($clientName) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -168,7 +168,7 @@ foreach ($sites as $site) {
                                             <option value="<?= $site['id'] ?>" 
                                                     data-client="<?= $site['client_id'] ?>"
                                                     <?= (isset($_GET['site_id']) && $_GET['site_id'] == $site['id']) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($site['name']) ?>
+                                                <?= h($site['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -181,7 +181,7 @@ foreach ($sites as $site) {
                                             <option value="<?= $room['id'] ?>" 
                                                     data-site="<?= $room['site_id'] ?>"
                                                     <?= (isset($_GET['room_id']) && $_GET['room_id'] == $room['id']) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($room['name']) ?>
+                                                <?= h($room['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>

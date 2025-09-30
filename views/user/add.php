@@ -68,7 +68,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                 <div class="alert alert-danger">
                     <ul class="mb-0">
                         <?php foreach ($errors as $error): ?>
-                            <li><?php echo htmlspecialchars($error); ?></li>
+                            <li><?php echo h($error); ?></li>
                         <?php endforeach; ?>
                     </ul>
                 </div>
@@ -83,7 +83,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         <div class="mb-3">
                             <label for="username" class="form-label">Nom d'utilisateur *</label>
                             <input type="text" class="form-control bg-body text-body" id="username" name="username" 
-                                   value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : ''; ?>" 
+                                   value="<?php echo isset($_POST['username']) ? h($_POST['username']) : ''; ?>" 
                                    required>
                             <div class="invalid-feedback">
                                 Veuillez saisir un nom d'utilisateur.
@@ -93,7 +93,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         <div class="mb-3">
                             <label for="email" class="form-label">Email *</label>
                             <input type="email" class="form-control bg-body text-body" id="email" name="email" 
-                                   value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" 
+                                   value="<?php echo isset($_POST['email']) ? h($_POST['email']) : ''; ?>" 
                                    required>
                             <div class="invalid-feedback">
                                 Veuillez saisir une adresse email valide.
@@ -103,7 +103,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         <div class="mb-3">
                             <label for="first_name" class="form-label">Prénom *</label>
                             <input type="text" class="form-control bg-body text-body" id="first_name" name="first_name" 
-                                   value="<?php echo isset($_POST['first_name']) ? htmlspecialchars($_POST['first_name']) : ''; ?>" 
+                                   value="<?php echo isset($_POST['first_name']) ? h($_POST['first_name']) : ''; ?>" 
                                    required>
                             <div class="invalid-feedback">
                                 Veuillez saisir un prénom.
@@ -113,7 +113,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         <div class="mb-3">
                             <label for="last_name" class="form-label">Nom *</label>
                             <input type="text" class="form-control bg-body text-body" id="last_name" name="last_name" 
-                                   value="<?php echo isset($_POST['last_name']) ? htmlspecialchars($_POST['last_name']) : ''; ?>" 
+                                   value="<?php echo isset($_POST['last_name']) ? h($_POST['last_name']) : ''; ?>" 
                                    required>
                             <div class="invalid-feedback">
                                 Veuillez saisir un nom.
@@ -157,9 +157,9 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                                 <option value="">Sélectionnez un type</option>
                                 <?php if (!empty($userTypes)): ?>
                                     <?php foreach ($userTypes as $type): ?>
-                                        <option value="<?php echo htmlspecialchars($type['name']); ?>" 
+                                        <option value="<?php echo h($type['name']); ?>" 
                                                 <?php echo isset($_POST['type']) && $_POST['type'] === $type['name'] ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($type['description']); ?> (<?php echo htmlspecialchars($type['group_name']); ?>)
+                                            <?php echo h($type['description']); ?> (<?php echo h($type['group_name']); ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -209,7 +209,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         <div id="coef-section" class="mb-3" style="display: none;">
                             <label for="coef_utilisateur" class="form-label">Coefficient utilisateur *</label>
                             <input type="number" class="form-control bg-body text-body" id="coef_utilisateur" name="coef_utilisateur" 
-                                   value="<?php echo isset($_POST['coef_utilisateur']) ? htmlspecialchars($_POST['coef_utilisateur']) : '1.00'; ?>" 
+                                   value="<?php echo isset($_POST['coef_utilisateur']) ? h($_POST['coef_utilisateur']) : '1.00'; ?>" 
                                    step="0.01" min="0">
                             <div class="invalid-feedback">
                                 Veuillez saisir un coefficient valide.

@@ -1065,7 +1065,7 @@ class ContractController {
                     echo '<div class="mb-3">';
                     echo '<div class="d-flex align-items-center mb-2">';
                     echo '<i class="fas fa-building text-primary me-2"></i>';
-                    echo '<strong class="text-primary">' . htmlspecialchars($siteName) . '</strong>';
+                    echo '<strong class="text-primary">' . h($siteName) . '</strong>';
                     echo '</div>';
                     echo '<div class="ms-4">';
                     
@@ -1083,7 +1083,7 @@ class ContractController {
                         echo '>';
                         echo '<label class="form-check-label" for="room_' . $roomId . '">';
                         echo '<i class="fas fa-door-open text-muted me-1"></i>';
-                        echo htmlspecialchars($room['name']);
+                        echo h($room['name']);
                         echo '</label>';
                         echo '</div>';
                     }
@@ -1151,8 +1151,8 @@ class ContractController {
                 throw new Exception("Ce format n'est pas accepté, rapprochez-vous de l'administrateur du site, ou utilisez un format compressé.");
             }
 
-            // Créer le répertoire de destination
-            $uploadDir = __DIR__ . '/../uploads/contracts/' . $contractId;
+            // Créer le répertoire de destination (à la racine du site, pas dans public/)
+            $uploadDir = __DIR__ . '/../../uploads/contracts/' . $contractId;
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
@@ -1251,8 +1251,8 @@ class ContractController {
                     continue;
                 }
 
-                // Créer le répertoire de destination
-                $uploadDir = __DIR__ . '/../uploads/contracts/' . $contractId;
+                // Créer le répertoire de destination (à la racine du site, pas dans public/)
+                $uploadDir = __DIR__ . '/../../uploads/contracts/' . $contractId;
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0755, true);
                 }
@@ -1335,7 +1335,7 @@ class ContractController {
             }
 
             // Supprimer le fichier physique
-            $filePath = __DIR__ . '/../' . $pieceJointe['chemin_fichier'];
+            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
             if (file_exists($filePath)) {
                 unlink($filePath);
             }
@@ -1368,7 +1368,7 @@ class ContractController {
                 throw new Exception("Pièce jointe non trouvée");
             }
 
-            $filePath = __DIR__ . '/../' . $pieceJointe['chemin_fichier'];
+            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
             
             if (!file_exists($filePath)) {
                 throw new Exception("Fichier non trouvé");
@@ -1400,6 +1400,9 @@ class ContractController {
         $this->checkAccess();
 
         try {
+            // Log pour débogage
+            custom_log("Tentative d'aperçu contrat pour l'ID: " . $attachmentId, 'DEBUG');
+            
             // Récupérer les informations de la pièce jointe
             $pieceJointe = $this->contractModel->getPieceJointeById($attachmentId);
             
@@ -1407,38 +1410,72 @@ class ContractController {
                 throw new Exception("Pièce jointe non trouvée");
             }
 
-            $filePath = __DIR__ . '/../' . $pieceJointe['chemin_fichier'];
+            custom_log("Pièce jointe trouvée: " . json_encode($pieceJointe), 'DEBUG');
+
+            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
+            custom_log("Chemin du fichier: " . $filePath, 'DEBUG');
             
             if (!file_exists($filePath)) {
+                custom_log("Le fichier n'existe pas: " . $filePath, 'ERROR');
                 throw new Exception("Fichier non trouvé");
             }
 
-            $extension = strtolower(pathinfo($pieceJointe['nom_fichier'], PATHINFO_EXTENSION));
+            custom_log("Fichier trouvé, taille: " . filesize($filePath), 'DEBUG');
+
+            // Définir les en-têtes pour l'aperçu
+            $mimeType = mime_content_type($filePath);
+            custom_log("Type MIME détecté: " . ($mimeType ?: 'null'), 'DEBUG');
             
-            // Définir le type MIME approprié
-            switch ($extension) {
-                case 'pdf':
-                    header('Content-Type: application/pdf');
-                    break;
-                case 'jpg':
-                case 'jpeg':
-                    header('Content-Type: image/jpeg');
-                    break;
-                case 'png':
-                    header('Content-Type: image/png');
-                    break;
-                case 'gif':
-                    header('Content-Type: image/gif');
-                    break;
-                default:
-                    header('Content-Type: application/octet-stream');
-                    header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
-                    break;
+            if (!$mimeType) {
+                // Fallback basé sur l'extension si mime_content_type échoue
+                $extension = strtolower(pathinfo($pieceJointe['nom_fichier'], PATHINFO_EXTENSION));
+                switch ($extension) {
+                    case 'pdf':
+                        $mimeType = 'application/pdf';
+                        break;
+                    case 'jpg':
+                    case 'jpeg':
+                        $mimeType = 'image/jpeg';
+                        break;
+                    case 'png':
+                        $mimeType = 'image/png';
+                        break;
+                    case 'gif':
+                        $mimeType = 'image/gif';
+                        break;
+                    case 'webp':
+                        $mimeType = 'image/webp';
+                        break;
+                    case 'svg':
+                        $mimeType = 'image/svg+xml';
+                        break;
+                    case 'bmp':
+                        $mimeType = 'image/bmp';
+                        break;
+                    default:
+                        $mimeType = 'application/octet-stream';
+                        break;
+                }
+            }
+            
+            header('Content-Type: ' . $mimeType);
+            
+            // Pour les images et PDFs, utiliser inline pour la prévisualisation
+            if (strpos($mimeType, 'image/') === 0 || $mimeType === 'application/pdf') {
+                header('Content-Disposition: inline; filename="' . $pieceJointe['nom_fichier'] . '"');
+            } else {
+                header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
             }
 
             header('Content-Length: ' . filesize($filePath));
-            header('Cache-Control: no-cache, must-revalidate');
-            header('Pragma: no-cache');
+            // Headers plus permissifs pour la prévisualisation
+            header('Cache-Control: public, max-age=3600');
+            header('X-Content-Type-Options: nosniff');
+
+            // Nettoyer les buffers de sortie avant d'envoyer le fichier
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
 
             // Lire et envoyer le fichier
             readfile($filePath);
@@ -1583,8 +1620,8 @@ class ContractController {
                         throw new Exception("Le format du fichier avenant n'est pas accepté");
                     }
 
-                    // Créer le répertoire de destination
-                    $uploadDir = __DIR__ . '/../uploads/contracts/' . $contractId;
+                    // Créer le répertoire de destination (à la racine du site, pas dans public/)
+                    $uploadDir = __DIR__ . '/../../uploads/contracts/' . $contractId;
                     if (!is_dir($uploadDir)) {
                         mkdir($uploadDir, 0755, true);
                     }
@@ -1758,26 +1795,31 @@ class ContractController {
                 exit;
             }
 
-            // Vérifier que le contrat a le renouvellement tacite activé
-            if (!$currentContract['renouvellement_tacite']) {
-                $_SESSION['error'] = "Ce contrat n'a pas le renouvellement tacite activé.";
-                header('Location: ' . BASE_URL . 'contracts/view/' . $contractId);
-                exit;
-            }
+            // Vérification du renouvellement tacite supprimée - autorisation sans contrainte
 
-            // Vérifier que le contrat peut être renouvelé (30 jours avant la fin)
+            // Vérifier que le contrat peut être renouvelé (30 jours avant la fin OU après la fin)
             $endDate = new DateTime($currentContract['end_date']);
             $today = new DateTime();
             $daysUntilEnd = $today->diff($endDate)->days;
-            if ($daysUntilEnd > 30 || $daysUntilEnd < 0) {
-                $_SESSION['error'] = "Le contrat ne peut être renouvelé que dans les 30 jours précédant sa date de fin.";
+            $isExpired = $today > $endDate;
+            $canRenew = ($daysUntilEnd <= 30 && $daysUntilEnd >= 0) || $isExpired;
+            
+            if (!$canRenew) {
+                $_SESSION['error'] = "Le contrat ne peut être renouvelé que dans les 30 jours précédant sa date de fin ou après son expiration.";
                 header('Location: ' . BASE_URL . 'contracts/view/' . $contractId);
                 exit;
             }
 
             // Calculer les dates du nouveau contrat
-            $newStartDate = date('Y-m-d', strtotime($currentContract['end_date'] . ' +1 day'));
-            $newEndDate = date('Y-m-d', strtotime($newStartDate . ' +364 days'));
+            if ($isExpired) {
+                // Si le contrat est expiré, commencer le nouveau contrat aujourd'hui
+                $newStartDate = date('Y-m-d');
+                $newEndDate = date('Y-m-d', strtotime($newStartDate . ' +364 days'));
+            } else {
+                // Si le contrat n'est pas encore expiré, commencer le jour après la fin
+                $newStartDate = date('Y-m-d', strtotime($currentContract['end_date'] . ' +1 day'));
+                $newEndDate = date('Y-m-d', strtotime($newStartDate . ' +364 days'));
+            }
 
             // Récupérer les salles du contrat actuel
             $currentRooms = $this->contractModel->getContractRooms($contractId);

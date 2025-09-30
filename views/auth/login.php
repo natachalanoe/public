@@ -45,7 +45,7 @@ if (!defined('BASE_URL')) {
                         
                         <?php if (isset($_SESSION['error'])): ?>
                             <div class="alert alert-danger">
-                                <?php echo htmlspecialchars($_SESSION['error']); ?>
+                                <?php echo h($_SESSION['error']); ?>
                                 <?php unset($_SESSION['error']); ?>
                             </div>
                         <?php endif; ?>

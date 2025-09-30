@@ -173,7 +173,7 @@ $blacklistedExtensions = FileUploadValidator::getBlacklistedExtensions();
                                 <tbody>
                                     <?php foreach ($allowedExtensions as $ext): ?>
                                     <tr>
-                                        <td><code><?= htmlspecialchars($ext['extension']) ?></code></td>
+                                        <td><code><?= h($ext['extension']) ?></code></td>
                                         <td><?= htmlspecialchars($ext['mime_type'] ?? '') ?></td>
                                         <td><?= htmlspecialchars($ext['description'] ?? '') ?></td>
                                         <td>
@@ -199,7 +199,7 @@ $blacklistedExtensions = FileUploadValidator::getBlacklistedExtensions();
                                                     </button>
                                                 <?php endif; ?>
                                                 <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                        onclick="deleteExtension(<?= $ext['id'] ?>, '<?= htmlspecialchars($ext['extension']) ?>')" 
+                                                        onclick="deleteExtension(<?= $ext['id'] ?>, '<?= h($ext['extension']) ?>')" 
                                                         title="Supprimer">
                                                     <i class="bi bi-trash me-1"></i>
                                                 </button>

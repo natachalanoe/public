@@ -86,7 +86,7 @@ $coef_intervention = $config->get('coef_intervention', '0.4');
                                                    class="form-control" 
                                                    id="tarif_ticket" 
                                                    name="tarif_ticket" 
-                                                   value="<?= htmlspecialchars($tarif_ticket) ?>" 
+                                                   value="<?= h($tarif_ticket) ?>" 
                                                    min="0" 
                                                    step="0.01"
                                                    required>
@@ -107,7 +107,7 @@ $coef_intervention = $config->get('coef_intervention', '0.4');
                                                    class="form-control" 
                                                    id="coef_intervention" 
                                                    name="coef_intervention" 
-                                                   value="<?= htmlspecialchars($coef_intervention) ?>" 
+                                                   value="<?= h($coef_intervention) ?>" 
                                                    min="0" 
                                                    max="1" 
                                                    step="0.01"

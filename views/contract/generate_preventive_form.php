@@ -20,7 +20,7 @@
                         </li>
                         <li class="breadcrumb-item">
                             <a href="<?php echo BASE_URL; ?>contracts/view/<?php echo $contract['id']; ?>">
-                                <?php echo htmlspecialchars($contract['name']); ?>
+                                <?php echo h($contract['name']); ?>
                             </a>
                         </li>
                         <li class="breadcrumb-item active">Générer des interventions préventives</li>
@@ -56,10 +56,10 @@
                             <div class="col-md-6">
                                 <h6>Contrat</h6>
                                 <ul class="list-unstyled">
-                                    <li><strong>Nom :</strong> <?= htmlspecialchars($contract['name']) ?></li>
+                                    <li><strong>Nom :</strong> <?= h($contract['name']) ?></li>
                                     <li><strong>Période :</strong> <?= formatDateFrench($contract['start_date']) ?> - <?= formatDateFrench($contract['end_date']) ?></li>
-                                    <li><strong>Type :</strong> <?= htmlspecialchars($contract['contract_type_name']) ?></li>
-                                    <li><strong>Client :</strong> <?= htmlspecialchars($contract['client_name']) ?></li>
+                                    <li><strong>Type :</strong> <?= h($contract['contract_type_name']) ?></li>
+                                    <li><strong>Client :</strong> <?= h($contract['client_name']) ?></li>
                                 </ul>
                             </div>
                             <div class="col-md-6">
@@ -67,7 +67,7 @@
                                 <?php if (!empty($contractRooms)): ?>
                                     <ul class="list-unstyled">
                                         <?php foreach ($contractRooms as $room): ?>
-                                            <li><i class="bi bi-building me-1"></i><?= htmlspecialchars($room['site_name']) ?> : <?= htmlspecialchars($room['room_name']) ?></li>
+                                            <li><i class="bi bi-building me-1"></i><?= h($room['site_name']) ?> : <?= h($room['room_name']) ?></li>
                                         <?php endforeach; ?>
                                     </ul>
                                 <?php else: ?>

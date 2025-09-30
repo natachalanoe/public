@@ -74,7 +74,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <span class="badge <?php echo $stat['color']; ?> me-1">
                                     <?php echo $stat['count']; ?>
                                 </span>
-                                <?php echo htmlspecialchars($stat['display_name']); ?>
+                                <?php echo h($stat['display_name']); ?>
                             </a>
                         <?php endforeach; ?>
                     </div>
@@ -162,7 +162,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <?php echo htmlspecialchars($contract['name'] ?? '-'); ?>
                                                 </a>
                                             </td>
-                                            <td data-label="Client"><?php echo htmlspecialchars($contract['client_name'] ?? '-'); ?></td>
+                                            <td data-label="Client">
+                                                <a href="<?php echo BASE_URL; ?>clients/view/<?php echo $contract['client_id']; ?>?return_to=contracts&active_tab=contracts-tab" 
+                                                   class="text-decoration-none" 
+                                                   title="Voir le client">
+                                                    <?php echo htmlspecialchars($contract['client_name'] ?? '-'); ?>
+                                                </a>
+                                            </td>
                                             <td data-label="Type de contrat"><?php echo htmlspecialchars($contract['contract_type_name'] ?? '-'); ?></td>
                                             <td data-label="Date de fin" data-order="<?php echo strtotime($contract['end_date']); ?>"><?php echo formatDateFrench($contract['end_date']); ?></td>
                                             <td data-label="Tickets restants" data-order="<?php echo $contract['tickets_remaining']; ?>">
@@ -171,8 +177,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                         <?php echo $contract['tickets_remaining']; ?>
                                                     </span>
                                                 <?php else: ?>
-                                                    <span class="badge bg-secondary">
-                                                        Sans tickets
+                                                    <span class="no-tickets-indicator" title="Sans tickets">
+                                                        <i class="no-tickets-icon"></i>
                                                     </span>
                                                 <?php endif; ?>
                                             </td>
@@ -210,63 +216,3 @@ include_once __DIR__ . '/../../includes/navbar.php';
 // Inclure le footer
 include_once __DIR__ . '/../../includes/footer.php';
 ?> 
-
-<style>
-/* Styles pour les filtres de tickets */
-.ticket-filter-card {
-    border-left: 4px solid #17a2b8;
-}
-
-.ticket-filter-card .card-title {
-    color: #17a2b8;
-    font-weight: 600;
-}
-
-.ticket-filter-btn {
-    transition: all 0.2s ease;
-}
-
-.ticket-filter-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.ticket-filter-btn.active {
-    font-weight: 600;
-}
-
-/* Styles pour les filtres de statut existants */
-.status-filter-card {
-    border-left: 4px solid #6c757d;
-}
-
-.status-filter-card .card-title {
-    color: #6c757d;
-    font-weight: 600;
-}
-
-.status-filter-btn {
-    transition: all 0.2s ease;
-}
-
-.status-filter-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.status-filter-btn.active {
-    font-weight: 600;
-}
-
-/* Responsive design pour les filtres */
-@media (max-width: 768px) {
-    .d-flex.flex-wrap.gap-2 {
-        gap: 0.5rem !important;
-    }
-    
-    .btn-sm {
-        font-size: 0.8rem;
-        padding: 0.25rem 0.5rem;
-    }
-}
-</style> 

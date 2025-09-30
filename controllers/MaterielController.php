@@ -618,7 +618,7 @@ class MaterielController {
             }
 
             // Créer le répertoire de destination
-            $uploadDir = __DIR__ . '/../uploads/materiel/' . $materielId;
+            $uploadDir = __DIR__ . '/../../uploads/materiel/' . $materielId;
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
@@ -727,7 +727,7 @@ class MaterielController {
                 }
 
                 // Créer le répertoire de destination
-                $uploadDir = __DIR__ . '/../uploads/materiel/' . $materielId;
+                $uploadDir = __DIR__ . '/../../uploads/materiel/' . $materielId;
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0755, true);
                 }
@@ -823,7 +823,7 @@ class MaterielController {
             }
 
             // Supprimer le fichier physique
-            $filePath = __DIR__ . '/../' . $pieceJointe['chemin_fichier'];
+            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
             if (file_exists($filePath)) {
                 unlink($filePath);
             }
@@ -868,7 +868,7 @@ class MaterielController {
             }
 
             // Construire le chemin du fichier
-            $filePath = __DIR__ . '/../' . $pieceJointe['chemin_fichier'];
+            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
 
             if (!file_exists($filePath)) {
                 throw new Exception("Le fichier n'existe pas");
@@ -938,9 +938,14 @@ class MaterielController {
             header('Content-Type: ' . $mimeType);
             header('Content-Disposition: inline; filename="' . $pieceJointe['nom_fichier'] . '"');
             header('Content-Length: ' . filesize($filePath));
-            header('Cache-Control: no-cache, must-revalidate');
-            header('Pragma: no-cache');
-            header('Expires: 0');
+            // Headers plus permissifs pour la prévisualisation
+            header('Cache-Control: public, max-age=3600');
+            header('X-Content-Type-Options: nosniff');
+
+            // Nettoyer les buffers de sortie avant d'envoyer le fichier
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
 
             // Lire et envoyer le fichier
             readfile($filePath);
@@ -1159,7 +1164,7 @@ class MaterielController {
 
             // Ajouter chaque fichier au ZIP
             foreach ($attachments as $attachment) {
-                $filePath = __DIR__ . '/../' . $attachment['chemin_fichier'];
+                $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
                 if (file_exists($filePath)) {
                     $zip->addFile($filePath, $attachment['nom_fichier']);
                 }

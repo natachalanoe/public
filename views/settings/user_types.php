@@ -186,7 +186,7 @@ $userGroups = $userTypeModel->getAllGroups();
                                         <?php foreach ($userTypes as $type): ?>
                                         <tr>
                                             <td>
-                                                <strong><?= htmlspecialchars($type['name']) ?></strong>
+                                                <strong><?= h($type['name']) ?></strong>
                                             </td>
                                             <td>
                                                 <?= htmlspecialchars($type['description'] ?? 'Aucune description') ?>
@@ -206,7 +206,7 @@ $userGroups = $userTypeModel->getAllGroups();
                                                 ?>
                                                 <?php if ($groupName): ?>
                                                     <span class="badge bg-<?= $groupName === 'Staff' ? 'primary' : 'success' ?>">
-                                                        <?= htmlspecialchars($groupName) ?>
+                                                        <?= h($groupName) ?>
                                                     </span>
                                                 <?php else: ?>
                                                     <span class="badge bg-warning">Non défini</span>
@@ -229,13 +229,13 @@ $userGroups = $userTypeModel->getAllGroups();
                                             <td>
                                                 <div class="d-flex gap-1">
                                                     <button type="button" class="btn btn-sm btn-outline-warning" 
-                                                            onclick="editType(<?= $type['id'] ?>, '<?= htmlspecialchars($type['name']) ?>', '<?= htmlspecialchars($type['description'] ?? '') ?>', <?= $type['group_id'] ?? 0 ?>)" 
+                                                            onclick="editType(<?= $type['id'] ?>, '<?= h($type['name']) ?>', '<?= htmlspecialchars($type['description'] ?? '') ?>', <?= $type['group_id'] ?? 0 ?>)" 
                                                             title="Modifier">
                                                         <i class="bi bi-pencil me-1"></i>
                                                     </button>
                                                     <?php if ($type['user_count'] == 0): ?>
                                                         <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                                onclick="deleteType(<?= $type['id'] ?>, '<?= htmlspecialchars($type['name']) ?>')" 
+                                                                onclick="deleteType(<?= $type['id'] ?>, '<?= h($type['name']) ?>')" 
                                                                 title="Supprimer">
                                                             <i class="bi bi-trash me-1"></i>
                                                         </button>
@@ -277,7 +277,7 @@ $userGroups = $userTypeModel->getAllGroups();
                                     <select class="form-select" id="group_id" name="group_id" required>
                                         <option value="">Sélectionner un groupe</option>
                                         <?php foreach ($userGroups as $group): ?>
-                                            <option value="<?= $group['id'] ?>"><?= htmlspecialchars($group['name']) ?></option>
+                                            <option value="<?= $group['id'] ?>"><?= h($group['name']) ?></option>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -323,7 +323,7 @@ $userGroups = $userTypeModel->getAllGroups();
                         <select class="form-select" id="edit_group_id" name="group_id" required>
                             <option value="">Sélectionner un groupe</option>
                             <?php foreach ($userGroups as $group): ?>
-                                <option value="<?= $group['id'] ?>"><?= htmlspecialchars($group['name']) ?></option>
+                                <option value="<?= $group['id'] ?>"><?= h($group['name']) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>

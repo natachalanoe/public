@@ -86,18 +86,18 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         </td>
                                         <td>
                                             <div class="view-mode">
-                                                <strong><?= htmlspecialchars($level['name']) ?></strong>
+                                                <strong><?= h($level['name']) ?></strong>
                                             </div>
                                             <div class="edit-mode" style="display: none;">
-                                                <input type="text" class="form-control form-control-sm" value="<?= htmlspecialchars($level['name']) ?>" data-original="<?= htmlspecialchars($level['name']) ?>">
+                                                <input type="text" class="form-control form-control-sm" value="<?= h($level['name']) ?>" data-original="<?= h($level['name']) ?>">
                                             </div>
                                         </td>
                                         <td>
                                             <div class="view-mode">
-                                                <?= htmlspecialchars($level['description']) ?>
+                                                <?= h($level['description']) ?>
                                             </div>
                                             <div class="edit-mode" style="display: none;">
-                                                <input type="text" class="form-control form-control-sm" value="<?= htmlspecialchars($level['description']) ?>" data-original="<?= htmlspecialchars($level['description']) ?>">
+                                                <input type="text" class="form-control form-control-sm" value="<?= h($level['description']) ?>" data-original="<?= h($level['description']) ?>">
                                             </div>
                                         </td>
                                         <td>
@@ -152,7 +152,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="bi bi-eye me-2 me-1"></i>Configuration des champs visibles pour le niveau 
-                        <span class="text-primary">"<?= htmlspecialchars($selectedLevel['name']) ?>"</span>
+                        <span class="text-primary">"<?= h($selectedLevel['name']) ?>"</span>
                     </h5>
                 </div>
                 <div class="card-body">
@@ -165,7 +165,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <input class="form-check-input" type="checkbox" name="fields[<?= $field ?>]" id="field_<?= $field ?>" value="1"
                                             <?= (isset($rules[$field]) && $rules[$field]) ? 'checked' : '' ?> >
                                         <label class="form-check-label" for="field_<?= $field ?>">
-                                            <strong><?= htmlspecialchars($info['label']) ?></strong>
+                                            <strong><?= h($info['label']) ?></strong>
                                         </label>
                                     </div>
                                 </div>

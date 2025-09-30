@@ -118,7 +118,7 @@ class DocumentationController {
 
             // Gestion de l'upload du fichier
             if (isset($_FILES['document']) && $_FILES['document']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/../uploads/documents/';
+                $uploadDir = __DIR__ . '/../../uploads/documents/';
                 if (!file_exists($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
                 }
@@ -255,7 +255,7 @@ class DocumentationController {
 
                 // Path construction (assuming 'uploads' is sibling of 'controllers', 'models')
                 // If 'uploads' is at project root, it should be /../../
-                $baseUploadDir = __DIR__ . '/../uploads/documents/'; // Adjusted to /../ like interventions
+                $baseUploadDir = __DIR__ . '/../../uploads/documents/'; // Adjusted to /../../ to reach root uploads
                 $clientSpecificDir = $baseUploadDir . $data['client_id'] . '/';
 
                 if (!is_dir($clientSpecificDir)) {
@@ -485,7 +485,7 @@ class DocumentationController {
         $currentAttachmentPathOnServer = null;
         if (!empty($existingDocument['attachment_path'])) {
              // Convert relative DB path to absolute server path for file operations
-            $currentAttachmentPathOnServer = __DIR__ . '/../' . $existingDocument['attachment_path'];
+            $currentAttachmentPathOnServer = __DIR__ . '/../../' . $existingDocument['attachment_path'];
         }
         $data['attachment_path'] = $existingDocument['attachment_path']; // Assume keeping old attachment initially
 
@@ -547,7 +547,7 @@ class DocumentationController {
             }
 
             // Proceed with upload logic (similar to create())
-            $baseUploadDir = __DIR__ . '/../uploads/documents/';
+            $baseUploadDir = __DIR__ . '/../../uploads/documents/';
             $clientSpecificDir = $baseUploadDir . $data['client_id'] . '/';
             if (!is_dir($clientSpecificDir)) {
                 if (!mkdir($clientSpecificDir, 0775, true)) {
@@ -662,7 +662,7 @@ class DocumentationController {
 
         // Supprimer le fichier physique s'il existe
         if (!empty($document['attachment_path'])) {
-            $filePath = __DIR__ . '/../' . $document['attachment_path'];
+            $filePath = __DIR__ . '/../../' . $document['attachment_path'];
             if (file_exists($filePath)) {
                 if (!unlink($filePath)) {
                     error_log("[ERROR] Documentation Delete: Failed to delete file: " . $filePath);

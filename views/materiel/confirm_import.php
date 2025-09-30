@@ -49,7 +49,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <i class="bi bi-check-circle me-2"></i>Confirmation Import - Matériel
             </h4>
             <p class="text-muted mb-0">
-                Validation du fichier : <?= htmlspecialchars($fileName) ?>
+                Validation du fichier : <?= h($fileName) ?>
             </p>
         </div>
         <div>

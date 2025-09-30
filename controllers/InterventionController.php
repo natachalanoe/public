@@ -336,7 +336,7 @@ class InterventionController {
         $solutions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // Créer le dossier de stockage s'il n'existe pas
-        $uploadDir = __DIR__ . '/../uploads/interventions/' . $intervention['id'];
+        $uploadDir = __DIR__ . '/../../uploads/interventions/' . $intervention['id'];
         if (!file_exists($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }
@@ -959,7 +959,7 @@ class InterventionController {
         }
 
         // Créer le dossier de stockage s'il n'existe pas
-        $uploadDir = __DIR__ . '/../uploads/interventions/' . $interventionId;
+        $uploadDir = __DIR__ . '/../../uploads/interventions/' . $interventionId;
         if (!file_exists($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }
@@ -1106,7 +1106,7 @@ class InterventionController {
                 }
 
                 // Créer le dossier de stockage s'il n'existe pas
-                $uploadDir = __DIR__ . '/../uploads/interventions/' . $interventionId;
+                $uploadDir = __DIR__ . '/../../uploads/interventions/' . $interventionId;
                 if (!file_exists($uploadDir)) {
                     mkdir($uploadDir, 0777, true);
                 }
@@ -1224,7 +1224,7 @@ class InterventionController {
         }
 
         // Construire le chemin du fichier
-        $filePath = __DIR__ . '/../' . $attachment['chemin_fichier'];
+        $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
 
         if (!file_exists($filePath)) {
             $_SESSION['error'] = "Le fichier n'existe pas.";
@@ -1264,7 +1264,7 @@ class InterventionController {
         }
 
         // Construire le chemin du fichier
-        $filePath = __DIR__ . '/../' . $attachment['chemin_fichier'];
+        $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
 
         // Log pour débogage
         error_log("Tentative d'ouverture du fichier : " . $filePath);
@@ -1284,14 +1284,14 @@ class InterventionController {
         $previewName = $attachment['nom_fichier'];
         header('Content-Disposition: inline; filename="' . $previewName . '"');
         header('Content-Length: ' . filesize($filePath));
-        header('Cache-Control: no-cache, must-revalidate');
-        header('Pragma: no-cache');
-        header('Expires: 0');
-        // En-têtes de sécurité pour éviter les faux positifs
+        // Headers plus permissifs pour la prévisualisation
+        header('Cache-Control: public, max-age=3600');
         header('X-Content-Type-Options: nosniff');
-        header('X-Frame-Options: SAMEORIGIN');
-        // Ignorer les signatures numériques
-        header('X-PDF-Signature-Validation: ignore');
+
+        // Nettoyer les buffers de sortie avant d'envoyer le fichier
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
 
         // Lire et envoyer le fichier
         readfile($filePath);
@@ -2371,7 +2371,7 @@ class InterventionController {
             
             // Supprimer les fichiers physiques
             foreach ($piecesJointes as $pieceJointe) {
-                $filePath = __DIR__ . '/../' . $pieceJointe['chemin_fichier'];
+                $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
                 if (file_exists($filePath)) {
                     unlink($filePath);
                 }
@@ -2711,7 +2711,7 @@ class InterventionController {
      */
     private function generateBonInterventionPdf($intervention, $comments, $attachments) {
         // Créer le dossier de stockage s'il n'existe pas
-        $uploadDir = __DIR__ . '/../uploads/interventions/' . $intervention['id'];
+        $uploadDir = __DIR__ . '/../../uploads/interventions/' . $intervention['id'];
         if (!file_exists($uploadDir)) {
             mkdir($uploadDir, 0777, true);
         }

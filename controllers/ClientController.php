@@ -525,7 +525,7 @@ class ClientController {
             // Supprimer le client et toutes ses données associées
             $this->clientModel->deleteClient($id);
             
-            $_SESSION['success'] = "Le client '" . htmlspecialchars($client['name']) . "' a été supprimé avec succès";
+            $_SESSION['success'] = "Le client '" . h($client['name']) . "' a été supprimé avec succès";
             header('Location: ' . BASE_URL . 'clients');
             exit;
             

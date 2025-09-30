@@ -108,7 +108,7 @@ $selectedSalleId = $_GET['salle_id'] ?? '';
                                     <option value="">Sélectionnez un client</option>
                                     <?php foreach ($clients as $client): ?>
                                         <option value="<?= $client['id'] ?>" <?= $selectedClientId == $client['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($client['name']) ?>
+                                            <?= h($client['name']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -120,7 +120,7 @@ $selectedSalleId = $_GET['salle_id'] ?? '';
                                     <option value="">Sélectionnez un site</option>
                                     <?php foreach ($sites as $site): ?>
                                         <option value="<?= $site['id'] ?>" <?= $selectedSiteId == $site['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($site['name']) ?>
+                                            <?= h($site['name']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -132,7 +132,7 @@ $selectedSalleId = $_GET['salle_id'] ?? '';
                                     <option value="">Sélectionnez une salle</option>
                                     <?php foreach ($salles as $salle): ?>
                                         <option value="<?= $salle['id'] ?>" <?= $selectedSalleId == $salle['id'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($salle['name']) ?>
+                                            <?= h($salle['name']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>

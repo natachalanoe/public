@@ -56,7 +56,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
 <div class="container-fluid flex-grow-1 container-p-y">
     <!-- En-tête avec actions -->
     <div class="d-flex bd-highlight mb-3">
-        <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Modifier le contrat <?php echo htmlspecialchars($contract['name']); ?></h4></div>
+        <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Modifier le contrat <?php echo h($contract['name']); ?></h4></div>
 
         <div class="ms-auto p-2 bd-highlight">
             <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
@@ -98,7 +98,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                                 <?php foreach ($contractTypes as $type): ?>
                                     <option value="<?php echo $type['id']; ?>" 
                                             <?php echo (isset($formData['contract_type_id']) ? $formData['contract_type_id'] : $contract['contract_type_id']) == $type['id'] ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($type['name']); ?>
+                                        <?php echo h($type['name']); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -138,7 +138,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         <div class="mb-3">
                             <label for="tickets_remaining" class="form-label">Tickets restants</label>
                             <input type="number" class="form-control bg-body text-body" id="tickets_remaining" name="tickets_remaining"
-                                   value="<?php echo htmlspecialchars($contract['tickets_remaining']); ?>">
+                                   value="<?php echo h($contract['tickets_remaining']); ?>">
                             <small class="form-text text-muted">Le nombre de tickets restants est calculé après la clôture d'une intervention. Évitez de modifier la valeur manuellement.</small>
                         </div>
 
@@ -162,7 +162,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                                     <?php foreach ($accessLevels as $level): ?>
                                         <option value="<?php echo $level['id']; ?>" 
                                                 <?php echo (isset($formData['access_level_id']) ? $formData['access_level_id'] : $contract['access_level_id']) == $level['id'] ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($level['name']) ?> - <?php echo htmlspecialchars($level['description']) ?>
+                                            <?php echo h($level['name']) ?> - <?php echo h($level['description']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -205,7 +205,8 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                     </div>
                 </div>
 
-                <div class="row">
+                <!-- Case à cocher renouvellement tacite masquée temporairement -->
+                <div class="row" style="display: none;">
                     <div class="col-md-12">
                         <div class="mb-3">
                             <div class="form-check">

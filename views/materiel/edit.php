@@ -98,13 +98,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <form method="POST" action="<?= BASE_URL ?>materiel/update/<?= $materiel['id'] ?>">
                 <!-- Champs cachés pour conserver les filtres -->
                 <?php if (isset($_GET['client_id']) && !empty($_GET['client_id'])): ?>
-                    <input type="hidden" name="return_client_id" value="<?= htmlspecialchars($_GET['client_id']) ?>">
+                    <input type="hidden" name="return_client_id" value="<?= h($_GET['client_id']) ?>">
                 <?php endif; ?>
                 <?php if (isset($_GET['site_id']) && !empty($_GET['site_id'])): ?>
-                    <input type="hidden" name="return_site_id" value="<?= htmlspecialchars($_GET['site_id']) ?>">
+                    <input type="hidden" name="return_site_id" value="<?= h($_GET['site_id']) ?>">
                 <?php endif; ?>
                 <?php if (isset($_GET['salle_id']) && !empty($_GET['salle_id'])): ?>
-                    <input type="hidden" name="return_salle_id" value="<?= htmlspecialchars($_GET['salle_id']) ?>">
+                    <input type="hidden" name="return_salle_id" value="<?= h($_GET['salle_id']) ?>">
                 <?php endif; ?>
                 <div class="row">
                     <!-- Colonne gauche : Formulaire principal -->
@@ -127,7 +127,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <option value="">Sélectionner un client</option>
                                             <?php foreach ($clients as $clientItem): ?>
                                                 <option value="<?= $clientItem['id'] ?>" <?= $clientItem['id'] == $client['id'] ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($clientItem['name']) ?>
+                                                    <?= h($clientItem['name']) ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -141,7 +141,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <?php if (!empty($sites)): ?>
                                                 <?php foreach ($sites as $siteItem): ?>
                                                     <option value="<?= $siteItem['id'] ?>" <?= $siteItem['id'] == $site['id'] ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($siteItem['name']) ?>
+                                                        <?= h($siteItem['name']) ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
@@ -156,7 +156,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <?php if (!empty($salles)): ?>
                                                 <?php foreach ($salles as $salleItem): ?>
                                                     <option value="<?= $salleItem['id'] ?>" <?= $salleItem['id'] == $room['id'] ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($salleItem['name']) ?>
+                                                        <?= h($salleItem['name']) ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             <?php endif; ?>
@@ -178,7 +178,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <label for="marque" class="form-label fw-bold">
                                             <i class="fas fa-tag me-2"></i>Marque *
                                         </label>
-                                        <input type="text" class="form-control bg-body text-body" id="marque" name="marque" value="<?= htmlspecialchars($materiel['marque']) ?>" required>
+                                        <input type="text" class="form-control bg-body text-body" id="marque" name="marque" value="<?= h($materiel['marque']) ?>" required>
                                     </div>
                                 </div>
 
@@ -280,7 +280,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <label for="modele" class="form-label fw-bold">
                                             <i class="fas fa-cube me-2"></i>Modèle *
                                         </label>
-                                        <input type="text" class="form-control bg-body text-body" id="modele" name="modele" value="<?= htmlspecialchars($materiel['modele']) ?>" required>
+                                        <input type="text" class="form-control bg-body text-body" id="modele" name="modele" value="<?= h($materiel['modele']) ?>" required>
                                     </div>
                                 </div>
                             </div>
@@ -537,7 +537,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                name="visibilite_<?= $nom_champ ?>" 
                                                <?= $info['visible_client'] ? 'checked' : '' ?>>
                                         <label class="form-check-label" for="visibilite_<?= $nom_champ ?>">
-                                            <?= htmlspecialchars($info['label']) ?>
+                                            <?= h($info['label']) ?>
                                         </label>
                                     </div>
                                 <?php endforeach; ?>

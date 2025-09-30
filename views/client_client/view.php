@@ -67,7 +67,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <div class="card mb-4">
             <div class="card-header py-2">
                 <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0"><?php echo htmlspecialchars($site['name']); ?></h5>
+                    <h5 class="card-title mb-0"><?php echo h($site['name']); ?></h5>
                     <span class="badge bg-primary">
                         <?php echo count($rooms); ?> salles
                     </span>
@@ -110,7 +110,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <h6 class="card-title mb-0">Commentaire</h6>
                                 </div>
                                 <div class="card-body py-2">
-                                    <p class="card-text"><?php echo nl2br(htmlspecialchars($site['comment'])); ?></p>
+                                    <p class="card-text"><?php echo nl2br(h($site['comment'])); ?></p>
                                 </div>
                             </div>
                         <?php endif; ?>
@@ -212,7 +212,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <?php foreach ($rooms as $room): ?>
                                     <tr>
                                         <td>
-                                            <strong><?php echo htmlspecialchars($room['name']); ?></strong>
+                                            <strong><?php echo h($room['name']); ?></strong>
                                         </td>
                                         <td>
                                             <div id="room-contact-display-<?php echo $room['id']; ?>">
@@ -220,10 +220,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 if (!empty($room['first_name']) && !empty($room['last_name'])) {
                                                     echo htmlspecialchars($room['first_name'] . ' ' . $room['last_name']);
                                                     if (!empty($room['phone1'])) {
-                                                        echo '<br><small><i class="bi bi-telephone me-1"></i>' . htmlspecialchars($room['phone1']) . '</small>';
+                                                        echo '<br><small><i class="bi bi-telephone me-1"></i>' . h($room['phone1']) . '</small>';
                                                     }
                                                     if (!empty($room['email'])) {
-                                                        echo '<br><small><i class="bi bi-envelope me-1"></i>' . htmlspecialchars($room['email']) . '</small>';
+                                                        echo '<br><small><i class="bi bi-envelope me-1"></i>' . h($room['email']) . '</small>';
                                                     }
                                                 } else {
                                                     echo '<span class="text-muted">Aucun contact</span>';
@@ -254,7 +254,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <td>
                                             <?php 
                                             if (!empty($room['comment'])) {
-                                                echo htmlspecialchars($room['comment']);
+                                                echo h($room['comment']);
                                             } else {
                                                 echo '<span class="text-muted">Aucun commentaire</span>';
                                             }

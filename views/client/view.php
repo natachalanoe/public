@@ -34,6 +34,16 @@ $currentPage = 'clients';
 // Vérifier si l'utilisateur a les droits pour modifier un client
 $canModifyClient = canModifyClients();
 
+// Déterminer l'URL de retour dynamiquement
+$returnTo = $_GET['return_to'] ?? null;
+if ($returnTo === 'contracts') {
+    // Si on vient de la liste des contrats, retourner à cette liste
+    $returnUrl = BASE_URL . 'contracts';
+} else {
+    // Par défaut, retourner à la liste des clients
+    $returnUrl = BASE_URL . 'clients';
+}
+
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
@@ -46,7 +56,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Détails du client</h4></div>
 
     <div class="ms-auto p-2 bd-highlight">
-        <a href="<?php echo BASE_URL; ?>clients" class="btn btn-secondary me-2">
+        <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
             <i class="bi bi-arrow-left me-1"></i> Retour
         </a>
         <a href="<?php echo BASE_URL; ?>documentation/view/<?php echo $client['id'] ?? ''; ?>" class="btn btn-info me-2">
@@ -139,7 +149,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         </div>
                         <h6 class="card-title mb-1 fs-6">Contrats</h6>
                         <small class="text-muted d-block">
-                            <?php echo $stats['contract_count'] ?? 0; ?> contrat(s)
+                            <?php 
+                            $contractCount = $stats['contract_count'] ?? 0;
+                            echo $contractCount . ' contrat' . ($contractCount > 1 ? 's' : '') . ' actif' . ($contractCount > 1 ? 's' : '');
+                            ?>
                             <?php 
                             // Calculer la somme des tickets restants pour les contrats avec tickets
                             $totalTicketsRemaining = 0;
@@ -169,19 +182,18 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <h6 class="card-title mb-1 fs-6">Interventions</h6>
                         <small class="text-muted d-block">
                             <?php 
-                            $totalInterventions = 0;
                             $preventiveCount = 0;
                             $correctiveCount = 0;
                             if (!empty($interventionsGrouped)) {
                                 foreach ($interventionsGrouped as $contractGroup) {
-                                    $totalInterventions += count($contractGroup['preventive']) + count($contractGroup['corrective']);
                                     $preventiveCount += count($contractGroup['preventive']);
                                     $correctiveCount += count($contractGroup['corrective']);
                                 }
                             }
-                            echo $totalInterventions . ' intervention(s)';
                             if ($preventiveCount > 0 || $correctiveCount > 0) {
-                                echo ' • ' . $preventiveCount . ' préventive(s) • ' . $correctiveCount . ' corrective(s)';
+                                echo $preventiveCount . ' préventive(s) • ' . $correctiveCount . ' corrective(s)';
+                            } else {
+                                echo 'Aucune intervention';
                             }
                             ?>
                         </small>
@@ -312,7 +324,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <?php if ($contact['has_user_account']): ?>
                                                         <span class="badge bg-success">Oui</span>
                                                         <?php if ($contact['user_username']): ?>
-                                                            <br><small><?php echo htmlspecialchars($contact['user_username']); ?></small>
+                                                            <br><small><?php echo h($contact['user_username']); ?></small>
                                                         <?php endif; ?>
                                                     <?php else: ?>
                                                         <span class="badge bg-secondary">Non</span>
@@ -344,7 +356,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <h2 class="accordion-header" id="siteHeading<?php echo $site['id']; ?>">
                                             <div class="d-flex justify-content-between align-items-center w-100">
                                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#siteCollapse<?php echo $site['id']; ?>" aria-expanded="false" aria-controls="siteCollapse<?php echo $site['id']; ?>">
-                                                    <?php echo htmlspecialchars($site['name']); ?>
+                                                    <?php echo h($site['name']); ?>
                                                     <span class="badge bg-info ms-2"><?php echo count($site['rooms'] ?? []); ?> salles</span>
                                                 </button>
                                                 <div class="me-3">
@@ -444,7 +456,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                             <tbody>
                                                                 <?php foreach ($site['rooms'] as $room): ?>
                                                                 <tr>
-                                                                    <td><?php echo htmlspecialchars($room['name']); ?></td>
+                                                                    <td><?php echo h($room['name']); ?></td>
                                                                     <td>
                                                                         <?php 
                                                                         if (!empty($room['first_name']) && !empty($room['last_name'])) {
@@ -462,7 +474,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                                     <td>
                                                                         <?php 
                                                                         if (!empty($room['comment'])) {
-                                                                            echo htmlspecialchars($room['comment']);
+                                                                            echo h($room['comment']);
                                                                         } else {
                                                                             echo '<span class="text-muted">Aucun commentaire</span>';
                                                                         }
@@ -557,8 +569,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                             <?php echo $contract['tickets_number']; ?>
                                                         </span>
                                                     <?php else: ?>
-                                                        <span class="badge bg-secondary">
-                                                            Sans tickets
+                                                        <span class="no-tickets-indicator" title="Sans tickets">
+                                                            <i class="no-tickets-icon"></i>
                                                         </span>
                                                     <?php endif; ?>
                                                 </td>
@@ -606,7 +618,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <h2 class="accordion-header" id="contractHeading<?php echo $contractId; ?>">
                                             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#contractCollapse<?php echo $contractId; ?>" aria-expanded="false" aria-controls="contractCollapse<?php echo $contractId; ?>">
                                                 <div class="d-flex justify-content-between align-items-center w-100 me-3">
-                                                    <span><?php echo htmlspecialchars($contractGroup['contract_name']); ?></span>
+                                                    <span><?php echo h($contractGroup['contract_name']); ?></span>
                                                     <div class="d-flex gap-2">
                                                         <?php if (!empty($contractGroup['preventive'])): ?>
                                                             <span class="badge bg-success"><?php echo count($contractGroup['preventive']); ?> préventive(s)</span>

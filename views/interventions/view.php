@@ -603,7 +603,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                                 frameborder="0">
                                                         </iframe>
                                                     <?php elseif (in_array($previewExtension, ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'])): ?>
-                                                        <img src="<?= BASE_URL . $attachment['chemin_fichier'] ?>" 
+                                                        <img src="<?= BASE_URL; ?>interventions/preview/<?= $attachment['id'] ?>" 
                                                              class="img-fluid" 
                                                              alt="<?= h($attachment['nom_fichier']) ?>">
                                                     <?php else: ?>

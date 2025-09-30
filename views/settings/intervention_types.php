@@ -167,7 +167,7 @@ $interventionTypes = $interventionTypeModel->getAll();
                                         <?php foreach ($interventionTypes as $type): ?>
                                         <tr>
                                             <td>
-                                                <strong><?= htmlspecialchars($type['name']) ?></strong>
+                                                <strong><?= h($type['name']) ?></strong>
                                             </td>
                                             <td>
                                                 <?php if ($type['requires_travel']): ?>
@@ -197,13 +197,13 @@ $interventionTypes = $interventionTypeModel->getAll();
                                             <td>
                                                 <div class="d-flex gap-1">
                                                     <button type="button" class="btn btn-sm btn-outline-warning" 
-                                                            onclick="editType(<?= $type['id'] ?>, '<?= htmlspecialchars($type['name']) ?>', <?= $type['requires_travel'] ? 'true' : 'false' ?>)" 
+                                                            onclick="editType(<?= $type['id'] ?>, '<?= h($type['name']) ?>', <?= $type['requires_travel'] ? 'true' : 'false' ?>)" 
                                                             title="Modifier">
                                                         <i class="bi bi-pencil me-1"></i>
                                                     </button>
                                                     <?php if ($type['intervention_count'] == 0): ?>
                                                         <button type="button" class="btn btn-sm btn-outline-danger" 
-                                                                onclick="deleteType(<?= $type['id'] ?>, '<?= htmlspecialchars($type['name']) ?>')" 
+                                                                onclick="deleteType(<?= $type['id'] ?>, '<?= h($type['name']) ?>')" 
                                                                 title="Supprimer">
                                                             <i class="bi bi-trash me-1"></i>
                                                         </button>

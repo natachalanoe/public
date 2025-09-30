@@ -68,7 +68,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <div class="card border-primary">
                                                 <div class="card-body">
                                                     <h6 class="card-title text-primary">
-                                                        <?php echo htmlspecialchars($contract['name']); ?>
+                                                        <?php echo h($contract['name']); ?>
                                                     </h6>
                                                     <p class="card-text small text-muted mb-2">
                                                         <?php echo htmlspecialchars($contract['contract_type_name'] ?? 'Type non défini'); ?>
@@ -236,7 +236,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <div class="d-flex align-items-center">
                                                         <i class="bi bi-building me-2 <?php echo isset($site['authorized']) && $site['authorized'] ? 'text-success' : 'text-secondary'; ?>"></i>
                                                         <span class="<?php echo isset($site['authorized']) && $site['authorized'] ? 'text-success' : 'text-secondary'; ?>">
-                                                            <?php echo htmlspecialchars($site['name']); ?>
+                                                            <?php echo h($site['name']); ?>
                                                         </span>
                                                         <?php if (isset($site['authorized']) && $site['authorized']): ?>
                                                             <span class="badge bg-success ms-2">Autorisé</span>
@@ -252,7 +252,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <?php foreach ($site['rooms'] as $room): ?>
                                                         <div class="d-flex align-items-center py-1 <?php echo isset($room['authorized']) && $room['authorized'] ? 'text-success' : 'text-muted'; ?>">
                                                             <i class="bi bi-door-open me-2"></i>
-                                                            <span class="small"><?php echo htmlspecialchars($room['name']); ?></span>
+                                                            <span class="small"><?php echo h($room['name']); ?></span>
                                                             <?php if (isset($room['authorized']) && $room['authorized']): ?>
                                                                 <span class="badge bg-success ms-auto">Accès</span>
                                                             <?php endif; ?>

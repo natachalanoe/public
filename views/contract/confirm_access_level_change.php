@@ -68,7 +68,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             Changement détecté
                         </h6>
                         <p class="mb-0">
-                            Le niveau d'accès du contrat <strong><?php echo htmlspecialchars($contract['name']); ?></strong> 
+                            Le niveau d'accès du contrat <strong><?php echo h($contract['name']); ?></strong> 
                             a été modifié de <strong><?php echo htmlspecialchars($changeData['old_level']['name']); ?></strong> 
                             vers <strong><?php echo htmlspecialchars($changeData['new_level']['name']); ?></strong>.
                         </p>

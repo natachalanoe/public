@@ -59,7 +59,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <span class="badge me-1" style="background-color: <?php echo $statusStat['color']; ?>">
                                     <?php echo $statusStat['count']; ?>
                                 </span>
-                                <?php echo htmlspecialchars($statusStat['name']); ?>
+                                <?php echo h($statusStat['name']); ?>
                             </a>
                         <?php endforeach; ?>
                     <?php endif; ?>

@@ -48,7 +48,7 @@ if (isset($existingUserLocations) && !empty($existingUserLocations)) {
                     <label class="form-check-label" for="site_<?php echo $site['id']; ?>"></label>
                 </div>
                 <i class="bi bi-building text-primary me-2 me-1"></i>
-                <strong class="text-primary"><?php echo htmlspecialchars($site['name']); ?></strong>
+                <strong class="text-primary"><?php echo h($site['name']); ?></strong>
             </div>
             
             <!-- Salles du site -->
@@ -64,7 +64,7 @@ if (isset($existingUserLocations) && !empty($existingUserLocations)) {
                                    <?php echo (isset($existingLocations['rooms']) && in_array($room['id'], $existingLocations['rooms'])) ? 'checked' : ''; ?>>
                             <label class="form-check-label" for="room_<?php echo $room['id']; ?>">
                                 <i class="bi bi-door-open text-muted me-1 me-1"></i>
-                                <?php echo htmlspecialchars($room['name']); ?>
+                                <?php echo h($room['name']); ?>
                             </label>
                         </div>
                     <?php endforeach; ?>

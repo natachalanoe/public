@@ -87,18 +87,18 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 <option value="">Sélectionner une catégorie</option>
                                                 <?php foreach ($categories as $category): ?>
                                             <option value="<?= $category['id'] ?>" <?= ($form_category_id == $category['id']) ? 'selected' : '' ?>>
-                                                        <?= htmlspecialchars($category['name']) ?>
+                                                        <?= h($category['name']) ?>
                                                     </option>
                                                 <?php endforeach; ?>
                                             </select>
                                         </div>
                                 <div class="mb-3">
                                     <label for="title" class="form-label">Titre <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="title" name="title" required value="<?= htmlspecialchars($form_title) ?>">
+                                    <input type="text" class="form-control" id="title" name="title" required value="<?= h($form_title) ?>">
                                 </div>
                                 <div class="mb-3">
                                     <label for="description" class="form-label">Description</label>
-                                    <textarea class="form-control" id="description" name="description" rows="3"><?= htmlspecialchars($form_description) ?></textarea>
+                                    <textarea class="form-control" id="description" name="description" rows="3"><?= h($form_description) ?></textarea>
                                 </div>
                                 <div class="mb-3">
                                     <label for="document_file" class="form-label">Pièce jointe</label>
@@ -146,7 +146,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <option value="">Sélectionner un client</option>
                                         <?php foreach ($clients as $client): ?>
                                             <option value="<?= $client['id'] ?>" <?= (isset($_GET['client_id']) && $_GET['client_id'] == $client['id']) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($client['name']) ?>
+                                                <?= h($client['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -157,7 +157,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <option value="">Sélectionner un site (optionnel)</option>
                                         <?php foreach ($sites as $site): /* Предполагается, что $sites загружаются динамически или передаются контроллером */ ?>
                                             <option value="<?= $site['id'] ?>" <?= (isset($_GET['site_id']) && $_GET['site_id'] == $site['id']) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($site['name']) ?>
+                                                <?= h($site['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
@@ -168,7 +168,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         <option value="">Sélectionner une salle (optionnel)</option>
                                         <?php foreach ($rooms as $room): /* Предполагается, что $rooms загружаются динамически */ ?>
                                             <option value="<?= $room['id'] ?>" <?= (isset($_GET['room_id']) && $_GET['room_id'] == $room['id']) ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($room['name']) ?>
+                                                <?= h($room['name']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>

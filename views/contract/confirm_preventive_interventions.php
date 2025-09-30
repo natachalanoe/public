@@ -72,7 +72,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="card-header py-2">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-calendar-check me-2"></i>
-                        Interventions préventives pour le contrat : <?php echo htmlspecialchars($contractName); ?>
+                        Interventions préventives pour le contrat : <?php echo h($contractName); ?>
                     </h5>
                 </div>
                 <div class="card-body py-2">
@@ -115,15 +115,15 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 <input type="text" 
                                                        class="form-control form-control-sm bg-body text-body" 
                                                        name="title[<?php echo $index; ?>]" 
-                                                       value="<?php echo htmlspecialchars($intervention['title']); ?>" 
+                                                       value="<?php echo h($intervention['title']); ?>" 
                                                        required>
                                             </td>
                                             <td>
                                                 <?php if (isset($intervention['site_name']) && isset($intervention['room_name'])): ?>
                                                     <span class="badge bg-info">
                                                         <i class="bi bi-building me-1"></i>
-                                                        <?php echo htmlspecialchars($intervention['site_name']); ?> : 
-                                                        <?php echo htmlspecialchars($intervention['room_name']); ?>
+                                                        <?php echo h($intervention['site_name']); ?> : 
+                                                        <?php echo h($intervention['room_name']); ?>
                                                     </span>
                                                 <?php else: ?>
                                                     <span class="text-muted">Non spécifié</span>
@@ -158,7 +158,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <option value="">Sélectionner un type</option>
                                                     <?php foreach ($interventionTypes as $type): ?>
                                                         <option value="<?php echo $type['id']; ?>" <?php echo ($type['id'] == 2) ? 'selected' : ''; ?>>
-                                                            <?php echo htmlspecialchars($type['name']); ?>
+                                                            <?php echo h($type['name']); ?>
                                                         </option>
                                                     <?php endforeach; ?>
                                                 </select>
@@ -166,7 +166,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <td>
                                                 <textarea class="form-control form-control-sm bg-body text-body" 
                                                           name="description[<?php echo $index; ?>]" 
-                                                          rows="2"><?php echo htmlspecialchars($intervention['description']); ?></textarea>
+                                                          rows="2"><?php echo h($intervention['description']); ?></textarea>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -190,8 +190,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="card-body py-2">
                     <div class="row">
                         <div class="col-md-6">
-                            <p><strong>Client :</strong> <?php echo htmlspecialchars($client['name']); ?></p>
-                            <p><strong>Contrat :</strong> <?php echo htmlspecialchars($contractName); ?></p>
+                            <p><strong>Client :</strong> <?php echo h($client['name']); ?></p>
+                            <p><strong>Contrat :</strong> <?php echo h($contractName); ?></p>
                         </div>
                         <div class="col-md-6">
                             <p><strong>Date de début :</strong> <?php echo formatDateFrench($contract['start_date']); ?></p>

@@ -209,7 +209,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                         <?php if ($contact['has_user_account']): ?>
                                                             <span class="badge bg-success">Oui</span>
                                                             <?php if ($contact['user_username']): ?>
-                                                                <br><small><?php echo htmlspecialchars($contact['user_username']); ?></small>
+                                                                <br><small><?php echo h($contact['user_username']); ?></small>
                                                             <?php endif; ?>
                                                         <?php else: ?>
                                                             <span class="badge bg-secondary">Non</span>

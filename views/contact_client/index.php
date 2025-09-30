@@ -34,10 +34,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <h4 class="py-4 mb-6">
                 Gestion des contacts
                 <?php if (isset($currentSite)): ?>
-                    - <?= htmlspecialchars($currentSite['name']) ?>
+                    - <?= h($currentSite['name']) ?>
                 <?php endif; ?>
                 <?php if (isset($currentRoom)): ?>
-                    - <?= htmlspecialchars($currentRoom['name']) ?>
+                    - <?= h($currentRoom['name']) ?>
                 <?php endif; ?>
             </h4>
         </div>
@@ -108,8 +108,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <td><?= htmlspecialchars($contact['first_name'] ?? '') ?></td>
                                                     <td>
                                                         <?php if (!empty($contact['email'])): ?>
-                                                            <a href="mailto:<?= htmlspecialchars($contact['email']) ?>">
-                                                                <?= htmlspecialchars($contact['email']) ?>
+                                                            <a href="mailto:<?= h($contact['email']) ?>">
+                                                                <?= h($contact['email']) ?>
                                                             </a>
                                                         <?php else: ?>
                                                             <span class="text-muted">Non renseigné</span>
@@ -117,8 +117,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     </td>
                                                     <td>
                                                         <?php if (!empty($contact['phone1'])): ?>
-                                                            <a href="tel:<?= htmlspecialchars($contact['phone1']) ?>">
-                                                                <?= htmlspecialchars($contact['phone1']) ?>
+                                                            <a href="tel:<?= h($contact['phone1']) ?>">
+                                                                <?= h($contact['phone1']) ?>
                                                             </a>
                                                         <?php else: ?>
                                                             <span class="text-muted">Non renseigné</span>

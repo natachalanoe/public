@@ -25,11 +25,11 @@ foreach ($availablePermissions as $permission) {
                 <?php foreach ($permissions as $permission): ?>
                     <div class="form-check mb-2">
                         <input class="form-check-input" type="checkbox" name="permissions[]" 
-                               value="<?php echo htmlspecialchars($permission['id']); ?>" 
-                               id="permission_<?php echo htmlspecialchars($permission['id']); ?>"
+                               value="<?php echo h($permission['id']); ?>" 
+                               id="permission_<?php echo h($permission['id']); ?>"
                                <?php echo (isset($existingPermissionIds) && in_array($permission['id'], $existingPermissionIds)) ? 'checked' : ''; ?>>
-                        <label class="form-check-label" for="permission_<?php echo htmlspecialchars($permission['id']); ?>">
-                            <?php echo htmlspecialchars($permission['description']); ?>
+                        <label class="form-check-label" for="permission_<?php echo h($permission['id']); ?>">
+                            <?php echo h($permission['description']); ?>
                         </label>
                     </div>
                 <?php endforeach; ?>

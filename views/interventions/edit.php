@@ -479,13 +479,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     $extension = strtolower(pathinfo($attachment['nom_fichier'], PATHINFO_EXTENSION));
                                                     if ($extension === 'pdf'): 
                                                     ?>
-                                                        <iframe src="<?= BASE_URL . $attachment['chemin_fichier'] ?>" 
+                                                        <iframe src="<?= BASE_URL; ?>interventions/preview/<?= $attachment['id'] ?>" 
                                                                 width="100%" 
                                                                 height="600px" 
                                                                 frameborder="0">
                                                         </iframe>
                                                     <?php elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
-                                                        <img src="<?= BASE_URL . $attachment['chemin_fichier'] ?>" 
+                                                        <img src="<?= BASE_URL; ?>interventions/preview/<?= $attachment['id'] ?>" 
                                                              class="img-fluid" 
                                                              alt="<?= h($attachment['nom_fichier']) ?>">
                                                     <?php else: ?>

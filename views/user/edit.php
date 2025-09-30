@@ -77,7 +77,7 @@ echo '</script>';
                 <div class="alert alert-danger">
                     <ul class="mb-0">
                         <?php foreach ($errors as $error): ?>
-                            <li><?php echo htmlspecialchars($error); ?></li>
+                            <li><?php echo h($error); ?></li>
                         <?php endforeach; ?>
                     </ul>
                 </div>
@@ -92,7 +92,7 @@ echo '</script>';
                         <div class="mb-3">
                             <label for="username" class="form-label">Nom d'utilisateur *</label>
                             <input type="text" class="form-control bg-body text-body" id="username" name="username" 
-                                   value="<?php echo isset($_POST['username']) ? htmlspecialchars($_POST['username']) : (isset($user['username']) ? htmlspecialchars($user['username']) : ''); ?>" 
+                                   value="<?php echo isset($_POST['username']) ? h($_POST['username']) : (isset($user['username']) ? h($user['username']) : ''); ?>" 
                                    required>
                             <div class="invalid-feedback">
                                 Veuillez saisir un nom d'utilisateur.
@@ -102,7 +102,7 @@ echo '</script>';
                         <div class="mb-3">
                             <label for="email" class="form-label">Email *</label>
                             <input type="email" class="form-control bg-body text-body" id="email" name="email" 
-                                   value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : (isset($user['email']) ? htmlspecialchars($user['email']) : ''); ?>" 
+                                   value="<?php echo isset($_POST['email']) ? h($_POST['email']) : (isset($user['email']) ? h($user['email']) : ''); ?>" 
                                    required>
                             <div class="invalid-feedback">
                                 Veuillez saisir une adresse email valide.
@@ -112,13 +112,13 @@ echo '</script>';
                         <div class="mb-3">
                             <label for="first_name" class="form-label">Prénom</label>
                             <input type="text" class="form-control bg-body text-body" id="first_name" name="first_name" 
-                                   value="<?php echo isset($_POST['first_name']) ? htmlspecialchars($_POST['first_name']) : (isset($user['first_name']) ? htmlspecialchars($user['first_name']) : ''); ?>">
+                                   value="<?php echo isset($_POST['first_name']) ? h($_POST['first_name']) : (isset($user['first_name']) ? h($user['first_name']) : ''); ?>">
                         </div>
 
                         <div class="mb-3">
                             <label for="last_name" class="form-label">Nom</label>
                             <input type="text" class="form-control bg-body text-body" id="last_name" name="last_name" 
-                                   value="<?php echo isset($_POST['last_name']) ? htmlspecialchars($_POST['last_name']) : (isset($user['last_name']) ? htmlspecialchars($user['last_name']) : ''); ?>">
+                                   value="<?php echo isset($_POST['last_name']) ? h($_POST['last_name']) : (isset($user['last_name']) ? h($user['last_name']) : ''); ?>">
                         </div>
 
                         <div class="mb-3">
@@ -177,9 +177,9 @@ echo '</script>';
                                     <?php 
                                     $currentType = isset($_POST['type']) ? $_POST['type'] : (isset($user['user_type']) ? $user['user_type'] : '');
                                     foreach ($userTypes as $type): ?>
-                                        <option value="<?php echo htmlspecialchars($type['name']); ?>" 
+                                        <option value="<?php echo h($type['name']); ?>" 
                                                 <?php echo $currentType === $type['name'] ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($type['description']); ?> (<?php echo htmlspecialchars($type['group_name']); ?>)
+                                            <?php echo h($type['description']); ?> (<?php echo h($type['group_name']); ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -231,7 +231,7 @@ echo '</script>';
                             <label for="coef_utilisateur" class="form-label">Coefficient</label>
                             <input type="number" class="form-control bg-body text-body" id="coef_utilisateur" name="coef_utilisateur" 
                                    step="0.01" min="0" 
-                                   value="<?php echo isset($_POST['coef_utilisateur']) ? htmlspecialchars($_POST['coef_utilisateur']) : (isset($user['coef_utilisateur']) ? htmlspecialchars($user['coef_utilisateur']) : '1.00'); ?>">
+                                   value="<?php echo isset($_POST['coef_utilisateur']) ? h($_POST['coef_utilisateur']) : (isset($user['coef_utilisateur']) ? h($user['coef_utilisateur']) : '1.00'); ?>">
                             <div class="form-text text-muted">
                                 <i class="bi bi-info-circle me-1 me-1"></i>
                                 <strong>À quoi ça sert :</strong> Le coefficient utilisateur permet d'ajuster le nombre de tickets facturés selon l'expérience et la spécialisation du technicien.<br>

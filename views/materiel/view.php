@@ -97,13 +97,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <div class="card-header py-2">
                         <div class="d-flex justify-content-between align-items-center">
                             <h5 class="card-title mb-0">
-                                <?= htmlspecialchars($materiel['modele']) ?> - <?= htmlspecialchars($materiel['marque']) ?>
+                                <?= h($materiel['modele']) ?> - <?= h($materiel['marque']) ?>
                             </h5>
                         </div>
                         <small class="text-muted">
-                            <?= htmlspecialchars($client['name']) ?> > 
-                            <?= htmlspecialchars($site['name']) ?> > 
-                            <?= htmlspecialchars($room['name']) ?>
+                            <?= h($client['name']) ?> > 
+                            <?= h($site['name']) ?> > 
+                            <?= h($room['name']) ?>
                         </small>
                     </div>
                     <div class="card-body py-2">
@@ -132,7 +132,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <span class="text-muted">
                                                 <i class="fas fa-tag me-2"></i>Marque
                                             </span>
-                                            <span class="fw-medium"><?= htmlspecialchars($materiel['marque']) ?></span>
+                                            <span class="fw-medium"><?= h($materiel['marque']) ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -273,7 +273,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <span class="text-muted">
                                                 <i class="fas fa-cube me-2"></i>Modèle
                                             </span>
-                                            <span class="fw-medium"><?= htmlspecialchars($materiel['modele']) ?></span>
+                                            <span class="fw-medium"><?= h($materiel['modele']) ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -324,8 +324,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             </span>
                                             <span class="fw-medium">
                                                 <?php if ($materiel['url_github']): ?>
-                                                    <a href="<?= htmlspecialchars($materiel['url_github']) ?>" target="_blank" class="text-primary">
-                                                        <i class="fab fa-github me-1"></i><?= htmlspecialchars($materiel['url_github']) ?>
+                                                    <a href="<?= h($materiel['url_github']) ?>" target="_blank" class="text-primary">
+                                                        <i class="fab fa-github me-1"></i><?= h($materiel['url_github']) ?>
                                                     </a>
                                                 <?php else: ?>
                                                     <span class="text-muted">Non définie</span>
@@ -689,13 +689,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     $extension = strtolower(pathinfo($attachment['nom_fichier'], PATHINFO_EXTENSION));
                                                     if ($extension === 'pdf'): 
                                                     ?>
-                                                        <iframe src="<?= BASE_URL . $attachment['chemin_fichier'] ?>" 
+                                                        <iframe src="<?= BASE_URL; ?>materiel/preview/<?= $attachment['id'] ?>" 
                                                                 width="100%" 
                                                                 height="600px" 
                                                                 frameborder="0">
                                                         </iframe>
                                                     <?php elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
-                                                        <img src="<?= BASE_URL . $attachment['chemin_fichier'] ?>" 
+                                                        <img src="<?= BASE_URL; ?>materiel/preview/<?= $attachment['id'] ?>" 
                                                              class="img-fluid" 
                                                              alt="<?= h($attachment['nom_fichier']) ?>">
                                                     <?php else: ?>
