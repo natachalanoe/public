@@ -117,39 +117,39 @@ class MaterielModel {
                 )";
 
         $params = [
-            ':salle_id' => $data['salle_id'],
-            ':type_materiel' => $data['type_materiel'] ?: null,
-            ':modele' => $data['modele'],
-            ':marque' => $data['marque'],
-            ':reference' => $data['reference'] ?: null,
-            ':usage_materiel' => $data['usage_materiel'] ?: null,
-            ':numero_serie' => $data['numero_serie'] ?: null,
-            ':version_firmware' => $data['version_firmware'] ?: null,
-            ':ancien_firmware' => $data['ancien_firmware'] ?: null,
-            ':adresse_mac' => $data['adresse_mac'] ?: null,
-            ':adresse_ip' => $data['adresse_ip'] ?: null,
-            ':masque' => $data['masque'] ?: null,
-            ':passerelle' => $data['passerelle'] ?: null,
-            ':id_materiel' => $data['id_materiel'] ?: null,
-            ':login' => $data['login'] ?: null,
-            ':password' => $data['password'] ?: null,
-            ':ip_primaire' => $data['ip_primaire'] ?: null,
-            ':mac_primaire' => $data['mac_primaire'] ?: null,
-            ':ip_secondaire' => $data['ip_secondaire'] ?: null,
-            ':mac_secondaire' => $data['mac_secondaire'] ?: null,
-            ':stream_aes67_recu' => $data['stream_aes67_recu'] ?: null,
-            ':stream_aes67_transmis' => $data['stream_aes67_transmis'] ?: null,
-            ':ssid' => $data['ssid'] ?: null,
-            ':type_cryptage' => $data['type_cryptage'] ?: null,
-            ':password_wifi' => $data['password_wifi'] ?: null,
-            ':libelle_pa_salle' => $data['libelle_pa_salle'] ?: null,
-            ':numero_port_switch' => $data['numero_port_switch'] ?: null,
-            ':vlan' => $data['vlan'] ?: null,
-            ':date_fin_maintenance' => $data['date_fin_maintenance'] ?: null,
-            ':date_fin_garantie' => $data['date_fin_garantie'] ?: null,
-            ':date_derniere_inter' => $data['date_derniere_inter'] ?: null,
-            ':commentaire' => $data['commentaire'] ?: null,
-            ':url_github' => $data['url_github'] ?: null
+            ':salle_id' => $data['salle_id'] ?? null,
+            ':type_materiel' => $data['type_materiel'] ?? null,
+            ':modele' => $data['modele'] ?? null,
+            ':marque' => $data['marque'] ?? null,
+            ':reference' => $data['reference'] ?? null,
+            ':usage_materiel' => $data['usage_materiel'] ?? null,
+            ':numero_serie' => $data['numero_serie'] ?? null,
+            ':version_firmware' => $data['version_firmware'] ?? null,
+            ':ancien_firmware' => $data['ancien_firmware'] ?? null,
+            ':adresse_mac' => $data['adresse_mac'] ?? null,
+            ':adresse_ip' => $data['adresse_ip'] ?? null,
+            ':masque' => $data['masque'] ?? null,
+            ':passerelle' => $data['passerelle'] ?? null,
+            ':id_materiel' => $data['id_materiel'] ?? null,
+            ':login' => $data['login'] ?? null,
+            ':password' => $data['password'] ?? null,
+            ':ip_primaire' => $data['ip_primaire'] ?? null,
+            ':mac_primaire' => $data['mac_primaire'] ?? null,
+            ':ip_secondaire' => $data['ip_secondaire'] ?? null,
+            ':mac_secondaire' => $data['mac_secondaire'] ?? null,
+            ':stream_aes67_recu' => $data['stream_aes67_recu'] ?? null,
+            ':stream_aes67_transmis' => $data['stream_aes67_transmis'] ?? null,
+            ':ssid' => $data['ssid'] ?? null,
+            ':type_cryptage' => $data['type_cryptage'] ?? null,
+            ':password_wifi' => $data['password_wifi'] ?? null,
+            ':libelle_pa_salle' => $data['libelle_pa_salle'] ?? null,
+            ':numero_port_switch' => $data['numero_port_switch'] ?? null,
+            ':vlan' => $data['vlan'] ?? null,
+            ':date_fin_maintenance' => $data['date_fin_maintenance'] ?? null,
+            ':date_fin_garantie' => $data['date_fin_garantie'] ?? null,
+            ':date_derniere_inter' => $data['date_derniere_inter'] ?? null,
+            ':commentaire' => $data['commentaire'] ?? null,
+            ':url_github' => $data['url_github'] ?? null
         ];
 
         try {
@@ -216,40 +216,84 @@ class MaterielModel {
 
         $params = [
             ':id' => $id,
-            ':salle_id' => $data['salle_id'],
-            ':type_materiel' => $data['type_materiel'] ?: null,
-            ':modele' => $data['modele'],
-            ':marque' => $data['marque'],
-            ':reference' => $data['reference'] ?: null,
-            ':usage_materiel' => $data['usage_materiel'] ?: null,
-            ':numero_serie' => $data['numero_serie'] ?: null,
-            ':version_firmware' => $data['version_firmware'] ?: null,
-            ':ancien_firmware' => $data['ancien_firmware'] ?: null,
-            ':adresse_mac' => $data['adresse_mac'] ?: null,
-            ':adresse_ip' => $data['adresse_ip'] ?: null,
-            ':masque' => $data['masque'] ?: null,
-            ':passerelle' => $data['passerelle'] ?: null,
-            ':id_materiel' => $data['id_materiel'] ?: null,
-            ':login' => $data['login'] ?: null,
-            ':password' => $data['password'] ?: null,
-            ':ip_primaire' => $data['ip_primaire'] ?: null,
-            ':mac_primaire' => $data['mac_primaire'] ?: null,
-            ':ip_secondaire' => $data['ip_secondaire'] ?: null,
-            ':mac_secondaire' => $data['mac_secondaire'] ?: null,
-            ':stream_aes67_recu' => $data['stream_aes67_recu'] ?: null,
-            ':stream_aes67_transmis' => $data['stream_aes67_transmis'] ?: null,
-            ':ssid' => $data['ssid'] ?: null,
-            ':type_cryptage' => $data['type_cryptage'] ?: null,
-            ':password_wifi' => $data['password_wifi'] ?: null,
-            ':libelle_pa_salle' => $data['libelle_pa_salle'] ?: null,
-            ':numero_port_switch' => $data['numero_port_switch'] ?: null,
-            ':vlan' => $data['vlan'] ?: null,
-            ':date_fin_maintenance' => $data['date_fin_maintenance'] ?: null,
-            ':date_fin_garantie' => $data['date_fin_garantie'] ?: null,
-            ':date_derniere_inter' => $data['date_derniere_inter'] ?: null,
-            ':commentaire' => $data['commentaire'] ?: null,
-            ':url_github' => $data['url_github'] ?: null
+            ':salle_id' => $data['salle_id'] ?? null,
+            ':type_materiel' => $data['type_materiel'] ?? null,
+            ':modele' => $data['modele'] ?? null,
+            ':marque' => $data['marque'] ?? null,
+            ':reference' => $data['reference'] ?? null,
+            ':usage_materiel' => $data['usage_materiel'] ?? null,
+            ':numero_serie' => $data['numero_serie'] ?? null,
+            ':version_firmware' => $data['version_firmware'] ?? null,
+            ':ancien_firmware' => $data['ancien_firmware'] ?? null,
+            ':adresse_mac' => $data['adresse_mac'] ?? null,
+            ':adresse_ip' => $data['adresse_ip'] ?? null,
+            ':masque' => $data['masque'] ?? null,
+            ':passerelle' => $data['passerelle'] ?? null,
+            ':id_materiel' => $data['id_materiel'] ?? null,
+            ':login' => $data['login'] ?? null,
+            ':password' => $data['password'] ?? null,
+            ':ip_primaire' => $data['ip_primaire'] ?? null,
+            ':mac_primaire' => $data['mac_primaire'] ?? null,
+            ':ip_secondaire' => $data['ip_secondaire'] ?? null,
+            ':mac_secondaire' => $data['mac_secondaire'] ?? null,
+            ':stream_aes67_recu' => $data['stream_aes67_recu'] ?? null,
+            ':stream_aes67_transmis' => $data['stream_aes67_transmis'] ?? null,
+            ':ssid' => $data['ssid'] ?? null,
+            ':type_cryptage' => $data['type_cryptage'] ?? null,
+            ':password_wifi' => $data['password_wifi'] ?? null,
+            ':libelle_pa_salle' => $data['libelle_pa_salle'] ?? null,
+            ':numero_port_switch' => $data['numero_port_switch'] ?? null,
+            ':vlan' => $data['vlan'] ?? null,
+            ':date_fin_maintenance' => $data['date_fin_maintenance'] ?? null,
+            ':date_fin_garantie' => $data['date_fin_garantie'] ?? null,
+            ':date_derniere_inter' => $data['date_derniere_inter'] ?? null,
+            ':commentaire' => $data['commentaire'] ?? null,
+            ':url_github' => $data['url_github'] ?? null
         ];
+
+        $stmt = $this->db->prepare($query);
+        return $stmt->execute($params);
+    }
+
+    /**
+     * Met à jour partiellement un matériel (seulement les champs fournis)
+     * 
+     * @param int $id ID du matériel
+     * @param array $data Données à mettre à jour (seulement les champs fournis)
+     * @return bool Succès de la mise à jour
+     */
+    public function updateMaterielPartial($id, $data) {
+        if (empty($data)) {
+            return true; // Rien à mettre à jour
+        }
+
+        // Construire dynamiquement la requête avec seulement les champs fournis
+        $setParts = [];
+        $params = [':id' => $id];
+
+        $allowedFields = [
+            'salle_id', 'type_materiel', 'modele', 'marque', 'reference', 'usage_materiel',
+            'numero_serie', 'version_firmware', 'ancien_firmware', 'adresse_mac', 'adresse_ip',
+            'masque', 'passerelle', 'id_materiel', 'login', 'password', 'ip_primaire',
+            'mac_primaire', 'ip_secondaire', 'mac_secondaire', 'stream_aes67_recu',
+            'stream_aes67_transmis', 'ssid', 'type_cryptage', 'password_wifi',
+            'libelle_pa_salle', 'numero_port_switch', 'vlan', 'date_fin_maintenance',
+            'date_fin_garantie', 'date_derniere_inter', 'commentaire', 'url_github'
+        ];
+
+        foreach ($data as $field => $value) {
+            if (in_array($field, $allowedFields)) {
+                $setParts[] = "$field = :$field";
+                $params[":$field"] = $value;
+            }
+        }
+
+        if (empty($setParts)) {
+            return true; // Aucun champ valide à mettre à jour
+        }
+
+        $setParts[] = "updated_at = NOW()";
+        $query = "UPDATE materiel SET " . implode(', ', $setParts) . " WHERE id = :id";
 
         $stmt = $this->db->prepare($query);
         return $stmt->execute($params);

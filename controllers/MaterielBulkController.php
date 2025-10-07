@@ -73,6 +73,108 @@ class MaterielBulkController {
     }
 
     /**
+     * Convertit une valeur Excel en format approprié pour la base de données
+     * 
+     * @param mixed $value Valeur depuis Excel
+     * @param string $fieldType Type de champ (date, number, string)
+     * @return mixed Valeur convertie
+     */
+    private function convertExcelValue($value, $fieldType = 'string') {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        
+        switch ($fieldType) {
+            case 'date':
+                // Si c'est déjà une date au format Y-m-d, la retourner
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+                    return $value;
+                }
+                // Sinon, essayer de convertir avec convertExcelDate
+                return $this->convertExcelDate($value);
+                
+            case 'number':
+                // Convertir en nombre
+                return is_numeric($value) ? (float)$value : $value;
+                
+            case 'string':
+            default:
+                // Retourner en string
+                return trim((string)$value);
+        }
+    }
+
+    /**
+     * Compare une ligne Excel avec la base de données
+     * 
+     * @param array $excelRow Ligne depuis Excel
+     * @param array $dbRow Ligne depuis la base de données
+     * @return array ['has_changes' => bool, 'changes' => array, 'is_new' => bool]
+     */
+    private function compareExcelRow($excelRow, $dbRow = null) {
+        $changes = [];
+        $hasChanges = false;
+        $isNew = empty($excelRow['id_materiel']);
+        
+        // Si c'est une nouvelle ligne, pas de comparaison
+        if ($isNew) {
+            return ['has_changes' => true, 'changes' => [], 'is_new' => true];
+        }
+        
+        // Si pas de ligne en base, c'est une erreur
+        if (!$dbRow) {
+            return ['has_changes' => false, 'changes' => [], 'is_new' => false, 'error' => 'Matériel non trouvé'];
+        }
+        
+        // Champs à comparer (exclure id_materiel et salle_id)
+        $fieldsToCompare = [
+            'type_materiel', 'marque', 'modele', 'reference', 'usage_materiel',
+            'numero_serie', 'version_firmware', 'ancien_firmware', 'url_github',
+            'adresse_mac', 'adresse_ip', 'masque', 'passerelle', 'id_materiel_tech',
+            'login', 'password', 'ip_primaire', 'mac_primaire', 'ip_secondaire',
+            'mac_secondaire', 'stream_aes67_recu', 'stream_aes67_transmis',
+            'ssid', 'type_cryptage', 'password_wifi', 'libelle_pa_salle',
+            'numero_port_switch', 'vlan', 'date_fin_maintenance',
+            'date_fin_garantie', 'date_derniere_inter', 'commentaire'
+        ];
+        
+        foreach ($fieldsToCompare as $field) {
+            $excelValue = trim((string)($excelRow[$field] ?? ''));
+            $dbValue = trim((string)($dbRow[$field] ?? ''));
+            
+            // Règle 1: Si vide dans Excel -> ne pas traiter
+            if ($excelValue === '') {
+                continue;
+            }
+            
+            // Règle 2: Si "Null" dans Excel -> vider le champ
+            if (strtolower($excelValue) === 'null') {
+                if ($dbValue !== '') {
+                    $changes[$field] = [
+                        'current' => $dbValue,
+                        'new' => '',
+                        'action' => 'null'
+                    ];
+                    $hasChanges = true;
+                }
+                continue;
+            }
+            
+            // Règle 3: Si différent -> demander confirmation
+            if ($excelValue !== $dbValue) {
+                $changes[$field] = [
+                    'current' => $dbValue,
+                    'new' => $excelValue,
+                    'action' => 'update'
+                ];
+                $hasChanges = true;
+            }
+        }
+        
+        return ['has_changes' => $hasChanges, 'changes' => $changes, 'is_new' => false];
+    }
+
+    /**
      * Valide le fichier Excel avant import
      */
     public function validate_import() {
@@ -204,12 +306,20 @@ class MaterielBulkController {
                     }
                 }
 
-                // Vérifier que le matériel existe si ID fourni
+                // Comparer la ligne Excel avec la base de données
+                $existingMateriel = null;
                 if (!empty($data['id_materiel'])) {
                     $existingMateriel = $this->materielModel->getMaterielById($data['id_materiel']);
                     if (!$existingMateriel) {
                         $rowErrors[] = "Matériel ID {$data['id_materiel']} n'existe pas";
                     }
+                }
+                
+                // Comparer la ligne
+                $comparison = $this->compareExcelRow($data, $existingMateriel);
+                
+                if (isset($comparison['error'])) {
+                    $rowErrors[] = $comparison['error'];
                 }
 
 
@@ -224,6 +334,7 @@ class MaterielBulkController {
 
                 // Si pas d'erreurs, ajouter aux lignes valides
                 if (empty($rowErrors)) {
+                    $data['comparison'] = $comparison;
                     $validRows[] = $data;
                 }
             }
@@ -239,8 +350,22 @@ class MaterielBulkController {
                 'file_name' => $file['name']
             ];
 
-            // Rediriger vers la page de validation
-            $redirectUrl = BASE_URL . 'materiel_bulk/confirm_import';
+            // Vérifier s'il y a des lignes qui nécessitent une confirmation (seulement les modifications, pas les nouvelles)
+            $hasConfirmationNeeded = false;
+            foreach ($validRows as $row) {
+                if ($row['comparison']['has_changes'] && !$row['comparison']['is_new']) {
+                    $hasConfirmationNeeded = true;
+                    break;
+                }
+            }
+            
+            // Rediriger vers la page appropriée
+            if ($hasConfirmationNeeded) {
+                $redirectUrl = BASE_URL . 'materiel_bulk/confirm_import';
+            } else {
+                $redirectUrl = BASE_URL . 'materiel_bulk/process_bulk_import';
+            }
+            
             $filters = [];
             if ($client_id) {
                 $filters['client_id'] = $client_id;
@@ -263,8 +388,9 @@ class MaterielBulkController {
         }
     }
 
+
     /**
-     * Affiche la page de confirmation d'import
+     * Affiche la page de confirmation pour les modifications
      */
     public function confirm_import() {
         if (!isset($_SESSION['user'])) {
@@ -279,6 +405,40 @@ class MaterielBulkController {
 
         $validation = $_SESSION['import_validation'];
         
+        // Récupérer les paramètres de filtres
+        $selectedClientId = $_GET['client_id'] ?? '';
+        $selectedSiteId = $_GET['site_id'] ?? '';
+        
+        // Récupérer les données pour l'affichage
+        $clients = $this->clientModel->getAllClients();
+        $sites = [];
+        $salles = [];
+        
+        if ($selectedClientId) {
+            $sites = $this->siteModel->getSitesByClientId($selectedClientId);
+            $salles = $this->roomModel->getRoomsByClientId($selectedClientId);
+        }
+
+        // Définir les variables pour la vue
+        $errors = $validation['errors'] ?? [];
+        $warnings = $validation['warnings'] ?? [];
+        $validRows = $validation['valid_rows'] ?? [];
+        $totalRows = $validation['total_rows'] ?? 0;
+        $client_id = $validation['client_id'] ?? null;
+        $site_id = $validation['site_id'] ?? null;
+        $file_name = $validation['file_name'] ?? '';
+
+        setPageVariables(
+            'Confirmation Import - Matériel',
+            'materiel'
+        );
+
+        $currentPage = 'materiel';
+        include_once __DIR__ . '/../includes/header.php';
+        include_once __DIR__ . '/../includes/sidebar.php';
+        include_once __DIR__ . '/../includes/navbar.php';
+        
+        // Inclure la vue de confirmation
         require_once VIEWS_PATH . '/materiel/confirm_import.php';
     }
 
@@ -300,25 +460,32 @@ class MaterielBulkController {
         $client_id = $validation['client_id'];
         $site_id = $validation['site_id'];
         $validRows = $validation['valid_rows'];
+        
+        // Récupérer les champs confirmés
+        $confirmedFields = $_POST['confirm_fields'] ?? [];
+        $rowData = $_POST['row_data'] ?? [];
 
         try {
             $imported = 0;
             $updated = 0;
             $errors = [];
 
-            foreach ($validRows as $data) {
-                try {
-                    if (!empty($data['id_materiel'])) {
-                        // Mise à jour d'un matériel existant
-                        $existingMateriel = $this->materielModel->getMaterielById($data['id_materiel']);
-                        
-                        // Supprimer l'ID du matériel des données à mettre à jour
-                        unset($data['id_materiel']);
-                        $this->materielModel->updateMateriel($existingMateriel['id'], $data);
-                        $updated++;
-                    } else {
+            // 1. Traiter automatiquement toutes les nouvelles lignes
+            foreach ($validRows as $row) {
+                if ($row['comparison']['is_new']) {
+                    try {
                         // Création d'un nouveau matériel
-                        $materielId = $this->materielModel->createMateriel($data);
+                        $cleanData = $row;
+                        unset($cleanData['comparison']);
+                        
+                        // Traiter les valeurs "Null" pour la création
+                        foreach ($cleanData as $key => $value) {
+                            if (is_string($value) && strtolower(trim($value)) === 'null') {
+                                $cleanData[$key] = null;
+                            }
+                        }
+                        
+                        $materielId = $this->materielModel->createMateriel($cleanData);
                         
                         // Appliquer les règles de visibilité par défaut
                         if ($materielId) {
@@ -326,9 +493,48 @@ class MaterielBulkController {
                         }
                         
                         $imported++;
+                    } catch (Exception $e) {
+                        $errors[] = "Erreur lors de la création du matériel : " . $e->getMessage();
+                    }
+                }
+            }
+            
+            // 2. Traiter les modifications champ par champ
+            foreach ($rowData as $index => $rowJson) {
+                $row = json_decode($rowJson, true);
+                if (!$row || $row['comparison']['is_new']) continue; // Ignorer les nouvelles lignes
+                
+                try {
+                    // Mise à jour d'un matériel existant
+                    $updateData = [];
+                    $materielId = $row['id_materiel'];
+                    
+                    // Vérifier si ce matériel a des champs confirmés
+                    if (isset($confirmedFields[$materielId])) {
+                        foreach ($row['comparison']['changes'] as $field => $change) {
+                            // Vérifier si ce champ spécifique a été confirmé
+                            if (isset($confirmedFields[$materielId][$field])) {
+                                if ($change['action'] === 'null') {
+                                    $updateData[$field] = null;
+                                } else {
+                                    $updateData[$field] = $change['new'];
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Toujours mettre à jour la salle si fournie
+                    if (!empty($row['salle_id'])) {
+                        $updateData['salle_id'] = $row['salle_id'];
+                    }
+                    
+                    // Effectuer la mise à jour seulement s'il y a des changements
+                    if (!empty($updateData)) {
+                        $this->materielModel->updateMaterielPartial($materielId, $updateData);
+                        $updated++;
                     }
                 } catch (Exception $e) {
-                    $errors[] = "Erreur lors de l'import : " . $e->getMessage();
+                    $errors[] = "Erreur lors de la mise à jour du matériel ID {$materielId} : " . $e->getMessage();
                 }
             }
 
@@ -506,11 +712,50 @@ class MaterielBulkController {
                 $salleRow++;
             }
             
+            // Ajouter un encadré informatif à partir de la colonne F
+            $infoStartRow = 1;
+            $infoEndRow = 9;
+            
+            // Titre de l'encadré
+            $sallesSheet->setCellValue('F' . $infoStartRow, 'RÈGLES D\'IMPORT');
+            $sallesSheet->getStyle('F' . $infoStartRow)->getFont()->setBold(true)->setSize(12);
+            
+            // Contenu de l'encadré
+            $infoTexts = [
+                '• Champs vides = Ignorés',
+                '• Écrire "Null" = Vider le champ',
+                '• Valeurs différentes = Confirmation requise',
+                '',
+                'Exemple :',
+                'Vide → Pas de changement',
+                '"Null" → Champ vidé',
+                'Nouvelle valeur → Demande confirmation'
+            ];
+            
+            $currentRow = $infoStartRow + 1;
+            foreach ($infoTexts as $text) {
+                $sallesSheet->setCellValue('F' . $currentRow, $text);
+                if (strpos($text, 'Exemple :') === 0) {
+                    $sallesSheet->getStyle('F' . $currentRow)->getFont()->setBold(true);
+                }
+                $currentRow++;
+            }
+            
+            // Appliquer un style d'encadré
+            $sallesSheet->getStyle('F' . $infoStartRow . ':H' . $infoEndRow)
+                ->getBorders()->getAllBorders()->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
+            $sallesSheet->getStyle('F' . $infoStartRow . ':H' . $infoEndRow)
+                ->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('F8F9FA');
+            
             // Ajuster la largeur des colonnes pour l'onglet Salles
             $sallesSheet->getColumnDimension('A')->setWidth(10);
             $sallesSheet->getColumnDimension('B')->setWidth(25);
             $sallesSheet->getColumnDimension('C')->setWidth(20);
             $sallesSheet->getColumnDimension('D')->setWidth(30);
+            $sallesSheet->getColumnDimension('F')->setWidth(20);
+            $sallesSheet->getColumnDimension('G')->setWidth(25);
+            $sallesSheet->getColumnDimension('H')->setWidth(25);
             
             // S'assurer que l'onglet "Matériel" soit présélectionné à l'ouverture
             $spreadsheet->setActiveSheetIndex(0);
