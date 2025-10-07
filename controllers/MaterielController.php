@@ -1471,7 +1471,8 @@ class MaterielController {
         // Charger PhpSpreadsheet
         require_once ROOT_PATH . '/vendor/autoload.php';
         $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file);
-        $sheet = $spreadsheet->getActiveSheet();
+        // S'assurer qu'on lit toujours le premier onglet (index 0) qui contient les données de matériel
+        $sheet = $spreadsheet->getSheet(0);
         $rows = $sheet->toArray(null, true, true, true);
         $imported = 0;
         $errors = [];

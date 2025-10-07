@@ -161,9 +161,10 @@ $selectedSiteId = $_GET['site_id'] ?? '';
                                                 <button type="submit" class="btn btn-primary">
                                                     <i class="bi bi-upload me-2"></i>Importer
                                                 </button>
-                                                <a href="<?= BASE_URL ?>materiel_bulk/download_template" class="btn btn-outline-primary">
+                                                <!-- Template téléchargement masqué temporairement -->
+                                                <!-- <a href="<?= BASE_URL ?>materiel_bulk/download_template" class="btn btn-outline-primary">
                                                     <i class="bi bi-download me-2"></i>Télécharger le template
-                                                </a>
+                                                </a> -->
                                             </div>
                                         </form>
                                     <?php else: ?>

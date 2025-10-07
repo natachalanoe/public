@@ -116,7 +116,8 @@ class MaterielBulkController {
             require_once __DIR__ . '/../vendor/autoload.php';
             
             $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file['tmp_name']);
-            $worksheet = $spreadsheet->getActiveSheet();
+            // S'assurer qu'on lit toujours le premier onglet (index 0) qui contient les données de matériel
+            $worksheet = $spreadsheet->getSheet(0);
             $rows = $worksheet->toArray();
             
             // Supprimer les 2 lignes d'en-têtes
@@ -416,6 +417,9 @@ class MaterielBulkController {
             $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($templatePath);
             $sheet = $spreadsheet->getActiveSheet();
             
+            // Renommer l'onglet principal en "Matériel"
+            $sheet->setTitle('Matériel');
+            
             // Le template n'a que les 2 lignes d'en-têtes, pas de données d'exemple
             // On garde les 2 lignes d'en-têtes et on commence à ajouter les données à la ligne 3
             
@@ -463,6 +467,53 @@ class MaterielBulkController {
                 $sheet->fromArray([$data], null, "A$row");
                 $row++;
             }
+            
+            // Récupérer les salles pour le client/site sélectionné
+            $salles = $this->roomModel->getRoomsByClientId($client_id);
+            if ($site_id) {
+                // Filtrer les salles par site si spécifié
+                $salles = array_filter($salles, function($salle) use ($site_id) {
+                    return $salle['site_id'] == $site_id;
+                });
+            }
+            
+            // Créer un deuxième onglet pour les salles
+            $sallesSheet = $spreadsheet->createSheet();
+            $sallesSheet->setTitle('Salles');
+            
+            // En-têtes pour l'onglet Salles
+            $sallesHeaders = [
+                'ID', 'Nom de la salle', 'Site', 'Commentaire'
+            ];
+            $sallesSheet->fromArray([$sallesHeaders], null, 'A1');
+            
+            // Style des en-têtes
+            $sallesSheet->getStyle('A1:D1')->getFont()->setBold(true);
+            $sallesSheet->getStyle('A1:D1')->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB('FFE0E0E0');
+            
+            // Ajouter les données des salles
+            $salleRow = 2;
+            foreach ($salles as $salle) {
+                $salleData = [
+                    $salle['id'],
+                    $salle['name'],
+                    $salle['site_name'] ?? 'N/A',
+                    $salle['comment'] ?? ''
+                ];
+                $sallesSheet->fromArray([$salleData], null, "A$salleRow");
+                $salleRow++;
+            }
+            
+            // Ajuster la largeur des colonnes pour l'onglet Salles
+            $sallesSheet->getColumnDimension('A')->setWidth(10);
+            $sallesSheet->getColumnDimension('B')->setWidth(25);
+            $sallesSheet->getColumnDimension('C')->setWidth(20);
+            $sallesSheet->getColumnDimension('D')->setWidth(30);
+            
+            // S'assurer que l'onglet "Matériel" soit présélectionné à l'ouverture
+            $spreadsheet->setActiveSheetIndex(0);
             
             // Créer le fichier
             $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
