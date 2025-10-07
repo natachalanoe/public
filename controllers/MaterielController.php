@@ -573,6 +573,97 @@ class MaterielController {
     }
 
     /**
+     * Supprime plusieurs matériels en masse
+     */
+    public function deleteBulk() {
+        custom_log("Début de deleteBulk - Paramètres GET: " . print_r($_GET, true), 'INFO');
+        
+        // Vérifier si l'utilisateur est connecté
+        if (!isset($_SESSION['user'])) {
+            custom_log("Utilisateur non connecté, redirection vers login", 'WARNING');
+            header('Location: ' . BASE_URL . 'auth/login');
+            exit;
+        }
+
+        // Vérifier que l'utilisateur est administrateur
+        if (!canDelete()) {
+            custom_log("Utilisateur non autorisé pour la suppression en masse", 'WARNING');
+            $_SESSION['error'] = "Vous n'avez pas les droits nécessaires pour effectuer cette action.";
+            header('Location: ' . BASE_URL . 'materiel');
+            exit;
+        }
+
+        try {
+            // Récupérer les IDs depuis les paramètres GET
+            $idsParam = $_GET['ids'] ?? '';
+            custom_log("Paramètre ids reçu: '$idsParam'", 'INFO');
+            
+            if (empty($idsParam)) {
+                $errorMsg = "Aucun matériel sélectionné pour la suppression.";
+                $_SESSION['error'] = $errorMsg;
+                custom_log($errorMsg, 'ERROR');
+            } else {
+                // Convertir la chaîne d'IDs en tableau
+                $ids = explode(',', $idsParam);
+                $ids = array_map('trim', $ids);
+                custom_log("IDs convertis en tableau: " . print_r($ids, true), 'INFO');
+                
+                // Appeler la méthode du modèle
+                $result = $this->materielModel->deleteMaterielBulk($ids);
+                custom_log("Résultat de deleteMaterielBulk: " . print_r($result, true), 'INFO');
+                
+                if ($result['success']) {
+                    $_SESSION['success'] = $result['message'];
+                    custom_log("Suppression réussie: " . $result['message'], 'INFO');
+                    
+                    // Ajouter les erreurs individuelles s'il y en a
+                    if (!empty($result['errors'])) {
+                        $warningMsg = "Attention: " . implode('; ', $result['errors']);
+                        $_SESSION['warning'] = $warningMsg;
+                        custom_log($warningMsg, 'WARNING');
+                    }
+                } else {
+                    $errorMsg = $result['message'];
+                    $_SESSION['error'] = $errorMsg;
+                    custom_log("Suppression échouée: " . $errorMsg, 'ERROR');
+                    
+                    // Ajouter les erreurs détaillées
+                    if (!empty($result['errors'])) {
+                        $errorMsg .= " Détails: " . implode('; ', $result['errors']);
+                        $_SESSION['error'] = $errorMsg;
+                        custom_log("Erreurs détaillées: " . implode('; ', $result['errors']), 'ERROR');
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            $errorMsg = "Erreur lors de la suppression en masse : " . $e->getMessage();
+            $_SESSION['error'] = $errorMsg;
+            custom_log($errorMsg, 'ERROR');
+        }
+
+        // Construire l'URL de redirection avec les filtres
+        $redirectParams = [];
+        if (isset($_GET['client_id']) && !empty($_GET['client_id'])) {
+            $redirectParams['client_id'] = $_GET['client_id'];
+        }
+        if (isset($_GET['site_id']) && !empty($_GET['site_id'])) {
+            $redirectParams['site_id'] = $_GET['site_id'];
+        }
+        if (isset($_GET['salle_id']) && !empty($_GET['salle_id'])) {
+            $redirectParams['salle_id'] = $_GET['salle_id'];
+        }
+        
+        $redirectUrl = BASE_URL . 'materiel';
+        if (!empty($redirectParams)) {
+            $redirectUrl .= '?' . http_build_query($redirectParams);
+        }
+        
+        custom_log("Redirection vers: $redirectUrl", 'INFO');
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
+
+    /**
      * Ajoute une pièce jointe à un matériel
      */
     public function addAttachment($materielId) {

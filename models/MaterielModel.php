@@ -269,6 +269,190 @@ class MaterielModel {
     }
 
     /**
+     * Supprime plusieurs matériels en masse
+     * 
+     * @param array $ids Liste des IDs des matériels à supprimer
+     * @return array Résultat de la suppression avec détails
+     */
+    public function deleteMaterielBulk($ids) {
+        custom_log("Début de la suppression en masse avec IDs: " . implode(', ', $ids), 'INFO');
+        
+        if (empty($ids) || !is_array($ids)) {
+            custom_log("Aucun ID fourni pour la suppression en masse", 'ERROR');
+            return [
+                'success' => false,
+                'message' => 'Aucun ID de matériel fourni',
+                'deleted_count' => 0,
+                'errors' => []
+            ];
+        }
+
+        // Nettoyer et valider les IDs
+        $validIds = array_filter(array_map('intval', $ids), function($id) {
+            return $id > 0;
+        });
+
+        custom_log("IDs validés: " . implode(', ', $validIds), 'INFO');
+
+        if (empty($validIds)) {
+            custom_log("Aucun ID valide après nettoyage", 'ERROR');
+            return [
+                'success' => false,
+                'message' => 'Aucun ID de matériel valide fourni',
+                'deleted_count' => 0,
+                'errors' => []
+            ];
+        }
+
+        $this->db->beginTransaction();
+        
+        try {
+            $deletedCount = 0;
+            $errors = [];
+            
+            foreach ($validIds as $id) {
+                try {
+                    custom_log("Traitement de la suppression du matériel ID: $id", 'INFO');
+                    
+                    // Vérifier que le matériel existe
+                    $checkQuery = "SELECT id FROM materiel WHERE id = :id";
+                    $checkStmt = $this->db->prepare($checkQuery);
+                    $checkStmt->bindParam(':id', $id, PDO::PARAM_INT);
+                    $checkStmt->execute();
+                    
+                    if (!$checkStmt->fetch()) {
+                        $errorMsg = "Matériel ID $id non trouvé";
+                        $errors[] = $errorMsg;
+                        custom_log($errorMsg, 'WARNING');
+                        continue;
+                    }
+                    
+                    custom_log("Matériel ID $id trouvé, suppression des pièces jointes...", 'INFO');
+                    
+                    // Supprimer les pièces jointes associées
+                    $this->deleteMaterielAttachments($id);
+                    
+                    custom_log("Suppression du matériel ID $id de la base de données...", 'INFO');
+                    
+                    // Supprimer le matériel
+                    $deleteQuery = "DELETE FROM materiel WHERE id = :id";
+                    $deleteStmt = $this->db->prepare($deleteQuery);
+                    $deleteStmt->bindParam(':id', $id, PDO::PARAM_INT);
+                    
+                    if ($deleteStmt->execute()) {
+                        $deletedCount++;
+                        custom_log("Matériel ID $id supprimé avec succès", 'INFO');
+                    } else {
+                        $errorMsg = "Erreur lors de la suppression du matériel ID $id";
+                        $errors[] = $errorMsg;
+                        custom_log($errorMsg, 'ERROR');
+                    }
+                    
+                } catch (Exception $e) {
+                    $errorMsg = "Erreur lors de la suppression du matériel ID $id: " . $e->getMessage();
+                    $errors[] = $errorMsg;
+                    custom_log($errorMsg, 'ERROR');
+                }
+            }
+            
+            if ($deletedCount > 0) {
+                $this->db->commit();
+                $message = "$deletedCount matériel(s) supprimé(s) avec succès";
+                custom_log($message, 'INFO');
+                return [
+                    'success' => true,
+                    'message' => $message,
+                    'deleted_count' => $deletedCount,
+                    'errors' => $errors
+                ];
+            } else {
+                $this->db->rollBack();
+                $message = 'Aucun matériel n\'a pu être supprimé';
+                custom_log($message, 'ERROR');
+                return [
+                    'success' => false,
+                    'message' => $message,
+                    'deleted_count' => 0,
+                    'errors' => $errors
+                ];
+            }
+            
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            $errorMsg = "Erreur lors de la suppression en masse: " . $e->getMessage();
+            custom_log($errorMsg, 'ERROR');
+            return [
+                'success' => false,
+                'message' => $errorMsg,
+                'deleted_count' => 0,
+                'errors' => [$e->getMessage()]
+            ];
+        }
+    }
+
+    /**
+     * Supprime toutes les pièces jointes d'un matériel
+     * 
+     * @param int $materielId ID du matériel
+     * @return bool Succès de la suppression
+     */
+    private function deleteMaterielAttachments($materielId) {
+        try {
+            // Récupérer les pièces jointes du matériel
+            $query = "SELECT pj.* FROM pieces_jointes pj
+                     INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                     WHERE lpj.type_liaison = 'materiel' 
+                     AND lpj.entite_id = :materiel_id";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':materiel_id' => $materielId]);
+            $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            custom_log("Suppression des pièces jointes pour le matériel $materielId: " . count($attachments) . " fichier(s) trouvé(s)", 'INFO');
+
+            // Supprimer les fichiers physiques et les enregistrements
+            foreach ($attachments as $attachment) {
+                // Supprimer le fichier physique
+                $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
+                custom_log("Tentative de suppression du fichier: $filePath", 'INFO');
+                
+                if (file_exists($filePath)) {
+                    if (unlink($filePath)) {
+                        custom_log("Fichier supprimé avec succès: $filePath", 'INFO');
+                    } else {
+                        custom_log("Erreur lors de la suppression du fichier: $filePath", 'ERROR');
+                    }
+                } else {
+                    custom_log("Fichier non trouvé (déjà supprimé?): $filePath", 'WARNING');
+                }
+
+                // Supprimer la liaison
+                $deleteLiaisonQuery = "DELETE FROM liaisons_pieces_jointes 
+                                     WHERE piece_jointe_id = :piece_jointe_id 
+                                     AND type_liaison = 'materiel' 
+                                     AND entite_id = :materiel_id";
+                $deleteLiaisonStmt = $this->db->prepare($deleteLiaisonQuery);
+                $deleteLiaisonStmt->execute([
+                    ':piece_jointe_id' => $attachment['id'],
+                    ':materiel_id' => $materielId
+                ]);
+
+                // Supprimer la pièce jointe
+                $deletePjQuery = "DELETE FROM pieces_jointes WHERE id = :piece_jointe_id";
+                $deletePjStmt = $this->db->prepare($deletePjQuery);
+                $deletePjStmt->execute([':piece_jointe_id' => $attachment['id']]);
+                
+                custom_log("Pièce jointe ID {$attachment['id']} supprimée de la base de données", 'INFO');
+            }
+
+            return true;
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la suppression des pièces jointes du matériel $materielId: " . $e->getMessage(), 'ERROR');
+            return false;
+        }
+    }
+
+    /**
      * Récupère les statistiques du matériel
      * 
      * @return array Statistiques

@@ -146,6 +146,33 @@ foreach ($materiel_list as $materiel) {
 .border-dashed {
     border-style: dashed !important;
 }
+
+/* Styles pour le mode édition */
+.edit-mode-only {
+    transition: all 0.3s ease;
+}
+
+.edit-mode-active .edit-mode-only {
+    display: table-cell !important;
+}
+
+.edit-mode-active .materiel-row {
+    background-color: var(--bs-warning-bg-subtle);
+    transition: background-color 0.3s ease;
+}
+
+.edit-mode-active .materiel-row:hover {
+    background-color: var(--bs-warning-bg-subtle);
+}
+
+#bulkActionsBar {
+    border-left: 4px solid var(--bs-warning);
+    background-color: var(--bs-warning-bg-subtle);
+}
+
+#bulkActionsBar .card-body {
+    background-color: var(--bs-warning-bg-subtle);
+}
 </style>
 
 <div class="container-fluid flex-grow-1 container-p-y">
@@ -190,6 +217,13 @@ foreach ($materiel_list as $materiel) {
                         <i class="bi bi-plus me-2 me-1"></i>Ajouter du Matériel
                     </a>
                     
+                    <!-- Bouton pour basculer en mode édition (admin uniquement) -->
+                    <?php if (canDelete()): ?>
+                    <button type="button" class="btn btn-outline-warning" id="toggleEditMode" onclick="toggleEditMode()">
+                        <i class="bi bi-pencil-square me-1"></i>Mode Édition
+                    </button>
+                    <?php endif; ?>
+                    
                                         <?php if (canImportMateriel()): ?>
                         <!-- Bouton pour l'import/export en masse -->
                         <?php
@@ -210,6 +244,33 @@ foreach ($materiel_list as $materiel) {
                             <i class="bi bi-arrow-left-right me-2 me-1"></i>Import/Export en Masse
                         </a>
                     <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Barre d'actions en masse (cachée par défaut) -->
+    <div class="card mb-4" id="bulkActionsBar" style="display: none;">
+        <div class="card-body py-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <span class="me-3">
+                        <strong id="selectedCount">0</strong> élément(s) sélectionné(s)
+                    </span>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()">
+                        <label class="form-check-label" for="selectAllCheckbox">
+                            Tout sélectionner
+                        </label>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-danger" id="deleteSelectedBtn" onclick="deleteSelectedMateriel()" disabled>
+                        <i class="bi bi-trash me-1"></i>Supprimer sélectionnés
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="exitEditMode()">
+                        <i class="bi bi-x-lg me-1"></i>Quitter le mode édition
+                    </button>
                 </div>
             </div>
         </div>
@@ -419,6 +480,18 @@ foreach ($materiel_list as $materiel) {
                                             <table class="table table-hover table-sm mb-0">
                                                 <thead class="bg-body-secondary">
                                                     <tr>
+                                                        <th class="edit-mode-only" style="display: none;">
+                                                            <div class="form-check">
+                                                                <?php 
+                                                                // Utiliser l'ID de la salle du premier matériel
+                                                                $salle_id = !empty($materiels) ? $materiels[0]['salle_id'] : 0;
+                                                                ?>
+                                                                <input class="form-check-input" type="checkbox" id="selectAllInTable_<?= $salle_id ?>" onchange="toggleSelectAllInTable(this)">
+                                                                <label class="form-check-label" for="selectAllInTable_<?= $salle_id ?>">
+                                                                    Tout
+                                                                </label>
+                                                            </div>
+                                                        </th>
                                                         <th>Équipement</th>
                                                         <th>Type</th>
                                                         <th>S/N</th>
@@ -431,7 +504,16 @@ foreach ($materiel_list as $materiel) {
                                                 </thead>
                                                 <tbody>
                                                     <?php foreach ($materiels as $materiel): ?>
-                                                        <tr>
+                                                        <tr class="materiel-row">
+                                                            <td class="edit-mode-only" style="display: none;">
+                                                                <div class="form-check">
+                                                                    <input class="form-check-input materiel-checkbox" 
+                                                                           type="checkbox" 
+                                                                           value="<?= $materiel['id'] ?>" 
+                                                                           id="materiel_<?= $materiel['id'] ?>"
+                                                                           onchange="updateSelectionCount()">
+                                                                </div>
+                                                            </td>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['marque']) && !$visibilites_champs[$materiel['id']]['marque']) || (isset($visibilites_champs[$materiel['id']]['modele']) && !$visibilites_champs[$materiel['id']]['modele']) ? 'bg-warning bg-opacity-25' : '' ?>">
                                                                 <?php
                                                                 // Construire les paramètres de filtres pour les liens
@@ -537,7 +619,7 @@ foreach ($materiel_list as $materiel) {
                                                         </tr>
                                                         <!-- Ligne d'accordéon pour les pièces jointes -->
                                                         <tr id="attachments-<?= $materiel['id'] ?>" class="attachments-row" style="display: none;">
-                                                            <td colspan="8" class="p-0">
+                                                            <td colspan="9" class="p-0">
                                                                 <div class="card border-0 m-2">
                                                                     <div class="card-body p-3">
                                                                         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -1039,6 +1121,196 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeUploadZones();
 });
+
+// ===== FONCTIONS POUR LE MODE ÉDITION =====
+
+// Variable globale pour le mode édition
+let editMode = false;
+
+// Fonction pour basculer le mode édition
+function toggleEditMode() {
+    editMode = !editMode;
+    
+    if (editMode) {
+        enterEditMode();
+    } else {
+        exitEditMode();
+    }
+}
+
+// Fonction pour entrer en mode édition
+function enterEditMode() {
+    editMode = true;
+    
+    // Changer le bouton
+    const toggleBtn = document.getElementById('toggleEditMode');
+    toggleBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Mode Normal';
+    toggleBtn.className = 'btn btn-success';
+    
+    // Afficher la barre d'actions
+    document.getElementById('bulkActionsBar').style.display = 'block';
+    
+    // Ajouter la classe au body pour les styles
+    document.body.classList.add('edit-mode-active');
+    
+    // Afficher les colonnes de sélection
+    const editModeElements = document.querySelectorAll('.edit-mode-only');
+    editModeElements.forEach(el => {
+        el.style.display = 'table-cell';
+    });
+    
+    // Mettre à jour le compteur
+    updateSelectionCount();
+}
+
+// Fonction pour quitter le mode édition
+function exitEditMode() {
+    editMode = false;
+    
+    // Changer le bouton
+    const toggleBtn = document.getElementById('toggleEditMode');
+    toggleBtn.innerHTML = '<i class="bi bi-pencil-square me-1"></i>Mode Édition';
+    toggleBtn.className = 'btn btn-outline-warning';
+    
+    // Masquer la barre d'actions
+    document.getElementById('bulkActionsBar').style.display = 'none';
+    
+    // Retirer la classe du body
+    document.body.classList.remove('edit-mode-active');
+    
+    // Masquer les colonnes de sélection
+    const editModeElements = document.querySelectorAll('.edit-mode-only');
+    editModeElements.forEach(el => {
+        el.style.display = 'none';
+    });
+    
+    // Décocher toutes les cases
+    const checkboxes = document.querySelectorAll('.materiel-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    
+    // Réinitialiser les cases "tout sélectionner"
+    document.getElementById('selectAllCheckbox').checked = false;
+    const selectAllInTableCheckboxes = document.querySelectorAll('input[id^="selectAllInTable_"]');
+    selectAllInTableCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+        checkbox.indeterminate = false;
+    });
+    
+    // Mettre à jour le compteur
+    updateSelectionCount();
+}
+
+// Fonction pour mettre à jour le compteur de sélection
+function updateSelectionCount() {
+    const selectedCheckboxes = document.querySelectorAll('.materiel-checkbox:checked');
+    const count = selectedCheckboxes.length;
+    
+    document.getElementById('selectedCount').textContent = count;
+    
+    // Activer/désactiver le bouton de suppression
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
+    deleteBtn.disabled = count === 0;
+    
+    // Mettre à jour les cases "tout sélectionner"
+    updateSelectAllCheckboxes();
+}
+
+// Fonction pour mettre à jour les cases "tout sélectionner"
+function updateSelectAllCheckboxes() {
+    const allCheckboxes = document.querySelectorAll('.materiel-checkbox');
+    const checkedCheckboxes = document.querySelectorAll('.materiel-checkbox:checked');
+    
+    const allChecked = allCheckboxes.length > 0 && checkedCheckboxes.length === allCheckboxes.length;
+    const someChecked = checkedCheckboxes.length > 0;
+    
+    // Case principale dans la barre d'actions
+    const mainSelectAll = document.getElementById('selectAllCheckbox');
+    mainSelectAll.checked = allChecked;
+    mainSelectAll.indeterminate = someChecked && !allChecked;
+    
+    // Cases dans les tableaux - traiter chaque tableau individuellement
+    const tables = document.querySelectorAll('table');
+    tables.forEach(table => {
+        const tableCheckboxes = table.querySelectorAll('.materiel-checkbox');
+        const tableCheckedCheckboxes = table.querySelectorAll('.materiel-checkbox:checked');
+        
+        const tableAllChecked = tableCheckboxes.length > 0 && tableCheckedCheckboxes.length === tableCheckboxes.length;
+        const tableSomeChecked = tableCheckedCheckboxes.length > 0;
+        
+        const tableSelectAllCheckbox = table.querySelector('input[id^="selectAllInTable_"]');
+        if (tableSelectAllCheckbox) {
+            tableSelectAllCheckbox.checked = tableAllChecked;
+            tableSelectAllCheckbox.indeterminate = tableSomeChecked && !tableAllChecked;
+        }
+    });
+}
+
+// Fonction pour tout sélectionner/désélectionner (barre principale)
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const allCheckboxes = document.querySelectorAll('.materiel-checkbox');
+    
+    allCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateSelectionCount();
+}
+
+// Fonction pour tout sélectionner/désélectionner (dans un tableau)
+function toggleSelectAllInTable(checkbox) {
+    // Trouver le tableau parent de cette checkbox
+    const table = checkbox.closest('table');
+    if (!table) return;
+    
+    // Sélectionner seulement les checkboxes de ce tableau
+    const tableCheckboxes = table.querySelectorAll('.materiel-checkbox');
+    
+    tableCheckboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    
+    updateSelectionCount();
+}
+
+// Fonction pour supprimer les matériels sélectionnés
+function deleteSelectedMateriel() {
+    const selectedCheckboxes = document.querySelectorAll('.materiel-checkbox:checked');
+    const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (selectedIds.length === 0) {
+        alert('Aucun matériel sélectionné.');
+        return;
+    }
+    
+    const count = selectedIds.length;
+    const message = `Êtes-vous sûr de vouloir supprimer ${count} matériel(s) ?\n\nCette action est irréversible et supprimera définitivement :\n- Le(s) matériel(s) sélectionné(s)\n- Toutes les pièces jointes associées\n- L'historique lié\n\nVoulez-vous continuer ?`;
+    
+    if (confirm(message)) {
+        // Construire l'URL avec les paramètres de filtres
+        const currentUrl = new URL(window.location.href);
+        const params = new URLSearchParams(currentUrl.search);
+        
+        const filterParams = new URLSearchParams();
+        if (params.has('client_id')) {
+            filterParams.set('client_id', params.get('client_id'));
+        }
+        if (params.has('site_id')) {
+            filterParams.set('site_id', params.get('site_id'));
+        }
+        if (params.has('salle_id')) {
+            filterParams.set('salle_id', params.get('salle_id'));
+        }
+        
+        // Ajouter les IDs sélectionnés
+        filterParams.set('ids', selectedIds.join(','));
+        
+        // Rediriger vers l'endpoint de suppression en masse
+        window.location.href = `<?= BASE_URL ?>materiel/deleteBulk?${filterParams.toString()}`;
+    }
+}
 
 // Fonction pour initialiser toutes les zones d'upload
 function initializeUploadZones() {

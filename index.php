@@ -1071,6 +1071,9 @@ try {
                 case 'toggleAttachmentVisibility':
                     $materielController->toggleAttachmentVisibility();
                     break;
+                case 'deleteBulk':
+                    $materielController->deleteBulk();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'materiel');
                     break;
