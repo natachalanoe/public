@@ -135,7 +135,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <th>Date de fin:</th>
                                 <td><?= formatDateFrench($contract['end_date']) ?></td>
                             </tr>
-                            <?php if ($contract['tickets_number'] > 0): ?>
+                            <?php if (isTicketContract($contract)): ?>
                             <tr>
                                 <th>Tickets totaux:</th>
                                 <td><?= $contract['tickets_number'] ?></td>
@@ -227,7 +227,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <th>Date</th>
                                     <th>Technicien</th>
                                     <th>Durée</th>
-                                    <?php if ($contract['tickets_number'] > 0): ?>
+                                    <?php if (isTicketContract($contract)): ?>
                                     <th>Tickets utilisés</th>
                                     <?php endif; ?>
                                     <th>Statut</th>
@@ -248,7 +248,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <?php endif; ?>
                                         </td>
                                         <td><?= h($intervention['duration'] ?? '0') ?>h</td>
-                                        <?php if ($contract['tickets_number'] > 0): ?>
+                                        <?php if (isTicketContract($contract)): ?>
                                         <td><?= h($intervention['tickets_used'] ?? '0') ?></td>
                                         <?php endif; ?>
                                         <td>

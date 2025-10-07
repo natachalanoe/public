@@ -1248,7 +1248,7 @@ class ContractModel {
             
 
             // 2. Si c'est un contrat à ticket, enregistrer les tickets initiaux
-            if (isset($data['tickets_number']) && $data['tickets_number'] > 0) {
+            if (isset($data['tickets_number']) && isTicketContract($data)) {
                 $ticketsNumber = $data['tickets_number'];
                 $ticketsRemaining = $data['tickets_remaining'] ?? $data['tickets_number'];
                 

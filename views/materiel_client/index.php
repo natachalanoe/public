@@ -356,7 +356,11 @@ foreach ($materiel_list as $materiel) {
                                                                 </a>
                                                             </td>
                                                             <td>
-                                                                <?= htmlspecialchars($materiel['type_nom'] ?? 'Type non défini') ?>
+                                                                <?php if (!empty($materiel['type_nom'])): ?>
+                                                                    <?= htmlspecialchars($materiel['type_nom']) ?>
+                                                                <?php else: ?>
+                                                                    <span class="text-muted">---</span>
+                                                                <?php endif; ?>
                                                             </td>
                                                             <td class="<?= (isset($visibilites_champs[$materiel['id']]['numero_serie']) && !$visibilites_champs[$materiel['id']]['numero_serie']) ? 'bg-warning bg-opacity-25' : '' ?>">
                                                                 <?php if (isset($visibilites_champs[$materiel['id']]['numero_serie']) && $visibilites_champs[$materiel['id']]['numero_serie'] && !empty($materiel['numero_serie'])): ?>

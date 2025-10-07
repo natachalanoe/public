@@ -148,6 +148,22 @@ class InterventionsClientController {
         // Si getByIdWithAccess() retourne l'intervention, c'est que l'utilisateur y a déjà accès
         // Pas besoin de double vérification
 
+        // Récupérer le contrat associé directement via contract_id pour les informations de tickets
+        $contract = null;
+        if (!empty($intervention['contract_id'])) {
+            $contractModel = new ContractModel($this->db);
+            $contract = $contractModel->getContractById($intervention['contract_id']);
+        }
+        
+        // Ajouter les informations du contrat pour l'affichage des tickets
+        if ($contract && isTicketContract($contract)) {
+            $intervention['contract_tickets_number'] = $contract['tickets_number'];
+            $intervention['contract_tickets_remaining'] = $contract['tickets_remaining'];
+        } else {
+            $intervention['contract_tickets_number'] = 0;
+            $intervention['contract_tickets_remaining'] = 0;
+        }
+
         // Récupérer les commentaires (filtrés pour les clients)
         $comments = $this->model->getCommentsWithAccess($id, $userLocations, true, $_SESSION['user']['id']);
 

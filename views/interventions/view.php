@@ -172,10 +172,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <i class="bi bi-clock me-1 me-1"></i>
                             <?= h($intervention['duration'] ?? '0') ?>h
                         </div>
+                        <?php if (isTicketContract($intervention)): ?>
                         <div class="text-muted me-2">
                             <i class="bi bi-ticket-perforated me-1 me-1"></i>
                             <?= h($intervention['tickets_used'] ?? '0') ?>
                         </div>
+                        <?php endif; ?>
                         <span class="badge rounded-pill" style="background-color: <?= h($intervention['status_color'] ?? '') ?>">
                             <?= h($intervention['status_name'] ?? '') ?>
                         </span>

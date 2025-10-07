@@ -1827,7 +1827,7 @@ class ContractController {
 
             // Déterminer les tickets pour le nouveau contrat
             $newTicketsNumber = $currentContract['tickets_number'];
-            $newTicketsRemaining = $currentContract['tickets_number'] > 0 ? 
+            $newTicketsRemaining = isTicketContract($currentContract) ? 
                 ($resetTickets ? $currentContract['tickets_number'] : $currentContract['tickets_remaining']) : 
                 0;
 
@@ -1871,7 +1871,7 @@ class ContractController {
                 ]);
 
                 // Enregistrer le renouvellement dans l'historique du contrat actuel
-                $resetTicketsForHistory = $currentContract['tickets_number'] > 0 ? $resetTickets : false;
+                $resetTicketsForHistory = isTicketContract($currentContract) ? $resetTickets : false;
                 $this->contractModel->recordRenewal($contractId, $newContractId, $newContractName, $renewalComment, $resetTicketsForHistory);
 
                 $_SESSION['success'] = "Le contrat a été renouvelé avec succès. Nouveau contrat créé : #$newContractId";
@@ -1914,7 +1914,7 @@ class ContractController {
             }
 
             // Vérifier que c'est un contrat sans tickets
-            if ($contract['tickets_number'] > 0) {
+            if (isTicketContract($contract)) {
                 $_SESSION['error'] = "Les interventions préventives ne sont disponibles que pour les contrats sans tickets.";
                 header('Location: ' . BASE_URL . 'contracts/view/' . $contractId);
                 exit;

@@ -208,7 +208,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <th>Tickets initiaux:</th>
                             <td>
                                 <?= $contract['tickets_number'] ?>
-                                <?php if ($isAdmin && $contract['tickets_number'] > 0): ?>
+                                <?php if ($isAdmin && isTicketContract($contract)): ?>
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-primary ms-2" 
                                             data-bs-toggle="modal" 
@@ -222,7 +222,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <tr>
                             <th>Tickets restants:</th>
                             <td>
-                                <?php if ($contract['tickets_number'] > 0): ?>
+                                <?php if (isTicketContract($contract)): ?>
                                     <?= $contract['tickets_remaining'] ?>
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-info ms-2" 
@@ -496,7 +496,15 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <td><?= !empty($intervention['date_planif']) ? date('d/m/Y', strtotime($intervention['date_planif'])) . (!empty($intervention['heure_planif']) ? ' ' . $intervention['heure_planif'] : '') : date('d/m/Y H:i', strtotime($intervention['created_at'])) ?></td>
                                 <td><?= htmlspecialchars($intervention['technician_name'] ?? '') ?></td>
                                 <td><?= $intervention['duration'] ?? 0 ?>h</td>
-                                <td><?= $intervention['tickets_used'] ?? 0 ?></td>
+                                <td>
+                                    <?php if (isTicketContract($contract)): ?>
+                                        <?= $intervention['tickets_used'] ?? 0 ?>
+                                    <?php else: ?>
+                                        <span class="no-tickets-indicator" title="Sans tickets">
+                                            <i class="no-tickets-icon"></i>
+                                        </span>
+                                    <?php endif; ?>
+                                </td>
                                 <td>
                                     <span class="badge" style="background-color: <?= $intervention['status_color'] ?? '#6c757d' ?>">
                                         <?= htmlspecialchars($intervention['status_name'] ?? 'Non défini') ?>

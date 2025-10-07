@@ -628,4 +628,23 @@ function safeHtml($value, $default = '') {
     }
     return htmlspecialchars($value);
 }
+
+/**
+ * Vérifie si un contrat est de type ticket (a des tickets)
+ * @param array $data Les données du contrat ou de l'intervention
+ * @return bool True si le contrat a des tickets
+ */
+function isTicketContract($data) {
+    // Vérifier d'abord si c'est une intervention avec les données de contrat ajoutées
+    if (isset($data['contract_tickets_number'])) {
+        return (int)$data['contract_tickets_number'] > 0;
+    }
+    
+    // Sinon, vérifier si c'est directement un contrat
+    if (isset($data['tickets_number'])) {
+        return (int)$data['tickets_number'] > 0;
+    }
+    
+    return false;
+}
 ?> 

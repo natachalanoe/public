@@ -172,7 +172,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                             <td data-label="Type de contrat"><?php echo htmlspecialchars($contract['contract_type_name'] ?? '-'); ?></td>
                                             <td data-label="Date de fin" data-order="<?php echo strtotime($contract['end_date']); ?>"><?php echo formatDateFrench($contract['end_date']); ?></td>
                                             <td data-label="Tickets restants" data-order="<?php echo $contract['tickets_remaining']; ?>">
-                                                <?php if ($contract['tickets_number'] > 0): ?>
+                                                <?php if (isTicketContract($contract)): ?>
                                                     <span class="badge bg-<?php echo $contract['tickets_remaining'] > 3 ? 'success' : 'danger'; ?>">
                                                         <?php echo $contract['tickets_remaining']; ?>
                                                     </span>

@@ -211,7 +211,7 @@ class InterventionController {
         }
         
         // Ajouter les informations du contrat pour le calcul JavaScript
-        if ($contract && $contract['tickets_number'] > 0) {
+        if ($contract && isTicketContract($contract)) {
             $intervention['contract_tickets_number'] = $contract['tickets_number'];
             $intervention['contract_tickets_remaining'] = $contract['tickets_remaining'];
         } else {
@@ -2222,7 +2222,7 @@ class InterventionController {
                 if ($intervention['contract_id']) {
                     // Vérifier si le contrat est de type ticket
                     $contract = $this->contractModel->getContractById($intervention['contract_id']);
-                    if ($contract && $contract['tickets_number'] > 0) {
+                    if ($contract && isTicketContract($contract)) {
                         $contractQuery = "UPDATE contracts SET tickets_remaining = tickets_remaining - :difference WHERE id = :contract_id";
                         $stmt = $this->db->prepare($contractQuery);
                         $stmt->bindParam(':difference', $difference, PDO::PARAM_INT);
@@ -2329,7 +2329,7 @@ class InterventionController {
             if (!empty($intervention['tickets_used']) && !empty($intervention['contract_id'])) {
                 // Vérifier si le contrat est de type ticket
                 $contract = $this->contractModel->getContractById($intervention['contract_id']);
-                if ($contract && $contract['tickets_number'] > 0) {
+                if ($contract && isTicketContract($contract)) {
                     $ticketsToRecredit = $intervention['tickets_used'];
                     
                     // Mettre à jour le nombre de tickets restants dans le contrat
@@ -2800,8 +2800,8 @@ class InterventionController {
         $newContract = $this->getContractTicketInfo($newContractId);
 
         // Déterminer les actions à effectuer
-        $oldIsTicketContract = $oldContract && $oldContract['tickets_number'] > 0;
-        $newIsTicketContract = $newContract && $newContract['tickets_number'] > 0;
+        $oldIsTicketContract = $oldContract && isTicketContract($oldContract);
+        $newIsTicketContract = $newContract && isTicketContract($newContract);
 
         // Historiser le changement de contrat dans l'historique de l'intervention
         $this->recordContractChangeInInterventionHistory($interventionId, $oldContract, $newContract, $ticketsUsed);
@@ -2933,8 +2933,8 @@ class InterventionController {
             $description = "Changement de contrat : $oldContractName → $newContractName";
             
             // Ajouter des détails sur la gestion des tickets
-            $oldIsTicketContract = $oldContract && $oldContract['tickets_number'] > 0;
-            $newIsTicketContract = $newContract && $newContract['tickets_number'] > 0;
+            $oldIsTicketContract = $oldContract && isTicketContract($oldContract);
+            $newIsTicketContract = $newContract && isTicketContract($newContract);
             
             if ($oldIsTicketContract && $newIsTicketContract) {
                 $description .= " (Transfert de $ticketsUsed tickets)";
