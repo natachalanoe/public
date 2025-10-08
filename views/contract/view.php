@@ -204,11 +204,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <th>Date de fin:</th>
                             <td><?= formatDateFrench($contract['end_date']) ?></td>
                         </tr>
+                        <?php if (isTicketContract($contract)): ?>
                         <tr>
                             <th>Tickets initiaux:</th>
                             <td>
                                 <?= $contract['tickets_number'] ?>
-                                <?php if ($isAdmin && isTicketContract($contract)): ?>
+                                <?php if ($isAdmin): ?>
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-primary ms-2" 
                                             data-bs-toggle="modal" 
@@ -219,6 +220,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <?php endif; ?>
                             </td>
                         </tr>
+                        <?php endif; ?>
                         <tr>
                             <th>Tickets restants:</th>
                             <td>
