@@ -156,7 +156,7 @@ class InterventionsClientController {
         }
         
         // Ajouter les informations du contrat pour l'affichage des tickets
-        if ($contract && isTicketContract($contract)) {
+        if ($contract && isContractTicketById($contract['id'])) {
             $intervention['contract_tickets_number'] = $contract['tickets_number'];
             $intervention['contract_tickets_remaining'] = $contract['tickets_remaining'];
         } else {

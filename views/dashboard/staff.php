@@ -114,7 +114,7 @@ try {
         LEFT JOIN sites s ON r.site_id = s.id AND s.status = 1
         WHERE c.status = 'actif'
         AND c.tickets_remaining < 5
-        AND c.tickets_number > 0
+        AND c.isticketcontract = 1
         AND c.contract_type_id IS NOT NULL
         GROUP BY c.id, c.name, c.tickets_remaining, cl.name
         ORDER BY c.tickets_remaining ASC

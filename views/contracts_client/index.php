@@ -77,7 +77,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <?= formatDateFrench($contract['end_date']); ?>
                             </td>
                             <td data-label="Tickets restants" data-order="<?= $contract['tickets_remaining']; ?>">
-                                <?php if ($contract['tickets_number'] > 0): ?>
+                                <?php if (isContractTicketById($contract['id'])): ?>
                                     <span class="badge bg-<?= $contract['tickets_remaining'] > 3 ? 'success' : 'danger'; ?>">
                                         <?= $contract['tickets_remaining']; ?>
                                     </span>

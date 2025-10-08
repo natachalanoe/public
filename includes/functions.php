@@ -630,21 +630,89 @@ function safeHtml($value, $default = '') {
 }
 
 /**
- * Vérifie si un contrat est de type ticket (a des tickets)
- * @param array $data Les données du contrat ou de l'intervention
- * @return bool True si le contrat a des tickets
+ * FONCTION DÉPRÉCIÉE - NE PLUS UTILISER
+ * 
+ * Cette fonction a été remplacée par :
+ * - isContractTicketById($contractId) pour vérifier un contrat par son ID
+ * - isInterventionLinkedToTicketContract($interventionId) pour vérifier une intervention
+ * 
+ * @deprecated Utiliser isContractTicketById() ou isInterventionLinkedToTicketContract() à la place
+ * @param array $data Les données contenant les informations de contrat
+ * @return bool True si le contrat utilise un système de tickets
  */
+/*
 function isTicketContract($data) {
-    // Vérifier d'abord si c'est une intervention avec les données de contrat ajoutées
-    if (isset($data['contract_tickets_number'])) {
-        return (int)$data['contract_tickets_number'] > 0;
+    if (!is_array($data) || empty($data)) {
+        return false;
     }
     
-    // Sinon, vérifier si c'est directement un contrat
-    if (isset($data['tickets_number'])) {
-        return (int)$data['tickets_number'] > 0;
+    // Vérification du champ isticketcontract
+    // Pour les données de contrat directes
+    if (isset($data['isticketcontract'])) {
+        return (bool)$data['isticketcontract'];
+    }
+    
+    // Pour les données d'intervention avec informations de contrat ajoutées
+    if (isset($data['contract_isticketcontract'])) {
+        return (bool)$data['contract_isticketcontract'];
     }
     
     return false;
+}
+*/
+
+/**
+ * Vérifie si un contrat est de type ticket selon son ID
+ * 
+ * @param int $contractId L'ID du contrat à vérifier
+ * @return bool True si le contrat utilise un système de tickets
+ */
+function isContractTicketById($contractId) {
+    if (empty($contractId) || !is_numeric($contractId)) {
+        return false;
+    }
+    
+    global $db;
+    
+    try {
+        $stmt = $db->prepare("SELECT isticketcontract FROM contracts WHERE id = ?");
+        $stmt->execute([$contractId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $result ? (bool)$result['isticketcontract'] : false;
+    } catch (PDOException $e) {
+        error_log("Erreur lors de la vérification du contrat ticket: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Vérifie si une intervention est liée à un contrat à tickets
+ * 
+ * @param int $interventionId L'ID de l'intervention à vérifier
+ * @return bool True si l'intervention est liée à un contrat à tickets
+ */
+function isInterventionLinkedToTicketContract($interventionId) {
+    if (empty($interventionId) || !is_numeric($interventionId)) {
+        return false;
+    }
+    
+    global $db;
+    
+    try {
+        $stmt = $db->prepare("
+            SELECT c.isticketcontract 
+            FROM interventions i 
+            LEFT JOIN contracts c ON i.contract_id = c.id 
+            WHERE i.id = ?
+        ");
+        $stmt->execute([$interventionId]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $result ? (bool)$result['isticketcontract'] : false;
+    } catch (PDOException $e) {
+        error_log("Erreur lors de la vérification du contrat ticket pour l'intervention: " . $e->getMessage());
+        return false;
+    }
 }
 ?> 

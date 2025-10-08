@@ -129,10 +129,43 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         </div>
 
                         <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="isticketcontract" name="isticketcontract" value="1" 
+                                       <?php echo (isset($formData['isticketcontract']) ? $formData['isticketcontract'] : ($contract['isticketcontract'] ?? false)) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="isticketcontract">
+                                    <i class="bi bi-ticket-perforated me-1"></i>Contrat à tickets
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    Cochez cette case si ce contrat utilise un système de tickets pour les interventions.
+                                </small>
+                            </div>
+                        </div>
+
+                        <?php if (isset($_SESSION['show_ticket_removal_confirmation']) && $_SESSION['show_ticket_removal_confirmation']): ?>
+                        <div class="mb-3">
+                            <div class="alert alert-warning">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="confirm_ticket_removal" name="confirm_ticket_removal" value="1" required>
+                                    <label class="form-check-label" for="confirm_ticket_removal">
+                                        <i class="bi bi-exclamation-triangle me-1"></i>Je confirme vouloir désactiver le système de tickets
+                                    </label>
+                                </div>
+                                <small class="form-text text-muted d-block mt-2">
+                                    <strong>Attention :</strong> Cette action remettra les champs "tickets_number" et "tickets_remaining" à 0, 
+                                    même si des interventions ont déjà décompté des tickets.
+                                </small>
+                            </div>
+                        </div>
+                        <?php 
+                        unset($_SESSION['show_ticket_removal_confirmation']);
+                        endif; 
+                        ?>
+
+                        <div class="mb-3">
                             <label for="tickets_number" class="form-label">Nombre de tickets initiaux <span class="text-danger">*</span></label>
                             <input type="number" class="form-control bg-body text-body" id="tickets_number" name="tickets_number" required
                                    value="<?php echo htmlspecialchars($formData['tickets_number'] ?? $contract['tickets_number']); ?>">
-                            <small class="form-text text-muted">Si le nombre de tickets est à zéro, le contrat ne sera pas considéré comme un contrat à tickets.</small>
+                            <small class="form-text text-muted">Nombre de tickets disponibles pour ce contrat.</small>
                         </div>
 
                         <div class="mb-3">
@@ -274,6 +307,31 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const clientId = <?php echo $client['id']; ?>;
     const contractId = <?php echo $contract['id']; ?>;
+    const contractTypes = <?php echo json_encode($contractTypes); ?>;
+    const contractTypeSelect = document.getElementById('contract_type_id');
+    const ticketsNumberInput = document.getElementById('tickets_number');
+    const isticketcontractCheckbox = document.getElementById('isticketcontract');
+
+    // Fonction pour mettre à jour les champs selon le type de contrat sélectionné
+    function updateFieldsBasedOnContractType() {
+        const selectedType = contractTypes.find(type => type.id == contractTypeSelect.value);
+        if (selectedType) {
+            // Mettre à jour le nombre de tickets seulement si c'est différent de la valeur actuelle
+            if (ticketsNumberInput.value !== selectedType.default_tickets.toString()) {
+                ticketsNumberInput.value = selectedType.default_tickets;
+            }
+            
+            // Cocher automatiquement la case isticketcontract si le type a des tickets par défaut > 0
+            if (selectedType.default_tickets > 0) {
+                isticketcontractCheckbox.checked = true;
+            } else {
+                isticketcontractCheckbox.checked = false;
+            }
+        }
+    }
+
+    // Mettre à jour les champs quand le type de contrat change
+    contractTypeSelect.addEventListener('change', updateFieldsBasedOnContractType);
 
     // Utiliser la fonction standardisée pour charger les salles avec pré-sélection
     loadContractRoomsSimple(clientId, 'rooms-container', contractId);

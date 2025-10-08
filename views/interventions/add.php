@@ -105,30 +105,45 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <!-- Client -->
                             <div>
                                 <label class="form-label fw-bold mb-0">Client *</label>
-                                <select class="form-select bg-body text-body" id="client_id" name="client_id" required>
-                                    <option value="">Sélectionner un client</option>
-                                    <?php foreach ($clients as $client): ?>
-                                        <option value="<?= $client['id'] ?>" <?= ($selectedClientId && $client['id'] == $selectedClientId) ? 'selected' : '' ?>>
-                                            <?= h($client['name'] ?? '') ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
+                                <div class="input-group">
+                                    <select class="form-select bg-body text-body" id="client_id" name="client_id" required>
+                                        <option value="">Sélectionner un client</option>
+                                        <?php foreach ($clients as $client): ?>
+                                            <option value="<?= $client['id'] ?>" <?= ($selectedClientId && $client['id'] == $selectedClientId) ? 'selected' : '' ?>>
+                                                <?= h($client['name'] ?? '') ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="quickCreateClientBtn" title="Créer un nouveau client">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Site -->
                             <div>
                                 <label class="form-label fw-bold mb-0">Site</label>
-                                <select class="form-select bg-body text-body" id="site_id" name="site_id">
-                                    <option value="">Sélectionner un site</option>
-                                </select>
+                                <div class="input-group">
+                                    <select class="form-select bg-body text-body" id="site_id" name="site_id">
+                                        <option value="">Sélectionner un site</option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="quickCreateSiteBtn" title="Créer un nouveau site">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
                             </div>
 
                             <!-- Salle -->
                             <div>
                                 <label class="form-label fw-bold mb-0">Salle</label>
-                                <select class="form-select bg-body text-body" id="room_id" name="room_id">
-                                    <option value="">Sélectionner une salle</option>
-                                </select>
+                                <div class="input-group">
+                                    <select class="form-select bg-body text-body" id="room_id" name="room_id">
+                                        <option value="">Sélectionner une salle</option>
+                                    </select>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="quickCreateRoomBtn" title="Créer une nouvelle salle">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -280,10 +295,15 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Contact existant</label>
-                                        <select class="form-select bg-body text-body" id="contact_client_select" name="contact_client_select">
-                                            <option value="">Sélectionner un contact existant</option>
-                                            <!-- Les contacts seront chargés dynamiquement selon le client -->
-                                        </select>
+                                        <div class="input-group">
+                                            <select class="form-select bg-body text-body" id="contact_client_select" name="contact_client_select">
+                                                <option value="">Sélectionner un contact existant</option>
+                                                <!-- Les contacts seront chargés dynamiquement selon le client -->
+                                            </select>
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" id="quickCreateContactBtn" title="Créer un nouveau contact">
+                                                <i class="bi bi-plus"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                     <div class="col-md-6">
                                         <label class="form-label fw-bold">Ou saisir un email</label>
@@ -300,10 +320,221 @@ include_once __DIR__ . '/../../includes/navbar.php';
     </div>
 </div>
 
+<!-- Modale de création rapide de client -->
+<div class="modal fade" id="quickCreateClientModal" tabindex="-1" aria-labelledby="quickCreateClientModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickCreateClientModalLabel">
+                    <i class="bi bi-person-plus me-2"></i>Créer un nouveau client
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickCreateClientForm">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Nom du client *</label>
+                            <input type="text" class="form-control" id="client_name" name="name" required placeholder="Nom de l'entreprise">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email</label>
+                            <input type="email" class="form-control" id="client_email" name="email" placeholder="contact@entreprise.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Téléphone</label>
+                            <input type="tel" class="form-control" id="client_phone" name="phone" placeholder="01 23 45 67 89">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Site web</label>
+                            <input type="url" class="form-control" id="client_website" name="website" placeholder="https://www.entreprise.com">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Adresse</label>
+                            <input type="text" class="form-control" id="client_address" name="address" placeholder="123 Rue de la Paix">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Code postal</label>
+                            <input type="text" class="form-control" id="client_postal_code" name="postal_code" placeholder="75001">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Ville</label>
+                            <input type="text" class="form-control" id="client_city" name="city" placeholder="Paris">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Commentaire</label>
+                            <textarea class="form-control" id="client_comment" name="comment" rows="3" placeholder="Commentaires ou notes sur ce client..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="saveQuickClientBtn">
+                    <span class="spinner-border spinner-border-sm d-none" id="clientSpinner"></span>
+                    <i class="bi bi-check-lg me-1" id="clientIcon"></i>
+                    Créer le client
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale de création rapide de site -->
+<div class="modal fade" id="quickCreateSiteModal" tabindex="-1" aria-labelledby="quickCreateSiteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickCreateSiteModalLabel">
+                    <i class="bi bi-building me-2"></i>Créer un nouveau site
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickCreateSiteForm">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Nom du site *</label>
+                            <input type="text" class="form-control" id="site_name" name="name" required placeholder="Nom du site">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Adresse</label>
+                            <input type="text" class="form-control" id="site_address" name="address" placeholder="123 Rue de la Paix">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Code postal</label>
+                            <input type="text" class="form-control" id="site_postal_code" name="postal_code" placeholder="75001">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold">Ville</label>
+                            <input type="text" class="form-control" id="site_city" name="city" placeholder="Paris">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Téléphone</label>
+                            <input type="tel" class="form-control" id="site_phone" name="phone" placeholder="01 23 45 67 89">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email</label>
+                            <input type="email" class="form-control" id="site_email" name="email" placeholder="contact@site.com">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Commentaire</label>
+                            <textarea class="form-control" id="site_comment" name="comment" rows="2" placeholder="Commentaires sur ce site..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="saveQuickSiteBtn">
+                    <span class="spinner-border spinner-border-sm d-none" id="siteSpinner"></span>
+                    <i class="bi bi-check-lg me-1" id="siteIcon"></i>
+                    Créer le site
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale de création rapide de salle -->
+<div class="modal fade" id="quickCreateRoomModal" tabindex="-1" aria-labelledby="quickCreateRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickCreateRoomModalLabel">
+                    <i class="bi bi-door-open me-2"></i>Créer une nouvelle salle
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickCreateRoomForm">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Nom de la salle *</label>
+                            <input type="text" class="form-control" id="room_name" name="name" required placeholder="Nom de la salle">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Commentaire</label>
+                            <textarea class="form-control" id="room_comment" name="comment" rows="3" placeholder="Commentaires sur cette salle..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="saveQuickRoomBtn">
+                    <span class="spinner-border spinner-border-sm d-none" id="roomSpinner"></span>
+                    <i class="bi bi-check-lg me-1" id="roomIcon"></i>
+                    Créer la salle
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modale de création rapide de contact -->
+<div class="modal fade" id="quickCreateContactModal" tabindex="-1" aria-labelledby="quickCreateContactModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quickCreateContactModalLabel">
+                    <i class="bi bi-person-plus me-2"></i>Créer un nouveau contact
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="quickCreateContactForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Prénom *</label>
+                            <input type="text" class="form-control" id="contact_first_name" name="first_name" required placeholder="Prénom">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Nom *</label>
+                            <input type="text" class="form-control" id="contact_last_name" name="last_name" required placeholder="Nom">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email</label>
+                            <input type="email" class="form-control" id="contact_email" name="email" placeholder="contact@exemple.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Téléphone 1</label>
+                            <input type="tel" class="form-control" id="contact_phone1" name="phone1" placeholder="01 23 45 67 89">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Téléphone 2</label>
+                            <input type="tel" class="form-control" id="contact_phone2" name="phone2" placeholder="01 23 45 67 89">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Fonction</label>
+                            <input type="text" class="form-control" id="contact_fonction" name="fonction" placeholder="Directeur, Responsable IT, etc.">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-bold">Commentaire</label>
+                            <textarea class="form-control" id="contact_comment" name="comment" rows="2" placeholder="Commentaires sur ce contact..."></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="saveQuickContactBtn">
+                    <span class="spinner-border spinner-border-sm d-none" id="contactSpinner"></span>
+                    <i class="bi bi-check-lg me-1" id="contactIcon"></i>
+                    Créer le contact
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Initialiser BASE_URL pour JavaScript
     initBaseUrl('<?php echo BASE_URL; ?>');
+    
+    // Vérifier les permissions pour la création rapide
+    const canModifyClients = <?php echo canModifyClients() ? 'true' : 'false'; ?>;
     
     const clientSelect = document.getElementById('client_id');
     const siteSelect = document.getElementById('site_id');
@@ -443,6 +674,437 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
     });
+
+    // Gestion de la création rapide de client
+    const quickCreateClientBtn = document.getElementById('quickCreateClientBtn');
+    const quickCreateClientModal = new bootstrap.Modal(document.getElementById('quickCreateClientModal'));
+    const saveQuickClientBtn = document.getElementById('saveQuickClientBtn');
+    const quickCreateClientForm = document.getElementById('quickCreateClientForm');
+    const clientSpinner = document.getElementById('clientSpinner');
+    const clientIcon = document.getElementById('clientIcon');
+
+    // Gestion de la création rapide de site
+    const quickCreateSiteBtn = document.getElementById('quickCreateSiteBtn');
+    const quickCreateSiteModal = new bootstrap.Modal(document.getElementById('quickCreateSiteModal'));
+    const saveQuickSiteBtn = document.getElementById('saveQuickSiteBtn');
+    const quickCreateSiteForm = document.getElementById('quickCreateSiteForm');
+    const siteSpinner = document.getElementById('siteSpinner');
+    const siteIcon = document.getElementById('siteIcon');
+
+    // Gestion de la création rapide de salle
+    const quickCreateRoomBtn = document.getElementById('quickCreateRoomBtn');
+    const quickCreateRoomModal = new bootstrap.Modal(document.getElementById('quickCreateRoomModal'));
+    const saveQuickRoomBtn = document.getElementById('saveQuickRoomBtn');
+    const quickCreateRoomForm = document.getElementById('quickCreateRoomForm');
+    const roomSpinner = document.getElementById('roomSpinner');
+    const roomIcon = document.getElementById('roomIcon');
+
+    // Gestion de la création rapide de contact
+    const quickCreateContactBtn = document.getElementById('quickCreateContactBtn');
+    const quickCreateContactModal = new bootstrap.Modal(document.getElementById('quickCreateContactModal'));
+    const saveQuickContactBtn = document.getElementById('saveQuickContactBtn');
+    const quickCreateContactForm = document.getElementById('quickCreateContactForm');
+    const contactSpinner = document.getElementById('contactSpinner');
+    const contactIcon = document.getElementById('contactIcon');
+
+    // Ouvrir la modale de création de client
+    quickCreateClientBtn.addEventListener('click', function() {
+        if (!canModifyClients) {
+            alert('Vous n\'avez pas les permissions nécessaires pour créer un client.');
+            return;
+        }
+        quickCreateClientForm.reset();
+        quickCreateClientModal.show();
+    });
+
+    // Créer le client via AJAX
+    saveQuickClientBtn.addEventListener('click', function() {
+        const formData = new FormData(quickCreateClientForm);
+        
+        // Validation côté client
+        const clientName = formData.get('name').trim();
+        const clientEmail = formData.get('email').trim();
+        const clientWebsite = formData.get('website').trim();
+        
+        if (!clientName) {
+            alert('Le nom du client est obligatoire');
+            return;
+        }
+        
+        // Validation optionnelle de l'email
+        if (clientEmail && !validateEmailFormat(clientEmail)) {
+            alert('Format d\'email invalide');
+            return;
+        }
+        
+        // Validation optionnelle du website
+        if (clientWebsite && !validateWebsiteFormat(clientWebsite)) {
+            alert('Format d\'URL invalide (ex: https://www.exemple.com)');
+            return;
+        }
+
+        // Afficher le spinner
+        clientSpinner.classList.remove('d-none');
+        clientIcon.classList.add('d-none');
+        saveQuickClientBtn.disabled = true;
+
+        // Envoyer la requête AJAX
+        fetch(`${BASE_URL}interventions/quickCreateClient`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Ajouter le nouveau client au select
+                const newOption = document.createElement('option');
+                newOption.value = data.client.id;
+                newOption.textContent = data.client.name;
+                newOption.selected = true;
+                clientSelect.appendChild(newOption);
+
+                // Fermer la modale
+                quickCreateClientModal.hide();
+
+                // Déclencher le changement pour charger les sites
+                clientSelect.dispatchEvent(new Event('change'));
+
+                // Afficher un message de succès
+                showSuccessMessage(data.message);
+            } else {
+                alert('Erreur : ' + (data.error || 'Une erreur est survenue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors de la création du client');
+        })
+        .finally(() => {
+            // Masquer le spinner
+            clientSpinner.classList.add('d-none');
+            clientIcon.classList.remove('d-none');
+            saveQuickClientBtn.disabled = false;
+        });
+    });
+
+    // Ouvrir la modale de création de site (avec validation client)
+    quickCreateSiteBtn.addEventListener('click', function() {
+        if (!canModifyClients) {
+            alert('Vous n\'avez pas les permissions nécessaires pour créer un site.');
+            return;
+        }
+        
+        const selectedClientId = clientSelect.value;
+        
+        if (!selectedClientId) {
+            // Aucun client sélectionné - afficher un message
+            alert('Veuillez d\'abord sélectionner un client avant de créer un site.');
+            clientSelect.focus();
+            return;
+        }
+        
+        // Client sélectionné - ouvrir la modale
+        quickCreateSiteForm.reset();
+        quickCreateSiteModal.show();
+    });
+
+    // Créer le site via AJAX
+    saveQuickSiteBtn.addEventListener('click', function() {
+        const formData = new FormData(quickCreateSiteForm);
+        const selectedClientId = clientSelect.value;
+        
+        // Ajouter le client_id aux données
+        formData.append('client_id', selectedClientId);
+        
+        // Validation côté client
+        const siteName = formData.get('name').trim();
+        const siteEmail = formData.get('email').trim();
+        
+        if (!siteName) {
+            alert('Le nom du site est obligatoire');
+            return;
+        }
+        
+        if (!selectedClientId) {
+            alert('Aucun client sélectionné');
+            return;
+        }
+        
+        // Validation optionnelle de l'email
+        if (siteEmail && !validateEmailFormat(siteEmail)) {
+            alert('Format d\'email invalide');
+            return;
+        }
+
+        // Afficher le spinner
+        siteSpinner.classList.remove('d-none');
+        siteIcon.classList.add('d-none');
+        saveQuickSiteBtn.disabled = true;
+
+        // Envoyer la requête AJAX
+        fetch(`${BASE_URL}interventions/quickCreateSite`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Ajouter le nouveau site au select
+                const newOption = document.createElement('option');
+                newOption.value = data.site.id;
+                newOption.textContent = data.site.name;
+                newOption.selected = true;
+                siteSelect.appendChild(newOption);
+
+                // Fermer la modale
+                quickCreateSiteModal.hide();
+
+                // Déclencher le changement pour charger les salles
+                siteSelect.dispatchEvent(new Event('change'));
+
+                // Afficher un message de succès
+                showSuccessMessage(data.message);
+            } else {
+                alert('Erreur : ' + (data.error || 'Une erreur est survenue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors de la création du site');
+        })
+        .finally(() => {
+            // Masquer le spinner
+            siteSpinner.classList.add('d-none');
+            siteIcon.classList.remove('d-none');
+            saveQuickSiteBtn.disabled = false;
+        });
+    });
+
+    // Ouvrir la modale de création de salle (avec validation site)
+    quickCreateRoomBtn.addEventListener('click', function() {
+        if (!canModifyClients) {
+            alert('Vous n\'avez pas les permissions nécessaires pour créer une salle.');
+            return;
+        }
+        
+        const selectedSiteId = siteSelect.value;
+        
+        if (!selectedSiteId) {
+            // Aucun site sélectionné - afficher un message
+            alert('Veuillez d\'abord sélectionner un site avant de créer une salle.');
+            siteSelect.focus();
+            return;
+        }
+        
+        // Site sélectionné - ouvrir la modale
+        quickCreateRoomForm.reset();
+        quickCreateRoomModal.show();
+    });
+
+    // Créer la salle via AJAX
+    saveQuickRoomBtn.addEventListener('click', function() {
+        const formData = new FormData(quickCreateRoomForm);
+        const selectedSiteId = siteSelect.value;
+        const selectedClientId = clientSelect.value;
+        
+        // Ajouter le site_id et client_id aux données
+        formData.append('site_id', selectedSiteId);
+        formData.append('client_id', selectedClientId);
+        
+        // Validation côté client
+        const roomName = formData.get('name').trim();
+        
+        if (!roomName) {
+            alert('Le nom de la salle est obligatoire');
+            return;
+        }
+        
+        if (!selectedSiteId) {
+            alert('Aucun site sélectionné');
+            return;
+        }
+        
+        if (!selectedClientId) {
+            alert('Aucun client sélectionné');
+            return;
+        }
+
+        // Afficher le spinner
+        roomSpinner.classList.remove('d-none');
+        roomIcon.classList.add('d-none');
+        saveQuickRoomBtn.disabled = true;
+
+        // Envoyer la requête AJAX
+        fetch(`${BASE_URL}interventions/quickCreateRoom`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Ajouter la nouvelle salle au select
+                const newOption = document.createElement('option');
+                newOption.value = data.room.id;
+                newOption.textContent = data.room.name;
+                newOption.selected = true;
+                roomSelect.appendChild(newOption);
+
+                // Fermer la modale
+                quickCreateRoomModal.hide();
+
+                // Déclencher le changement pour charger les contrats
+                roomSelect.dispatchEvent(new Event('change'));
+
+                // Afficher un message de succès
+                showSuccessMessage(data.message);
+            } else {
+                alert('Erreur : ' + (data.error || 'Une erreur est survenue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors de la création de la salle');
+        })
+        .finally(() => {
+            // Masquer le spinner
+            roomSpinner.classList.add('d-none');
+            roomIcon.classList.remove('d-none');
+            saveQuickRoomBtn.disabled = false;
+        });
+    });
+
+    // Ouvrir la modale de création de contact (avec validation client)
+    quickCreateContactBtn.addEventListener('click', function() {
+        if (!canModifyClients) {
+            alert('Vous n\'avez pas les permissions nécessaires pour créer un contact.');
+            return;
+        }
+        
+        const selectedClientId = clientSelect.value;
+        
+        if (!selectedClientId) {
+            // Aucun client sélectionné - afficher un message
+            alert('Veuillez d\'abord sélectionner un client avant de créer un contact.');
+            clientSelect.focus();
+            return;
+        }
+        
+        // Client sélectionné - ouvrir la modale
+        quickCreateContactForm.reset();
+        quickCreateContactModal.show();
+    });
+
+    // Créer le contact via AJAX
+    saveQuickContactBtn.addEventListener('click', function() {
+        const formData = new FormData(quickCreateContactForm);
+        const selectedClientId = clientSelect.value;
+        
+        // Ajouter le client_id aux données
+        formData.append('client_id', selectedClientId);
+        
+        // Validation côté client
+        const firstName = formData.get('first_name').trim();
+        const lastName = formData.get('last_name').trim();
+        const email = formData.get('email').trim();
+        
+        if (!firstName) {
+            alert('Le prénom est obligatoire');
+            return;
+        }
+        
+        if (!lastName) {
+            alert('Le nom est obligatoire');
+            return;
+        }
+        
+        if (!selectedClientId) {
+            alert('Aucun client sélectionné');
+            return;
+        }
+        
+        // Validation optionnelle de l'email
+        if (email && !validateEmailFormat(email)) {
+            alert('Format d\'email invalide');
+            return;
+        }
+
+        // Afficher le spinner
+        contactSpinner.classList.remove('d-none');
+        contactIcon.classList.add('d-none');
+        saveQuickContactBtn.disabled = true;
+
+        // Envoyer la requête AJAX
+        fetch(`${BASE_URL}interventions/quickCreateContact`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Ajouter le nouveau contact au select
+                const newOption = document.createElement('option');
+                newOption.value = data.contact.email;
+                newOption.textContent = `${data.contact.first_name} ${data.contact.last_name} (${data.contact.email})`;
+                newOption.selected = true;
+                contactClientSelect.appendChild(newOption);
+
+                // Fermer la modale
+                quickCreateContactModal.hide();
+
+                // Afficher un message de succès
+                showSuccessMessage(data.message);
+            } else {
+                alert('Erreur : ' + (data.error || 'Une erreur est survenue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Une erreur est survenue lors de la création du contact');
+        })
+        .finally(() => {
+            // Masquer le spinner
+            contactSpinner.classList.add('d-none');
+            contactIcon.classList.remove('d-none');
+            saveQuickContactBtn.disabled = false;
+        });
+    });
+
+    // Fonction pour valider le format d'email
+    function validateEmailFormat(email) {
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        return emailRegex.test(email);
+    }
+    
+    // Fonction pour valider le format d'URL
+    function validateWebsiteFormat(website) {
+        try {
+            const url = new URL(website);
+            return url.protocol === 'http:' || url.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    }
+
+    // Fonction pour afficher un message de succès
+    function showSuccessMessage(message) {
+        // Créer une alerte temporaire
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        alertDiv.innerHTML = `
+            <i class="bi bi-check-circle me-2"></i>${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Supprimer automatiquement après 3 secondes
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
+    }
 });
 </script>
 

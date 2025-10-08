@@ -252,6 +252,7 @@ class ContractController {
             $numFacture = $_POST['num_facture'] ?? null;
             $tarif = $_POST['tarif'] ?? null;
             $indice = $_POST['indice'] ?? null;
+            $isticketcontract = isset($_POST['isticketcontract']) ? 1 : 0;
             $status = $_POST['status'] ?? 'actif';
 
             // Valider les données
@@ -280,6 +281,7 @@ class ContractController {
                 'num_facture' => $numFacture,
                 'tarif' => $tarif,
                 'indice' => $indice,
+                'isticketcontract' => $isticketcontract,
                 'status' => $status
             ]);
 
@@ -649,6 +651,7 @@ class ContractController {
             $numFacture = $_POST['num_facture'] ?? null;
             $tarif = $_POST['tarif'] ?? null;
             $indice = $_POST['indice'] ?? null;
+            $isticketcontract = isset($_POST['isticketcontract']) ? 1 : 0;
             $status = $_POST['status'] ?? 'actif';
 
             // Valider les données
@@ -663,6 +666,44 @@ class ContractController {
             $oldContract = $this->contractModel->getContractById($id);
             $oldAccessLevelId = $oldContract['access_level_id'] ?? null;
             $accessLevelChanged = ($oldAccessLevelId != $accessLevelId);
+            
+            // Vérification de sécurité : si on désactive les tickets, vérifier qu'il n'y a pas d'interventions qui ont décompté des tickets
+            $oldIsticketcontract = $oldContract['isticketcontract'] ?? 0;
+            if ($oldIsticketcontract == 1 && $isticketcontract == 0) {
+                // Le contrat passait de "à tickets" à "sans tickets"
+                // Vérifier s'il y a des interventions qui ont utilisé des tickets
+                $stmt = $this->db->prepare("
+                    SELECT COUNT(*) as count, SUM(tickets_used) as total_tickets_used 
+                    FROM interventions 
+                    WHERE contract_id = ? AND tickets_used > 0
+                ");
+                $stmt->execute([$id]);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($result['count'] > 0) {
+                    // Il y a des interventions qui ont décompté des tickets
+                    $totalTicketsUsed = $result['total_tickets_used'] ?? 0;
+                    $interventionsCount = $result['count'];
+                    
+                    // Vérifier si l'utilisateur a confirmé la suppression des tickets
+                    if (!isset($_POST['confirm_ticket_removal'])) {
+                        // Afficher un message d'erreur avec demande de confirmation
+                        $_SESSION['error'] = "⚠️ ATTENTION : Ce contrat a {$interventionsCount} intervention(s) qui ont décompté {$totalTicketsUsed} ticket(s). 
+                        Désactiver le système de tickets remettra les champs 'tickets_number' et 'tickets_remaining' à 0. 
+                        Cochez la case de confirmation si vous souhaitez continuer.";
+                        $_SESSION['form_data'] = $_POST;
+                        $_SESSION['show_ticket_removal_confirmation'] = true;
+                        header('Location: ' . BASE_URL . 'contracts/edit/' . $id);
+                        exit;
+                    }
+                }
+            }
+
+            // Si on désactive les tickets, remettre les tickets à 0
+            if ($oldIsticketcontract == 1 && $isticketcontract == 0) {
+                $ticketsNumber = 0;
+                $ticketsRemaining = 0;
+            }
 
             // Préparer les nouvelles données pour l'historique
             $newData = [
@@ -681,6 +722,7 @@ class ContractController {
                 'num_facture' => $numFacture,
                 'tarif' => $tarif,
                 'indice' => $indice,
+                'isticketcontract' => $isticketcontract,
                 'status' => $status
             ];
 
@@ -720,6 +762,7 @@ class ContractController {
                 'num_facture' => $numFacture,
                 'tarif' => $tarif,
                 'indice' => $indice,
+                'isticketcontract' => $isticketcontract,
                 'status' => $status
             ]);
 
@@ -1583,7 +1626,7 @@ class ContractController {
             custom_log("DEBUG - Contrat trouvé: " . json_encode($contract), 'DEBUG');
 
             // Vérifier que c'est un contrat de type ticket
-            if ($contract['tickets_number'] <= 0) {
+            if (!isContractTicketById($contract['id'])) {
                 $_SESSION['error'] = "Ce contrat n'est pas de type ticket.";
                 header('Location: ' . BASE_URL . 'contracts/view/' . $contractId);
                 exit;
@@ -1827,7 +1870,7 @@ class ContractController {
 
             // Déterminer les tickets pour le nouveau contrat
             $newTicketsNumber = $currentContract['tickets_number'];
-            $newTicketsRemaining = isTicketContract($currentContract) ? 
+            $newTicketsRemaining = isContractTicketById($currentContract['id']) ? 
                 ($resetTickets ? $currentContract['tickets_number'] : $currentContract['tickets_remaining']) : 
                 0;
 
@@ -1871,7 +1914,7 @@ class ContractController {
                 ]);
 
                 // Enregistrer le renouvellement dans l'historique du contrat actuel
-                $resetTicketsForHistory = isTicketContract($currentContract) ? $resetTickets : false;
+                $resetTicketsForHistory = isContractTicketById($currentContract['id']) ? $resetTickets : false;
                 $this->contractModel->recordRenewal($contractId, $newContractId, $newContractName, $renewalComment, $resetTicketsForHistory);
 
                 $_SESSION['success'] = "Le contrat a été renouvelé avec succès. Nouveau contrat créé : #$newContractId";
@@ -1914,7 +1957,7 @@ class ContractController {
             }
 
             // Vérifier que c'est un contrat sans tickets
-            if (isTicketContract($contract)) {
+            if (isContractTicketById($contract['id'])) {
                 $_SESSION['error'] = "Les interventions préventives ne sont disponibles que pour les contrats sans tickets.";
                 header('Location: ' . BASE_URL . 'contracts/view/' . $contractId);
                 exit;

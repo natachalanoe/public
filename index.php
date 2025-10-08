@@ -809,6 +809,18 @@ try {
                         exit;
                     }
                     break;
+                case 'quickCreateClient':
+                    $interventionController->quickCreateClient();
+                    break;
+                case 'quickCreateSite':
+                    $interventionController->quickCreateSite();
+                    break;
+                case 'quickCreateRoom':
+                    $interventionController->quickCreateRoom();
+                    break;
+                case 'quickCreateContact':
+                    $interventionController->quickCreateContact();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'interventions');
                     break;

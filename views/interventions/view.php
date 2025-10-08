@@ -172,7 +172,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <i class="bi bi-clock me-1 me-1"></i>
                             <?= h($intervention['duration'] ?? '0') ?>h
                         </div>
-                        <?php if (isTicketContract($intervention)): ?>
+                        <?php if (isInterventionLinkedToTicketContract($intervention['id'])): ?>
                         <div class="text-muted me-2">
                             <i class="bi bi-ticket-perforated me-1 me-1"></i>
                             <?= h($intervention['tickets_used'] ?? '0') ?>
@@ -1097,9 +1097,24 @@ function loadContractDetails(contractId) {
                 const startDate = data.start_date ? new Date(data.start_date).toLocaleDateString('fr-FR') : 'Non définie';
                 const endDate = data.end_date ? new Date(data.end_date).toLocaleDateString('fr-FR') : 'Non définie';
                 
+                // Déterminer si c'est un contrat à tickets
+                const isTicketContract = data.isticketcontract == 1;
+                
                 // Déterminer la couleur du badge pour les tickets restants
                 const ticketsColor = data.tickets_remaining > 3 ? 'success' : 
                                    data.tickets_remaining > 0 ? 'warning' : 'danger';
+                
+                // Générer la ligne des tickets restants seulement si c'est un contrat à tickets
+                const ticketsRow = isTicketContract ? `
+                    <tr>
+                        <th class="text-muted">Tickets restants:</th>
+                        <td>
+                            <span class="badge bg-${ticketsColor}">
+                                ${data.tickets_remaining || 0}
+                            </span>
+                        </td>
+                    </tr>
+                ` : '';
                 
                 contentDiv.innerHTML = `
                     <div class="row">
@@ -1111,6 +1126,15 @@ function loadContractDetails(contractId) {
                                     <td>${data.type_name || 'Non défini'}</td>
                                 </tr>
                                 <tr>
+                                    <th class="text-muted">Nature du contrat:</th>
+                                    <td>
+                                        ${isTicketContract ? 
+                                            '<span class="badge bg-info"><i class="bi bi-ticket-perforated me-1"></i>Contrat à tickets</span>' : 
+                                            '<span class="badge bg-secondary"><i class="bi bi-file-text me-1"></i>Contrat sans tickets</span>'
+                                        }
+                                    </td>
+                                </tr>
+                                <tr>
                                     <th class="text-muted">Date de début:</th>
                                     <td>${startDate}</td>
                                 </tr>
@@ -1118,14 +1142,7 @@ function loadContractDetails(contractId) {
                                     <th class="text-muted">Date de fin:</th>
                                     <td>${endDate}</td>
                                 </tr>
-                                <tr>
-                                    <th class="text-muted">Tickets restants:</th>
-                                    <td>
-                                        <span class="badge bg-${ticketsColor}">
-                                            ${data.tickets_remaining || 0}
-                                        </span>
-                                    </td>
-                                </tr>
+                                ${ticketsRow}
                             </table>
                         </div>
                     </div>

@@ -10,6 +10,7 @@ class InterventionController {
     private $roomModel;
     private $userModel;
     private $contractModel;
+    private $contactModel;
     private $durationModel;
     private $mailService;
 
@@ -43,6 +44,7 @@ class InterventionController {
         require_once __DIR__ . '/../models/RoomModel.php';
         require_once __DIR__ . '/../models/UserModel.php';
         require_once __DIR__ . '/../models/ContractModel.php';
+        require_once __DIR__ . '/../models/ContactModel.php';
         require_once __DIR__ . '/../models/DurationModel.php';
         require_once __DIR__ . '/../classes/MailService.php';
         
@@ -52,6 +54,7 @@ class InterventionController {
         $this->roomModel = new RoomModel($db);
         $this->userModel = new UserModel($db);
         $this->contractModel = new ContractModel($db);
+        $this->contactModel = new ContactModel($db);
         $this->durationModel = new DurationModel($db);
         $this->mailService = new MailService($db);
 
@@ -211,7 +214,7 @@ class InterventionController {
         }
         
         // Ajouter les informations du contrat pour le calcul JavaScript
-        if ($contract && isTicketContract($contract)) {
+        if ($contract && isContractTicketById($contract['id'])) {
             $intervention['contract_tickets_number'] = $contract['tickets_number'];
             $intervention['contract_tickets_remaining'] = $contract['tickets_remaining'];
         } else {
@@ -495,16 +498,21 @@ class InterventionController {
                 exit;
             }
             
-            // Calculer le nombre de tickets utilisés
-            custom_log("DEBUG - update() - Calcul des tickets pour l'intervention $id", "DEBUG");
-            custom_log("DEBUG - update() - Durée: " . $data['duration'], "DEBUG");
-            custom_log("DEBUG - update() - Technicien ID: " . $data['technician_id'], "DEBUG");
-            custom_log("DEBUG - update() - Type ID: " . $data['type_id'], "DEBUG");
-            
-            $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id']);
+            // Calculer le nombre de tickets utilisés seulement si c'est un contrat à tickets
+            $ticketsUsed = 0;
+            if (!empty($data['contract_id']) && isContractTicketById($data['contract_id'])) {
+                custom_log("DEBUG - update() - Calcul des tickets pour l'intervention $id (contrat à tickets)", "DEBUG");
+                custom_log("DEBUG - update() - Durée: " . $data['duration'], "DEBUG");
+                custom_log("DEBUG - update() - Technicien ID: " . $data['technician_id'], "DEBUG");
+                custom_log("DEBUG - update() - Type ID: " . $data['type_id'], "DEBUG");
+                
+                $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id']);
+                custom_log("DEBUG - update() - Tickets calculés: " . $ticketsUsed, "DEBUG");
+            } else {
+                custom_log("DEBUG - update() - Pas de calcul de tickets (contrat sans tickets ou pas de contrat)", "DEBUG");
+            }
             $data['tickets_used'] = $ticketsUsed;
             
-            custom_log("DEBUG - update() - Tickets calculés: " . $ticketsUsed, "DEBUG");
             custom_log("DEBUG - update() - Data après calcul: " . print_r($data, true), "DEBUG");
             
             // Ajouter la date de fermeture
@@ -1538,6 +1546,7 @@ class InterventionController {
                 'start_date' => $contract['start_date'] ?? null,
                 'end_date' => $contract['end_date'] ?? null,
                 'tickets_remaining' => $contract['tickets_remaining'] ?? null,
+                'isticketcontract' => $contract['isticketcontract'] ?? 0,
                 'comment' => $contract['comment'] ?? null,
                 'status' => $contract['status'] ?? null
             ];
@@ -1577,12 +1586,407 @@ class InterventionController {
     }
 
     /**
+     * Crée rapidement un nouveau client via AJAX
+     */
+    public function quickCreateClient() {
+        // Vérifier les permissions
+        $this->checkAccess();
+        
+        // Vérifier si l'utilisateur a les droits d'ajout
+        if (!canModifyClients()) {
+            http_response_code(403);
+            echo json_encode(['error' => "Vous n'avez pas les droits nécessaires pour ajouter un client."]);
+            return;
+        }
+
+        header('Content-Type: application/json');
+        
+        try {
+            // Récupérer les données du formulaire
+            $clientData = [
+                'name' => $_POST['name'] ?? '',
+                'email' => $_POST['email'] ?? '',
+                'phone' => $_POST['phone'] ?? '',
+                'website' => $_POST['website'] ?? '',
+                'address' => $_POST['address'] ?? '',
+                'postal_code' => $_POST['postal_code'] ?? '',
+                'city' => $_POST['city'] ?? '',
+                'comment' => $_POST['comment'] ?? '',
+                'status' => 1 // Par défaut actif
+            ];
+            
+            // Valider les données essentielles
+            if (empty($clientData['name'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le nom du client est obligatoire']);
+                return;
+            }
+            
+            // Vérifier si un client avec ce nom existe déjà
+            $sql = "SELECT id FROM clients WHERE name = ? AND status = 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$clientData['name']]);
+            if ($stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Un client avec ce nom existe déjà']);
+                return;
+            }
+
+            // Créer le client
+            $clientId = $this->clientModel->createClient($clientData);
+            
+            // Créer automatiquement les contrats "hors contrat"
+            $this->createDefaultContractsForClient($clientId);
+            
+            // Récupérer les données du client créé
+            $client = $this->clientModel->getClientById($clientId);
+            
+            echo json_encode([
+                'success' => true,
+                'client' => [
+                    'id' => $client['id'],
+                    'name' => $client['name']
+                ],
+                'message' => 'Client créé avec succès'
+            ]);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la création rapide du client : " . $e->getMessage(), 'ERROR');
+            http_response_code(500);
+            echo json_encode(['error' => 'Une erreur est survenue lors de la création du client.']);
+        }
+    }
+
+    /**
+     * Crée rapidement un nouveau site via AJAX
+     */
+    public function quickCreateSite() {
+        // Vérifier les permissions
+        $this->checkAccess();
+        
+        // Vérifier si l'utilisateur a les droits d'ajout
+        if (!canModifyClients()) {
+            http_response_code(403);
+            echo json_encode(['error' => "Vous n'avez pas les droits nécessaires pour ajouter un site."]);
+            return;
+        }
+
+        header('Content-Type: application/json');
+        
+        try {
+            // Récupérer les données du formulaire
+            $siteData = [
+                'client_id' => $_POST['client_id'] ?? '',
+                'name' => $_POST['name'] ?? '',
+                'address' => $_POST['address'] ?? '',
+                'postal_code' => $_POST['postal_code'] ?? '',
+                'city' => $_POST['city'] ?? '',
+                'phone' => $_POST['phone'] ?? '',
+                'email' => $_POST['email'] ?? '',
+                'comment' => $_POST['comment'] ?? '',
+                'status' => 1 // Par défaut actif
+            ];
+            
+            // Valider les données essentielles
+            if (empty($siteData['client_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Aucun client sélectionné']);
+                return;
+            }
+            
+            if (empty($siteData['name'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le nom du site est obligatoire']);
+                return;
+            }
+            
+            // Vérifier si le client existe
+            $sql = "SELECT id FROM clients WHERE id = ? AND status = 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$siteData['client_id']]);
+            if (!$stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Client introuvable']);
+                return;
+            }
+            
+            // Vérifier si un site avec ce nom existe déjà pour ce client
+            $sql = "SELECT id FROM sites WHERE name = ? AND client_id = ? AND status = 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$siteData['name'], $siteData['client_id']]);
+            if ($stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Un site avec ce nom existe déjà pour ce client']);
+                return;
+            }
+
+            // Créer le site
+            $success = $this->siteModel->createSite($siteData);
+            if (!$success) {
+                throw new Exception('Erreur lors de la création du site');
+            }
+            
+            // Récupérer l'ID du site créé
+            $siteId = $this->db->lastInsertId();
+            
+            // Récupérer les données du site créé
+            $site = $this->siteModel->getSiteById($siteId);
+            
+            echo json_encode([
+                'success' => true,
+                'site' => [
+                    'id' => $site['id'],
+                    'name' => $site['name']
+                ],
+                'message' => 'Site créé avec succès'
+            ]);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la création rapide du site : " . $e->getMessage(), 'ERROR');
+            http_response_code(500);
+            echo json_encode(['error' => 'Une erreur est survenue lors de la création du site.']);
+        }
+    }
+
+    /**
+     * Crée rapidement une nouvelle salle via AJAX
+     */
+    public function quickCreateRoom() {
+        // Vérifier les permissions
+        $this->checkAccess();
+        
+        // Vérifier si l'utilisateur a les droits d'ajout
+        if (!canModifyClients()) {
+            http_response_code(403);
+            echo json_encode(['error' => "Vous n'avez pas les droits nécessaires pour ajouter une salle."]);
+            return;
+        }
+
+        header('Content-Type: application/json');
+        
+        try {
+            // Récupérer les données du formulaire
+            $roomData = [
+                'client_id' => $_POST['client_id'] ?? '',
+                'site_id' => $_POST['site_id'] ?? '',
+                'name' => $_POST['name'] ?? '',
+                'comment' => $_POST['comment'] ?? '',
+                'status' => 1 // Par défaut actif
+            ];
+            
+            // Valider les données essentielles
+            if (empty($roomData['client_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Aucun client sélectionné']);
+                return;
+            }
+            
+            if (empty($roomData['site_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Aucun site sélectionné']);
+                return;
+            }
+            
+            if (empty($roomData['name'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le nom de la salle est obligatoire']);
+                return;
+            }
+            
+            // Vérifier si le site existe et appartient au client
+            $sql = "SELECT id FROM sites WHERE id = ? AND client_id = ? AND status = 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$roomData['site_id'], $roomData['client_id']]);
+            if (!$stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Site introuvable ou ne correspond pas au client']);
+                return;
+            }
+            
+            // Vérifier si une salle avec ce nom existe déjà pour ce site
+            $sql = "SELECT id FROM rooms WHERE name = ? AND site_id = ? AND status = 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$roomData['name'], $roomData['site_id']]);
+            if ($stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Une salle avec ce nom existe déjà pour ce site']);
+                return;
+            }
+
+            // Créer la salle
+            $success = $this->roomModel->createRoom($roomData);
+            if (!$success) {
+                throw new Exception('Erreur lors de la création de la salle');
+            }
+            
+            // Récupérer l'ID de la salle créée
+            $roomId = $this->db->lastInsertId();
+            
+            // Récupérer les données de la salle créée
+            $room = $this->roomModel->getRoomById($roomId);
+            
+            echo json_encode([
+                'success' => true,
+                'room' => [
+                    'id' => $room['id'],
+                    'name' => $room['name']
+                ],
+                'message' => 'Salle créée avec succès'
+            ]);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la création rapide de la salle : " . $e->getMessage(), 'ERROR');
+            http_response_code(500);
+            echo json_encode(['error' => 'Une erreur est survenue lors de la création de la salle.']);
+        }
+    }
+
+    /**
+     * Crée rapidement un nouveau contact via AJAX
+     */
+    public function quickCreateContact() {
+        // Vérifier les permissions
+        $this->checkAccess();
+        
+        // Vérifier si l'utilisateur a les droits d'ajout
+        if (!canModifyClients()) {
+            http_response_code(403);
+            echo json_encode(['error' => "Vous n'avez pas les droits nécessaires pour ajouter un contact."]);
+            return;
+        }
+
+        header('Content-Type: application/json');
+        
+        try {
+            // Récupérer les données du formulaire
+            $contactData = [
+                'client_id' => $_POST['client_id'] ?? '',
+                'first_name' => $_POST['first_name'] ?? '',
+                'last_name' => $_POST['last_name'] ?? '',
+                'email' => $_POST['email'] ?? '',
+                'phone1' => $_POST['phone1'] ?? '',
+                'phone2' => $_POST['phone2'] ?? '',
+                'fonction' => $_POST['fonction'] ?? '',
+                'comment' => $_POST['comment'] ?? '',
+                'has_user_account' => 0, // Par défaut pas de compte utilisateur
+                'status' => 1 // Par défaut actif
+            ];
+            
+            // Valider les données essentielles
+            if (empty($contactData['client_id']) || !is_numeric($contactData['client_id'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Aucun client sélectionné ou ID invalide - reçu: ' . $contactData['client_id']]);
+                return;
+            }
+            
+            if (empty($contactData['first_name'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le prénom est obligatoire']);
+                return;
+            }
+            
+            if (empty($contactData['last_name'])) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Le nom est obligatoire']);
+                return;
+            }
+            
+            // Vérifier si le client existe (peut être inactif lors de l'édition)
+            $sql = "SELECT id FROM clients WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$contactData['client_id']]);
+            if (!$stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Client introuvable']);
+                return;
+            }
+            
+            // Vérifier si un contact avec ce nom existe déjà pour ce client
+            $sql = "SELECT id FROM contacts WHERE first_name = ? AND last_name = ? AND client_id = ? AND status = 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$contactData['first_name'], $contactData['last_name'], $contactData['client_id']]);
+            if ($stmt->fetch()) {
+                http_response_code(400);
+                echo json_encode(['error' => 'Un contact avec ce nom existe déjà pour ce client']);
+                return;
+            }
+
+            // Créer le contact
+            $success = $this->contactModel->createContact($contactData);
+            if (!$success) {
+                throw new Exception('Erreur lors de la création du contact');
+            }
+            
+            // Récupérer l'ID du contact créé
+            $contactId = $this->db->lastInsertId();
+            
+            // Récupérer les données du contact créé
+            $contact = $this->contactModel->getContactById($contactId);
+            
+            echo json_encode([
+                'success' => true,
+                'contact' => [
+                    'id' => $contact['id'],
+                    'first_name' => $contact['first_name'],
+                    'last_name' => $contact['last_name'],
+                    'email' => $contact['email']
+                ],
+                'message' => 'Contact créé avec succès'
+            ]);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la création rapide du contact : " . $e->getMessage(), 'ERROR');
+            http_response_code(500);
+            echo json_encode(['error' => 'Une erreur est survenue lors de la création du contact.']);
+        }
+    }
+
+    /**
+     * Crée automatiquement les contrats "hors contrat" pour un nouveau client
+     */
+    private function createDefaultContractsForClient($clientId) {
+        try {
+            // Récupérer le niveau d'accès par défaut
+            $sql = "SELECT id FROM access_levels WHERE name = 'Standard' LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $defaultAccessLevel = $stmt->fetch(PDO::FETCH_ASSOC);
+            $defaultAccessLevelId = $defaultAccessLevel ? $defaultAccessLevel['id'] : 1;
+            
+            // Créer le contrat "Hors contrat facturable"
+            $this->contractModel->createContract([
+                'client_id' => $clientId,
+                'contract_type_id' => null,
+                'name' => 'Hors contrat facturable',
+                'access_level_id' => $defaultAccessLevelId,
+                'start_date' => date('Y-m-d'),
+                'end_date' => date('Y-m-d', strtotime('+1 year')),
+                'status' => 1
+            ]);
+            
+            // Créer le contrat "Hors contrat non facturable"
+            $this->contractModel->createContract([
+                'client_id' => $clientId,
+                'contract_type_id' => null,
+                'name' => 'Hors contrat non facturable',
+                'access_level_id' => $defaultAccessLevelId,
+                'start_date' => date('Y-m-d'),
+                'end_date' => date('Y-m-d', strtotime('+1 year')),
+                'status' => 1
+            ]);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la création des contrats par défaut : " . $e->getMessage(), 'ERROR');
+        }
+    }
+
+    /**
      * Affiche le formulaire de création d'une intervention
      */
     public function create() {
         // Vérifier les permissions
         checkInterventionManagementAccess();
-        $clients = $this->clientModel->getAllClientsWithStats();
+        $clients = $this->clientModel->getAllClientsWithStats(['status' => 1]); // Seulement les clients actifs
         $sites = [];
         $rooms = [];
         $technicians = $this->userModel->getTechnicians();
@@ -1690,8 +2094,11 @@ class InterventionController {
                 exit;
             }
             
-            // Calculer le nombre de tickets utilisés
-            $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id']);
+            // Calculer le nombre de tickets utilisés seulement si c'est un contrat à tickets
+            $ticketsUsed = 0;
+            if (!empty($data['contract_id']) && isContractTicketById($data['contract_id'])) {
+                $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id']);
+            }
             $data['tickets_used'] = $ticketsUsed;
             
             // Ajouter la date de fermeture
@@ -1970,19 +2377,24 @@ class InterventionController {
             exit;
         }
 
-        // Calculer le nombre de tickets utilisés
-        error_log("DEBUG - close() - Calcul des tickets pour l'intervention $id");
-        error_log("DEBUG - close() - Durée: " . $intervention['duration']);
-        error_log("DEBUG - close() - Technicien ID: " . $intervention['technician_id']);
-        error_log("DEBUG - close() - Type ID: " . $intervention['type_id']);
-        
-        $ticketsUsed = $this->calculateTicketsUsed(
-            $intervention['duration'],
-            $intervention['technician_id'],
-            $intervention['type_id']
-        );
-        
-        error_log("DEBUG - close() - Tickets calculés: " . $ticketsUsed);
+        // Calculer le nombre de tickets utilisés seulement si c'est un contrat à tickets
+        $ticketsUsed = 0;
+        if (!empty($intervention['contract_id']) && isContractTicketById($intervention['contract_id'])) {
+            error_log("DEBUG - close() - Calcul des tickets pour l'intervention $id (contrat à tickets)");
+            error_log("DEBUG - close() - Durée: " . $intervention['duration']);
+            error_log("DEBUG - close() - Technicien ID: " . $intervention['technician_id']);
+            error_log("DEBUG - close() - Type ID: " . $intervention['type_id']);
+            
+            $ticketsUsed = $this->calculateTicketsUsed(
+                $intervention['duration'],
+                $intervention['technician_id'],
+                $intervention['type_id']
+            );
+            
+            error_log("DEBUG - close() - Tickets calculés: " . $ticketsUsed);
+        } else {
+            error_log("DEBUG - close() - Pas de calcul de tickets (contrat sans tickets ou pas de contrat)");
+        }
 
         // Mettre à jour l'intervention
         $sql = "UPDATE interventions SET 
@@ -2084,13 +2496,13 @@ class InterventionController {
             return; // Pas de contrat, pas de déduction
         }
         
-        // Vérifier si le contrat est de type ticket (tickets_number > 0)
-        $sql = "SELECT tickets_number FROM contracts WHERE id = :contract_id";
+        // Vérifier si le contrat est de type ticket (isticketcontract = 1)
+        $sql = "SELECT isticketcontract FROM contracts WHERE id = :contract_id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([':contract_id' => $contractId]);
         $contract = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        if (!$contract || $contract['tickets_number'] <= 0) {
+        if (!$contract || $contract['isticketcontract'] != 1) {
             error_log("DEBUG - deductTicketsFromContract: Contrat non-ticket ou inexistant, pas de déduction");
             // Ce n'est pas un contrat de type ticket, pas de déduction
             return;
@@ -2222,7 +2634,7 @@ class InterventionController {
                 if ($intervention['contract_id']) {
                     // Vérifier si le contrat est de type ticket
                     $contract = $this->contractModel->getContractById($intervention['contract_id']);
-                    if ($contract && isTicketContract($contract)) {
+                    if ($contract && isContractTicketById($contract['id'])) {
                         $contractQuery = "UPDATE contracts SET tickets_remaining = tickets_remaining - :difference WHERE id = :contract_id";
                         $stmt = $this->db->prepare($contractQuery);
                         $stmt->bindParam(':difference', $difference, PDO::PARAM_INT);
@@ -2329,7 +2741,7 @@ class InterventionController {
             if (!empty($intervention['tickets_used']) && !empty($intervention['contract_id'])) {
                 // Vérifier si le contrat est de type ticket
                 $contract = $this->contractModel->getContractById($intervention['contract_id']);
-                if ($contract && isTicketContract($contract)) {
+                if ($contract && isContractTicketById($contract['id'])) {
                     $ticketsToRecredit = $intervention['tickets_used'];
                     
                     // Mettre à jour le nombre de tickets restants dans le contrat
@@ -2800,8 +3212,8 @@ class InterventionController {
         $newContract = $this->getContractTicketInfo($newContractId);
 
         // Déterminer les actions à effectuer
-        $oldIsTicketContract = $oldContract && isTicketContract($oldContract);
-        $newIsTicketContract = $newContract && isTicketContract($newContract);
+        $oldIsTicketContract = $oldContract && isContractTicketById($oldContract['id']);
+        $newIsTicketContract = $newContract && isContractTicketById($newContract['id']);
 
         // Historiser le changement de contrat dans l'historique de l'intervention
         $this->recordContractChangeInInterventionHistory($interventionId, $oldContract, $newContract, $ticketsUsed);
@@ -2933,8 +3345,8 @@ class InterventionController {
             $description = "Changement de contrat : $oldContractName → $newContractName";
             
             // Ajouter des détails sur la gestion des tickets
-            $oldIsTicketContract = $oldContract && isTicketContract($oldContract);
-            $newIsTicketContract = $newContract && isTicketContract($newContract);
+            $oldIsTicketContract = $oldContract && isContractTicketById($oldContract['id']);
+            $newIsTicketContract = $newContract && isContractTicketById($newContract['id']);
             
             if ($oldIsTicketContract && $newIsTicketContract) {
                 $description .= " (Transfert de $ticketsUsed tickets)";

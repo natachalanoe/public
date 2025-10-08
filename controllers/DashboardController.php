@@ -231,7 +231,7 @@ class DashboardController {
                 LEFT JOIN contract_types ct ON c.contract_type_id = ct.id
                 WHERE c.client_id = :client_id 
                 AND c.status = 'actif' 
-                AND c.tickets_number > 0
+                AND c.isticketcontract = 1
                 ORDER BY c.end_date ASC
             ");
             $stmt->execute(['client_id' => $clientId]);

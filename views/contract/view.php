@@ -204,7 +204,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <th>Date de fin:</th>
                             <td><?= formatDateFrench($contract['end_date']) ?></td>
                         </tr>
-                        <?php if (isTicketContract($contract)): ?>
+                        <?php if (isContractTicketById($contract['id'])): ?>
                         <tr>
                             <th>Tickets initiaux:</th>
                             <td>
@@ -224,7 +224,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <tr>
                             <th>Tickets restants:</th>
                             <td>
-                                <?php if (isTicketContract($contract)): ?>
+                                <?php if (isContractTicketById($contract['id'])): ?>
                                     <?= $contract['tickets_remaining'] ?>
                                     <button type="button" 
                                             class="btn btn-sm btn-outline-info ms-2" 
@@ -238,7 +238,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <?php endif; ?>
                             </td>
                         </tr>
-                        <?php if (canManageContracts() && $contract['tickets_number'] == 0): ?>
+                        <?php if (canManageContracts() && !isContractTicketById($contract['id'])): ?>
                         <tr>
                             <th>Interventions préventives:</th>
                             <td>
@@ -499,7 +499,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <td><?= htmlspecialchars($intervention['technician_name'] ?? '') ?></td>
                                 <td><?= $intervention['duration'] ?? 0 ?>h</td>
                                 <td>
-                                    <?php if (isTicketContract($contract)): ?>
+                                    <?php if (isContractTicketById($contract['id'])): ?>
                                         <?= $intervention['tickets_used'] ?? 0 ?>
                                     <?php else: ?>
                                         <span class="no-tickets-indicator" title="Sans tickets">
@@ -1353,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                    required>
                         </div>
                         
-                        <?php if ($contract['tickets_number'] > 0): ?>
+                        <?php if (isContractTicketById($contract['id'])): ?>
                         <div class="mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="reset_tickets" name="reset_tickets" value="1" checked>

@@ -153,10 +153,23 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
                         </div>
 
                         <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="isticketcontract" name="isticketcontract" value="1" 
+                                       <?php echo (isset($formData['isticketcontract']) && $formData['isticketcontract']) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="isticketcontract">
+                                    <i class="bi bi-ticket-perforated me-1"></i>Contrat à tickets
+                                </label>
+                                <small class="form-text text-muted d-block">
+                                    Cochez cette case si ce contrat utilise un système de tickets pour les interventions.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <label for="tickets_number" class="form-label">Nombre de tickets initiaux <span class="text-danger">*</span></label>
                             <input type="number" class="form-control bg-body text-body" id="tickets_number" name="tickets_number" required 
                                    value="<?php echo htmlspecialchars($formData['tickets_number'] ?? ''); ?>">
-                            <small class="form-text text-muted">Si le nombre de tickets est à zéro, le contrat ne sera pas considéré comme un contrat à tickets.</small>
+                            <small class="form-text text-muted">Nombre de tickets disponibles pour ce contrat.</small>
                         </div>
 
                         <div class="mb-3">
@@ -300,13 +313,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const startDateInput = document.getElementById('start_date');
     const endDateInput = document.getElementById('end_date');
 
-    // Mettre à jour le nombre de tickets quand le type de contrat change
-    contractTypeSelect.addEventListener('change', function() {
-        const selectedType = contractTypes.find(type => type.id == this.value);
+    // Fonction pour mettre à jour les champs selon le type de contrat sélectionné
+    function updateFieldsBasedOnContractType() {
+        const selectedType = contractTypes.find(type => type.id == contractTypeSelect.value);
         if (selectedType) {
             ticketsNumberInput.value = selectedType.default_tickets;
+            
+            // Cocher automatiquement la case isticketcontract si le type a des tickets par défaut > 0
+            const isticketcontractCheckbox = document.getElementById('isticketcontract');
+            if (selectedType.default_tickets > 0) {
+                isticketcontractCheckbox.checked = true;
+            } else {
+                isticketcontractCheckbox.checked = false;
+            }
         }
-    });
+    }
+
+    // Mettre à jour les champs quand le type de contrat change
+    contractTypeSelect.addEventListener('change', updateFieldsBasedOnContractType);
+    
+    // Initialiser les champs au chargement de la page si un type est déjà sélectionné
+    updateFieldsBasedOnContractType();
 
     // Calculer automatiquement la date de fin au 31 décembre de l'année suivante
     startDateInput.addEventListener('change', function() {

@@ -157,6 +157,7 @@ class ContractModel {
                         num_facture,
                         tarif,
                         indice,
+                        isticketcontract,
                         created_at,
                         updated_at
                     ) VALUES (
@@ -176,6 +177,7 @@ class ContractModel {
                         :num_facture,
                         :tarif,
                         :indice,
+                        :isticketcontract,
                         NOW(),
                         NOW()
                     )";
@@ -186,8 +188,9 @@ class ContractModel {
             $reminderDays = $data['reminder_days'] ?? 30;
             $renouvellementTacite = $data['renouvellement_tacite'] ?? 0;
             $numFacture = $data['num_facture'] ?? null;
-            $tarif = $data['tarif'] ?? null;
+            $tarif = !empty($data['tarif']) ? $data['tarif'] : null;
             $indice = $data['indice'] ?? null;
+            $isticketcontract = $data['isticketcontract'] ?? 0;
 
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':client_id', $data['client_id'], PDO::PARAM_INT);
@@ -206,6 +209,7 @@ class ContractModel {
             $stmt->bindParam(':num_facture', $numFacture, PDO::PARAM_STR);
             $stmt->bindParam(':tarif', $tarif, PDO::PARAM_STR);
             $stmt->bindParam(':indice', $indice, PDO::PARAM_STR);
+            $stmt->bindParam(':isticketcontract', $isticketcontract, PDO::PARAM_INT);
 
             if (!$stmt->execute()) {
                 throw new Exception("Erreur lors de la création du contrat");
@@ -268,6 +272,7 @@ class ContractModel {
                         num_facture = :num_facture,
                         tarif = :tarif,
                         indice = :indice,
+                        isticketcontract = :isticketcontract,
                         updated_at = NOW()
                     WHERE id = :id";
 
@@ -277,8 +282,9 @@ class ContractModel {
             $reminderDays = $data['reminder_days'] ?? 30;
             $renouvellementTacite = $data['renouvellement_tacite'] ?? 0;
             $numFacture = $data['num_facture'] ?? null;
-            $tarif = $data['tarif'] ?? null;
+            $tarif = !empty($data['tarif']) ? $data['tarif'] : null;
             $indice = $data['indice'] ?? null;
+            $isticketcontract = $data['isticketcontract'] ?? 0;
 
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -298,6 +304,7 @@ class ContractModel {
             $stmt->bindParam(':num_facture', $numFacture, PDO::PARAM_STR);
             $stmt->bindParam(':tarif', $tarif, PDO::PARAM_STR);
             $stmt->bindParam(':indice', $indice, PDO::PARAM_STR);
+            $stmt->bindParam(':isticketcontract', $isticketcontract, PDO::PARAM_INT);
 
             if (!$stmt->execute()) {
                 throw new Exception("Erreur lors de la mise à jour du contrat");
@@ -394,9 +401,9 @@ class ContractModel {
         // Filtre par type de tickets
         if (!empty($filters['ticket_type'])) {
             if ($filters['ticket_type'] === 'with_tickets') {
-                $sql .= " AND c.tickets_number > 0";
+                $sql .= " AND c.isticketcontract = 1";
             } elseif ($filters['ticket_type'] === 'without_tickets') {
-                $sql .= " AND (c.tickets_number = 0 OR c.tickets_number IS NULL)";
+                $sql .= " AND c.isticketcontract = 0";
             }
         }
 
@@ -1248,7 +1255,7 @@ class ContractModel {
             
 
             // 2. Si c'est un contrat à ticket, enregistrer les tickets initiaux
-            if (isset($data['tickets_number']) && isTicketContract($data)) {
+            if (isset($data['tickets_number']) && isContractTicketById($data['id'])) {
                 $ticketsNumber = $data['tickets_number'];
                 $ticketsRemaining = $data['tickets_remaining'] ?? $data['tickets_number'];
                 
@@ -1378,9 +1385,9 @@ class ContractModel {
         // Filtre par type de tickets
         if (!empty($filters['ticket_type'])) {
             if ($filters['ticket_type'] === 'with_tickets') {
-                $sql .= " AND c.tickets_number > 0";
+                $sql .= " AND c.isticketcontract = 1";
             } elseif ($filters['ticket_type'] === 'without_tickets') {
-                $sql .= " AND (c.tickets_number = 0 OR c.tickets_number IS NULL)";
+                $sql .= " AND c.isticketcontract = 0";
             }
         }
 
@@ -1449,9 +1456,9 @@ class ContractModel {
         // Filtre par type de tickets
         if (!empty($filters['ticket_type'])) {
             if ($filters['ticket_type'] === 'with_tickets') {
-                $sql .= " AND c.tickets_number > 0";
+                $sql .= " AND c.isticketcontract = 1";
             } elseif ($filters['ticket_type'] === 'without_tickets') {
-                $sql .= " AND (c.tickets_number = 0 OR c.tickets_number IS NULL)";
+                $sql .= " AND c.isticketcontract = 0";
             }
         }
 
@@ -1480,8 +1487,8 @@ class ContractModel {
                     SUM(CASE WHEN status = 'actif' THEN 1 ELSE 0 END) as actifs,
                     SUM(CASE WHEN status = 'inactif' THEN 1 ELSE 0 END) as inactifs,
                     SUM(CASE WHEN status = 'en_attente' THEN 1 ELSE 0 END) as en_attente,
-                    SUM(CASE WHEN tickets_number > 0 THEN 1 ELSE 0 END) as avec_tickets,
-                    SUM(CASE WHEN tickets_number = 0 OR tickets_number IS NULL THEN 1 ELSE 0 END) as sans_tickets
+                    SUM(CASE WHEN isticketcontract = 1 THEN 1 ELSE 0 END) as avec_tickets,
+                    SUM(CASE WHEN isticketcontract = 0 THEN 1 ELSE 0 END) as sans_tickets
                 FROM contracts 
                 WHERE contract_type_id IS NULL 
                 AND name LIKE '%hors contrat facturable%'
@@ -1503,8 +1510,8 @@ class ContractModel {
                     SUM(CASE WHEN status = 'actif' THEN 1 ELSE 0 END) as actifs,
                     SUM(CASE WHEN status = 'inactif' THEN 1 ELSE 0 END) as inactifs,
                     SUM(CASE WHEN status = 'en_attente' THEN 1 ELSE 0 END) as en_attente,
-                    SUM(CASE WHEN tickets_number > 0 THEN 1 ELSE 0 END) as avec_tickets,
-                    SUM(CASE WHEN tickets_number = 0 OR tickets_number IS NULL THEN 1 ELSE 0 END) as sans_tickets
+                    SUM(CASE WHEN isticketcontract = 1 THEN 1 ELSE 0 END) as avec_tickets,
+                    SUM(CASE WHEN isticketcontract = 0 THEN 1 ELSE 0 END) as sans_tickets
                 FROM contracts 
                 WHERE contract_type_id IS NULL 
                 AND name LIKE '%hors contrat non facturable%'

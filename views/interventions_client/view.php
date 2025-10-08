@@ -76,7 +76,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <i class="fas fa-clock me-1"></i>
                             <?= h($intervention['duration'] ?? '0') ?>h
                         </div>
-                        <?php if (isTicketContract($intervention)): ?>
+                        <?php if (isInterventionLinkedToTicketContract($intervention['id'])): ?>
                         <div class="text-muted me-2">
                             <i class="fas fa-ticket-alt me-1"></i>
                             <?= h($intervention['tickets_used'] ?? '0') ?>

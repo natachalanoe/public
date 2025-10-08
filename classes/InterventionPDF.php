@@ -350,9 +350,7 @@ class InterventionPDF extends TCPDF {
         $duration = !empty($intervention['duration']) ? $intervention['duration'] . 'h' : 'Non spécifiée';
         
         // Vérifier si c'est un contrat de type ticket
-        $isTicketContract = !empty($intervention['contract_type_name']) && 
-                           (stripos($intervention['contract_type_name'], 'ticket') !== false || 
-                            stripos($intervention['contract_type_name'], 'forfait') !== false);
+        $isTicketContract = !empty($intervention['contract_id']) && isContractTicketById($intervention['contract_id']);
         
         // Estimation de l'intervention ticket
         $ticketsUsed = '--';

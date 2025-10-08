@@ -109,12 +109,14 @@ require_once __DIR__ . '/functions.php';
               </a>
             </li>
 
+            <!-- Documentation temporairement masqué
             <li class="menu-item <?php echo isActivePage('documentation'); ?>">
               <a href="<?php echo BASE_URL; ?>documentation" class="menu-link">
                 <i class="menu-icon bi bi-book"></i>
                 <div data-i18n="documentation">Documentation</div>
               </a>
             </li>
+            -->
 
 
             <?php endif; ?>
