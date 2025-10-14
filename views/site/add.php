@@ -34,7 +34,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Ajouter un Site</h4></div>
 
         <div class="ms-auto p-2 bd-highlight">
-            <a href="<?php echo BASE_URL; ?>clients/edit/<?php echo $clientId; ?>#sites" class="btn btn-secondary me-2">
+            <?php 
+            $returnTo = $_GET['return_to'] ?? 'edit';
+            $returnUrl = ($returnTo === 'view') ? 
+                BASE_URL . 'clients/view/' . $clientId . '?active_tab=sites-tab' : 
+                BASE_URL . 'clients/edit/' . $clientId . '#sites';
+            ?>
+            <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
                 <i class="bi bi-arrow-left me-1"></i> Retour
             </a>
             <button type="submit" form="siteForm" class="btn btn-primary">
@@ -61,7 +67,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <h5 class="card-title mb-0">Informations du Site</h5>
         </div>
         <div class="card-body py-2">
-            <form id="siteForm" action="<?= BASE_URL ?>site/add/<?= $clientId ?>" method="POST">
+            <form id="siteForm" action="<?= BASE_URL ?>site/add/<?= $clientId ?><?php echo isset($_GET['return_to']) ? '?return_to=' . $_GET['return_to'] : ''; ?>" method="POST">
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3"> <!-- Remplacé form-group par mb-3 -->

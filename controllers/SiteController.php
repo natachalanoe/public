@@ -59,10 +59,26 @@ class SiteController {
 
             if ($this->siteModel->createSite($data)) {
                 $_SESSION['success'] = "Site ajouté avec succès.";
-                header('Location: ' . BASE_URL . 'clients/edit/' . $clientId . '#sites');
+                
+                // Gérer le retour intelligent
+                $returnTo = $_GET['return_to'] ?? 'edit';
+                if ($returnTo === 'view') {
+                    header('Location: ' . BASE_URL . 'clients/view/' . $clientId . '?active_tab=sites-tab');
+                } else {
+                    header('Location: ' . BASE_URL . 'clients/edit/' . $clientId . '#sites');
+                }
                 exit;
             } else {
                 $_SESSION['error'] = "Erreur lors de l'ajout du site.";
+                
+                // Gérer le retour en cas d'erreur
+                $returnTo = $_GET['return_to'] ?? 'edit';
+                if ($returnTo === 'view') {
+                    header('Location: ' . BASE_URL . 'site/add/' . $clientId . '?return_to=view');
+                } else {
+                    header('Location: ' . BASE_URL . 'site/add/' . $clientId);
+                }
+                exit;
             }
         }
 

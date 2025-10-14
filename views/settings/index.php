@@ -198,14 +198,35 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     </h5>
                 </div>
                 <div class="card-body">
+                    <?php
+                    // Fonction pour formater la taille en format lisible
+                    function formatBytes($size, $precision = 2) {
+                        $units = array('B', 'KB', 'MB', 'GB', 'TB');
+                        for ($i = 0; $size > 1024 && $i < count($units) - 1; $i++) {
+                            $size /= 1024;
+                        }
+                        return round($size, $precision) . ' ' . $units[$i];
+                    }
+                    
+                    // Récupérer les limites d'upload
+                    $upload_max_filesize = ini_get('upload_max_filesize');
+                    $post_max_size = ini_get('post_max_size');
+                    $max_upload = min($upload_max_filesize, $post_max_size);
+                    ?>
                     <div class="row">
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <div class="text-center">
                                 <h6 class="text-muted">Version PHP</h6>
                                 <p class="h5"><?= PHP_VERSION ?></p>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <div class="text-center">
+                                <h6 class="text-muted">Max Upload</h6>
+                                <p class="h5"><?= $max_upload ?></p>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
                             <div class="text-center">
                                 <h6 class="text-muted">Version MySQL</h6>
                                 <p class="h5"><?= $db->getAttribute(PDO::ATTR_SERVER_VERSION) ?></p>

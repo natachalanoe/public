@@ -67,7 +67,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['marque']) && $visibilites_champs[$materiel['id']]['marque'] && !empty($materiel['marque'])): ?>
                                 <?= h($materiel['marque']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Modèle</dt>
@@ -75,7 +75,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['modele']) && $visibilites_champs[$materiel['id']]['modele'] && !empty($materiel['modele'])): ?>
                                 <?= h($materiel['modele']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Type</dt>
@@ -83,7 +83,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['type_materiel']) && $visibilites_champs[$materiel['id']]['type_materiel'] && !empty($materiel['type_materiel'])): ?>
                                 <?= h($materiel['type_materiel']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Référence</dt>
@@ -91,7 +91,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['reference']) && $visibilites_champs[$materiel['id']]['reference'] && !empty($materiel['reference'])): ?>
                                 <?= h($materiel['reference']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Usage/Description</dt>
@@ -99,7 +99,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['usage_materiel']) && $visibilites_champs[$materiel['id']]['usage_materiel'] && !empty($materiel['usage_materiel'])): ?>
                                 <?= nl2br(h($materiel['usage_materiel'])) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Numéro de série</dt>
@@ -107,7 +107,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['numero_serie']) && $visibilites_champs[$materiel['id']]['numero_serie'] && !empty($materiel['numero_serie'])): ?>
                                 <?= h($materiel['numero_serie']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Firmware</dt>
@@ -115,7 +115,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['version_firmware']) && $visibilites_champs[$materiel['id']]['version_firmware'] && !empty($materiel['version_firmware'])): ?>
                                 <?= h($materiel['version_firmware']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Ancien Firmware</dt>
@@ -123,7 +123,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['ancien_firmware']) && $visibilites_champs[$materiel['id']]['ancien_firmware'] && !empty($materiel['ancien_firmware'])): ?>
                                 <?= h($materiel['ancien_firmware']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Login</dt>
@@ -131,7 +131,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['login']) && $visibilites_champs[$materiel['id']]['login'] && !empty($materiel['login'])): ?>
                                 <?= h($materiel['login']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Mot de passe</dt>
@@ -139,7 +139,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['password']) && $visibilites_champs[$materiel['id']]['password'] && !empty($materiel['password'])): ?>
                                 <?= h($materiel['password']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Adresse IP</dt>
@@ -147,7 +147,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['adresse_ip']) && $visibilites_champs[$materiel['id']]['adresse_ip'] && !empty($materiel['adresse_ip'])): ?>
                                 <?= h($materiel['adresse_ip']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Adresse MAC</dt>
@@ -155,7 +155,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['adresse_mac']) && $visibilites_champs[$materiel['id']]['adresse_mac'] && !empty($materiel['adresse_mac'])): ?>
                                 <?= h($materiel['adresse_mac']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Masque</dt>
@@ -163,7 +163,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['masque']) && $visibilites_champs[$materiel['id']]['masque'] && !empty($materiel['masque'])): ?>
                                 <?= h($materiel['masque']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Passerelle</dt>
@@ -171,7 +171,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['passerelle']) && $visibilites_champs[$materiel['id']]['passerelle'] && !empty($materiel['passerelle'])): ?>
                                 <?= h($materiel['passerelle']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">ID Matériel</dt>
@@ -179,7 +179,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['id_materiel']) && $visibilites_champs[$materiel['id']]['id_materiel'] && !empty($materiel['id_materiel'])): ?>
                                 <?= h($materiel['id_materiel']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Date fin maintenance</dt>
@@ -187,7 +187,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['date_fin_maintenance']) && $visibilites_champs[$materiel['id']]['date_fin_maintenance'] && !empty($materiel['date_fin_maintenance'])): ?>
                                 <?= htmlspecialchars(formatDateFrench($materiel['date_fin_maintenance'])) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Date fin garantie</dt>
@@ -195,7 +195,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['date_fin_garantie']) && $visibilites_champs[$materiel['id']]['date_fin_garantie'] && !empty($materiel['date_fin_garantie'])): ?>
                                 <?= htmlspecialchars(formatDateFrench($materiel['date_fin_garantie'])) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Date dernière intervention</dt>
@@ -203,7 +203,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['date_derniere_inter']) && $visibilites_champs[$materiel['id']]['date_derniere_inter'] && !empty($materiel['date_derniere_inter'])): ?>
                                 <?= htmlspecialchars(formatDateFrench($materiel['date_derniere_inter'])) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Commentaire</dt>
@@ -211,7 +211,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['commentaire']) && $visibilites_champs[$materiel['id']]['commentaire'] && !empty($materiel['commentaire'])): ?>
                                 <?= nl2br(h($materiel['commentaire'])) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                     </dl>
@@ -228,7 +228,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['ip_primaire']) && $visibilites_champs[$materiel['id']]['ip_primaire'] && !empty($materiel['ip_primaire'])): ?>
                                 <?= h($materiel['ip_primaire']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">MAC Primaire</dt>
@@ -236,7 +236,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['mac_primaire']) && $visibilites_champs[$materiel['id']]['mac_primaire'] && !empty($materiel['mac_primaire'])): ?>
                                 <?= h($materiel['mac_primaire']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">IP Secondaire</dt>
@@ -244,7 +244,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['ip_secondaire']) && $visibilites_champs[$materiel['id']]['ip_secondaire'] && !empty($materiel['ip_secondaire'])): ?>
                                 <?= h($materiel['ip_secondaire']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">MAC Secondaire</dt>
@@ -252,7 +252,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['mac_secondaire']) && $visibilites_champs[$materiel['id']]['mac_secondaire'] && !empty($materiel['mac_secondaire'])): ?>
                                 <?= h($materiel['mac_secondaire']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Stream AES67 Reçu</dt>
@@ -260,7 +260,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['stream_aes67_recu']) && $visibilites_champs[$materiel['id']]['stream_aes67_recu'] && !empty($materiel['stream_aes67_recu'])): ?>
                                 <?= h($materiel['stream_aes67_recu']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Stream AES67 Transmis</dt>
@@ -268,7 +268,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['stream_aes67_transmis']) && $visibilites_champs[$materiel['id']]['stream_aes67_transmis'] && !empty($materiel['stream_aes67_transmis'])): ?>
                                 <?= h($materiel['stream_aes67_transmis']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">SSID WiFi</dt>
@@ -276,7 +276,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['ssid']) && $visibilites_champs[$materiel['id']]['ssid'] && !empty($materiel['ssid'])): ?>
                                 <?= h($materiel['ssid']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Type de cryptage WiFi</dt>
@@ -284,7 +284,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['type_cryptage']) && $visibilites_champs[$materiel['id']]['type_cryptage'] && !empty($materiel['type_cryptage'])): ?>
                                 <?= h($materiel['type_cryptage']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Mot de passe WiFi</dt>
@@ -292,7 +292,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['password_wifi']) && $visibilites_champs[$materiel['id']]['password_wifi'] && !empty($materiel['password_wifi'])): ?>
                                 <?= h($materiel['password_wifi']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">Libellé PA Salle</dt>
@@ -300,7 +300,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['libelle_pa_salle']) && $visibilites_champs[$materiel['id']]['libelle_pa_salle'] && !empty($materiel['libelle_pa_salle'])): ?>
                                 <?= h($materiel['libelle_pa_salle']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">N° Port Switch</dt>
@@ -308,7 +308,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['numero_port_switch']) && $visibilites_champs[$materiel['id']]['numero_port_switch'] && !empty($materiel['numero_port_switch'])): ?>
                                 <?= h($materiel['numero_port_switch']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                         <dt class="col-sm-4">VLAN</dt>
@@ -316,7 +316,7 @@ $attachments = $attachments ?? [];
                             <?php if (isset($visibilites_champs[$materiel['id']]['vlan']) && $visibilites_champs[$materiel['id']]['vlan'] && !empty($materiel['vlan'])): ?>
                                 <?= h($materiel['vlan']) ?>
                             <?php else: ?>
-                                <span class="text-muted">---</span>
+                                <span class="text-muted">-</span>
                             <?php endif; ?>
                         </dd>
                     </dl>

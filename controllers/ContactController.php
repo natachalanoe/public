@@ -53,6 +53,15 @@ class ContactController {
             // Validation des champs obligatoires
             if (empty($_POST['first_name']) || empty($_POST['last_name']) || empty($_POST['email'])) {
                 $_SESSION['error'] = "Le prénom, le nom et l'email sont obligatoires.";
+                
+                // Gérer le retour en cas d'erreur
+                $returnTo = $_GET['return_to'] ?? 'edit';
+                if ($returnTo === 'view') {
+                    header('Location: ' . BASE_URL . 'contacts/add/' . $clientId . '?return_to=view');
+                } else {
+                    header('Location: ' . BASE_URL . 'contacts/add/' . $clientId);
+                }
+                exit;
             } else {
                 $data = [
                     'client_id' => $clientId,
@@ -140,7 +149,14 @@ class ContactController {
 
                 if (!isset($_SESSION['error']) && $this->contactModel->createContact($data)) {
                     $_SESSION['success'] = "Contact ajouté avec succès.";
-                    header('Location: ' . BASE_URL . 'clients/edit/' . $clientId . '#contacts');
+                    
+                    // Gérer le retour intelligent
+                    $returnTo = $_GET['return_to'] ?? 'edit';
+                    if ($returnTo === 'view') {
+                        header('Location: ' . BASE_URL . 'clients/view/' . $clientId . '?active_tab=contacts-tab');
+                    } else {
+                        header('Location: ' . BASE_URL . 'clients/edit/' . $clientId . '#contacts');
+                    }
                     exit;
                 } else if (!isset($_SESSION['error'])) {
                     $_SESSION['error'] = "Erreur lors de l'ajout du contact.";

@@ -29,7 +29,14 @@ $contractTypes = $contractTypes ?? [];
 // Définir le titre de la page et le lien de retour
 if ($client) {
     $pageTitle = "Ajouter un contrat pour : " . h($client['name']);
-    $backLink = BASE_URL . 'clients/edit/' . $client['id'] . '#contracts';
+    
+    // Gérer le retour intelligent
+    $returnTo = $_GET['return_to'] ?? 'edit';
+    if ($returnTo === 'view') {
+        $backLink = BASE_URL . 'clients/view/' . $client['id'] . '?active_tab=contracts-tab';
+    } else {
+        $backLink = BASE_URL . 'clients/edit/' . $client['id'] . '#contracts';
+    }
 } else {
     $pageTitle = "Ajouter un nouveau contrat";
     $backLink = BASE_URL . 'contracts';
@@ -81,7 +88,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
             <h5 class="card-title mb-0">Informations du contrat</h5>
         </div>
         <div class="card-body py-2">
-            <form id="contractForm" action="<?php echo BASE_URL; ?>contracts/create" method="POST">
+            <form id="contractForm" action="<?php echo BASE_URL; ?>contracts/create<?php echo isset($_GET['return_to']) ? '?return_to=' . $_GET['return_to'] : ''; ?>" method="POST">
                 <?php if ($client): ?>
                 <input type="hidden" name="client_id" value="<?php echo $client['id']; ?>">
                     <p class="mb-3"><strong>Client :</strong> <?php echo h($client['name']); ?></p>

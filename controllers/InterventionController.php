@@ -2046,19 +2046,50 @@ class InterventionController {
         // Valider les données requises
         if (empty($data['title'])) {
             $_SESSION['error'] = "Le titre est obligatoire.";
-            header('Location: ' . BASE_URL . 'interventions/add');
+            
+            // Gérer le retour en cas d'erreur de validation
+            $returnTo = $_GET['return_to'] ?? 'view_intervention';
+            if ($returnTo === 'view') {
+                $clientId = $data['client_id'] ?? null;
+                if ($clientId) {
+                    header('Location: ' . BASE_URL . 'interventions/add?client_id=' . $clientId . '&return_to=view');
+                } else {
+                    header('Location: ' . BASE_URL . 'interventions/add');
+                }
+            } else {
+                header('Location: ' . BASE_URL . 'interventions/add');
+            }
             exit;
         }
 
         if (empty($data['client_id'])) {
             $_SESSION['error'] = "Le client est obligatoire.";
-            header('Location: ' . BASE_URL . 'interventions/add');
+            
+            // Gérer le retour en cas d'erreur de validation
+            $returnTo = $_GET['return_to'] ?? 'view_intervention';
+            if ($returnTo === 'view') {
+                header('Location: ' . BASE_URL . 'interventions/add?return_to=view');
+            } else {
+                header('Location: ' . BASE_URL . 'interventions/add');
+            }
             exit;
         }
 
         if (empty($data['type_id'])) {
             $_SESSION['error'] = "Le type d'intervention est obligatoire.";
-            header('Location: ' . BASE_URL . 'interventions/add');
+            
+            // Gérer le retour en cas d'erreur de validation
+            $returnTo = $_GET['return_to'] ?? 'view_intervention';
+            if ($returnTo === 'view') {
+                $clientId = $data['client_id'] ?? null;
+                if ($clientId) {
+                    header('Location: ' . BASE_URL . 'interventions/add?client_id=' . $clientId . '&return_to=view');
+                } else {
+                    header('Location: ' . BASE_URL . 'interventions/add?return_to=view');
+                }
+            } else {
+                header('Location: ' . BASE_URL . 'interventions/add');
+            }
             exit;
         }
         
@@ -2174,10 +2205,35 @@ class InterventionController {
             }
             
             $_SESSION['success'] = "Intervention créée avec succès.";
-            header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
+            
+            // Gérer le retour intelligent
+            $returnTo = $_GET['return_to'] ?? 'view_intervention';
+            if ($returnTo === 'view') {
+                // Récupérer l'ID du client depuis les données POST
+                $clientId = $data['client_id'] ?? null;
+                if ($clientId) {
+                    header('Location: ' . BASE_URL . 'clients/view/' . $clientId . '?active_tab=interventions-tab');
+                } else {
+                    header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
+                }
+            } else {
+                header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
+            }
         } else {
             $_SESSION['error'] = "Erreur lors de la création de l'intervention.";
-            header('Location: ' . BASE_URL . 'interventions/add');
+            
+            // Gérer le retour en cas d'erreur
+            $returnTo = $_GET['return_to'] ?? 'view_intervention';
+            if ($returnTo === 'view') {
+                $clientId = $data['client_id'] ?? null;
+                if ($clientId) {
+                    header('Location: ' . BASE_URL . 'interventions/add?client_id=' . $clientId . '&return_to=view');
+                } else {
+                    header('Location: ' . BASE_URL . 'interventions/add');
+                }
+            } else {
+                header('Location: ' . BASE_URL . 'interventions/add');
+            }
         }
         exit;
     }

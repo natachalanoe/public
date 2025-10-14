@@ -321,6 +321,32 @@ function checkDocumentationManagementAccess() {
 }
 
 /**
+ * Vérifie si l'utilisateur peut supprimer la documentation
+ * @return bool true si l'utilisateur peut supprimer la documentation
+ */
+function canDeleteDocumentation() {
+    // Administrateur a toutes les permissions
+    if (isAdmin()) return true;
+    
+    // Staff + permission tech_delete_documentation
+    return isStaff() && hasPermission('tech_delete_documentation');
+}
+
+/**
+ * Vérifie que l'utilisateur a la permission de supprimer la documentation
+ * Redirige vers le dashboard si ce n'est pas le cas
+ */
+function checkDocumentationDeleteAccess() {
+    checkStaffAccess();
+    
+    if (!canDeleteDocumentation()) {
+        $_SESSION['error'] = "Vous n'avez pas les permissions pour supprimer la documentation.";
+        header('Location: ' . BASE_URL . 'dashboard');
+        exit();
+    }
+}
+
+/**
  * Récupère l'ID de l'utilisateur actuel
  * @return int|null L'ID de l'utilisateur ou null
  */

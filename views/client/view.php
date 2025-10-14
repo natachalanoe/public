@@ -136,7 +136,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <?php if ($canModifyClient): ?>
                     <div class="text-center mt-2">
-                        <a href="<?php echo BASE_URL; ?>contact/add/<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                        <a href="<?php echo BASE_URL; ?>contacts/add/<?php echo $client['id']; ?>?return_to=view" class="btn btn-sm btn-custom-add">
                             <i class="bi bi-plus me-1"></i> Ajouter un contact
                         </a>
                     </div>
@@ -154,7 +154,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <?php if ($canModifyClient): ?>
                     <div class="text-center mt-2">
-                        <a href="<?php echo BASE_URL; ?>site/add/<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                        <a href="<?php echo BASE_URL; ?>site/add/<?php echo $client['id']; ?>?return_to=view" class="btn btn-sm btn-custom-add">
                             <i class="bi bi-plus me-1"></i> Ajouter un site
                         </a>
                     </div>
@@ -193,7 +193,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <?php if (canManageContracts()): ?>
                     <div class="text-center mt-2">
-                        <a href="<?php echo BASE_URL; ?>contracts/add/<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                        <a href="<?php echo BASE_URL; ?>contracts/add/<?php echo $client['id']; ?>?return_to=view" class="btn btn-sm btn-custom-add">
                             <i class="bi bi-plus me-1"></i> Ajouter un contrat
                         </a>
                     </div>
@@ -227,7 +227,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <?php if (canModifyInterventions()): ?>
                     <div class="text-center mt-2">
-                        <a href="<?php echo BASE_URL; ?>interventions/add?client_id=<?php echo $client['id']; ?>" class="btn btn-sm btn-custom-add">
+                        <a href="<?php echo BASE_URL; ?>interventions/add?client_id=<?php echo $client['id']; ?>&return_to=view" class="btn btn-sm btn-custom-add">
                             <i class="bi bi-plus me-1"></i> Ajouter une intervention
                         </a>
                     </div>

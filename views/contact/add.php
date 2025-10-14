@@ -37,7 +37,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Ajouter un contact</h4></div>
 
         <div class="ms-auto p-2 bd-highlight">
-            <a href="<?php echo BASE_URL; ?>clients/edit/<?php echo $client['id'] ?? ''; ?>" class="btn btn-secondary me-2">
+            <?php 
+            $returnTo = $_GET['return_to'] ?? 'edit';
+            $returnUrl = ($returnTo === 'view') ? 
+                BASE_URL . 'clients/view/' . ($client['id'] ?? '') . '?active_tab=contacts-tab' : 
+                BASE_URL . 'clients/edit/' . ($client['id'] ?? '');
+            ?>
+            <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
                 <i class="bi bi-arrow-left me-1"></i> Retour
             </a>
             <button type="submit" form="contactForm" class="btn btn-primary">
@@ -56,7 +62,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <?php endif; ?>
 
     <?php if ($client): ?>
-        <form id="contactForm" action="<?php echo BASE_URL; ?>contacts/add/<?php echo $client['id']; ?>" method="POST">
+        <form id="contactForm" action="<?php echo BASE_URL; ?>contacts/add/<?php echo $client['id']; ?><?php echo isset($_GET['return_to']) ? '?return_to=' . $_GET['return_to'] : ''; ?>" method="POST">
             <div class="card">
                 <div class="card-header py-2">
                     <h5 class="card-title mb-0">Informations du contact</h5>

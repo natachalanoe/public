@@ -102,18 +102,15 @@ $coef_intervention = $config->get('coef_intervention', '0.4');
                                         <label for="coef_intervention" class="form-label">
                                             <strong>Coefficient d'intervention</strong>
                                         </label>
-                                        <div class="input-group">
-                                            <input type="number" 
-                                                   class="form-control" 
-                                                   id="coef_intervention" 
-                                                   name="coef_intervention" 
-                                                   value="<?= h($coef_intervention) ?>" 
-                                                   min="0" 
-                                                   max="1" 
-                                                   step="0.01"
-                                                   required>
-                                            <span class="input-group-text">%</span>
-                                        </div>
+                                        <input type="number" 
+                                               class="form-control" 
+                                               id="coef_intervention" 
+                                               name="coef_intervention" 
+                                               value="<?= h($coef_intervention) ?>" 
+                                               min="0" 
+                                               max="1" 
+                                               step="0.01"
+                                               required>
                                         <div class="form-text">
                                             Coefficient global pour le calcul des tickets d'intervention (0.0 à 1.0)
                                             <br><small class="text-muted">

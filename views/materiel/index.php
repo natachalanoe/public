@@ -217,8 +217,8 @@ foreach ($materiel_list as $materiel) {
                         <i class="bi bi-plus me-2 me-1"></i>Ajouter du Matériel
                     </a>
                     
-                    <!-- Bouton pour basculer en mode édition (admin uniquement) -->
-                    <?php if (canDelete()): ?>
+                    <!-- Bouton pour basculer en mode édition (admin ou permission de suppression) -->
+                    <?php if (canDeleteDocumentation()): ?>
                     <button type="button" class="btn btn-outline-warning" id="toggleEditMode" onclick="toggleEditMode()">
                         <i class="bi bi-pencil-square me-1"></i>Mode Édition
                     </button>

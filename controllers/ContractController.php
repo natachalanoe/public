@@ -259,7 +259,14 @@ class ContractController {
             if (empty($clientId) || empty($contractTypeId) || empty($accessLevelId) || empty($name) || empty($startDate) || empty($endDate)) {
                 $_SESSION['error'] = "Tous les champs obligatoires doivent être remplis.";
                 $_SESSION['form_data'] = $_POST;
-                header('Location: ' . BASE_URL . 'contracts/add/' . $clientId);
+                
+                // Gérer le retour en cas d'erreur de validation
+                $returnTo = $_GET['return_to'] ?? 'index';
+                if ($returnTo === 'view') {
+                    header('Location: ' . BASE_URL . 'contracts/add/' . $clientId . '?return_to=view');
+                } else {
+                    header('Location: ' . BASE_URL . 'contracts/add/' . $clientId);
+                }
                 exit;
             }
 
@@ -329,7 +336,14 @@ class ContractController {
                         exit;
                     } else {
                         $_SESSION['success'] = "Le contrat a été créé avec succès. Aucune salle associée, donc pas d'interventions préventives.";
-                        header('Location: ' . BASE_URL . 'contracts');
+                        
+                        // Gérer le retour intelligent
+                        $returnTo = $_GET['return_to'] ?? 'index';
+                        if ($returnTo === 'view') {
+                            header('Location: ' . BASE_URL . 'clients/view/' . $clientId . '?active_tab=contracts-tab');
+                        } else {
+                            header('Location: ' . BASE_URL . 'contracts');
+                        }
                         exit;
                     }
                 } else {
@@ -338,20 +352,41 @@ class ContractController {
                     } else {
                         $_SESSION['success'] = "Le contrat a été créé avec succès.";
                     }
-                    header('Location: ' . BASE_URL . 'contracts');
+                    
+                    // Gérer le retour intelligent
+                    $returnTo = $_GET['return_to'] ?? 'index';
+                    if ($returnTo === 'view') {
+                        header('Location: ' . BASE_URL . 'clients/view/' . $clientId . '?active_tab=contracts-tab');
+                    } else {
+                        header('Location: ' . BASE_URL . 'contracts');
+                    }
                     exit;
                 }
             } else {
                 $_SESSION['error'] = "Une erreur est survenue lors de la création du contrat.";
                 $_SESSION['form_data'] = $_POST;
-                header('Location: ' . BASE_URL . 'contracts/add/' . $clientId);
+                
+                // Gérer le retour en cas d'erreur
+                $returnTo = $_GET['return_to'] ?? 'index';
+                if ($returnTo === 'view') {
+                    header('Location: ' . BASE_URL . 'contracts/add/' . $clientId . '?return_to=view');
+                } else {
+                    header('Location: ' . BASE_URL . 'contracts/add/' . $clientId);
+                }
                 exit;
             }
         } catch (Exception $e) {
             custom_log("Erreur dans ContractController::create : " . $e->getMessage(), 'ERROR');
             $_SESSION['error'] = "Une erreur est survenue lors de la création du contrat.";
             $_SESSION['form_data'] = $_POST;
-            header('Location: ' . BASE_URL . 'contracts/add/' . $clientId);
+            
+            // Gérer le retour en cas d'erreur
+            $returnTo = $_GET['return_to'] ?? 'index';
+            if ($returnTo === 'view') {
+                header('Location: ' . BASE_URL . 'contracts/add/' . $clientId . '?return_to=view');
+            } else {
+                header('Location: ' . BASE_URL . 'contracts/add/' . $clientId);
+            }
             exit;
         }
     }

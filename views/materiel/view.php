@@ -62,7 +62,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <a href="<?= BASE_URL ?>materiel/edit/<?= $materiel['id'] ?>" class="btn btn-warning me-2">
             <i class="bi bi-pencil me-1"></i> Modifier
         </a>
-        <?php if (isAdmin()): ?>
+        <?php if (canDeleteDocumentation()): ?>
             <button type="button" class="btn btn-outline-danger btn-sm" onclick="confirmDelete(<?= $materiel['id'] ?>, '<?= htmlspecialchars($materiel['marque'] ?? '') ?> <?= htmlspecialchars($materiel['modele'] ?? '') ?>')" title="Supprimer le matériel">
                 <i class="bi bi-trash"></i>
             </button>
@@ -115,30 +115,30 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <span class="text-muted">
-                                                <i class="fas fa-tag me-2"></i>Type de matériel
-                                                <?php if (isset($visibilites_champs[$materiel['id']]['type_materiel']) && !$visibilites_champs[$materiel['id']]['type_materiel']): ?>
-                                                    <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
-                                                <?php endif; ?>
-                                            </span>
-                                            <span class="fw-medium"><?= $materiel['type_materiel'] ? htmlspecialchars($materiel['type_materiel']) : 'Non défini' ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <span class="text-muted">
-                                                <i class="fas fa-tag me-2"></i>Marque
-                                            </span>
-                                            <span class="fw-medium"><?= h($materiel['marque']) ?></span>
-                                        </div>
-                                    </div>
-                                </div>
+                                 <div class="row border-bottom pb-3 mb-3 pt-3">
+                                     <div class="col-md-6 border-end pe-3">
+                                         <div class="d-flex justify-content-between align-items-center mb-2">
+                                             <span class="text-muted">
+                                                 <i class="fas fa-tag me-2"></i>Type de matériel
+                                                 <?php if (isset($visibilites_champs[$materiel['id']]['type_materiel']) && !$visibilites_champs[$materiel['id']]['type_materiel']): ?>
+                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
+                                                 <?php endif; ?>
+                                             </span>
+                                             <span class="fw-medium"><?= $materiel['type_materiel'] ? htmlspecialchars($materiel['type_materiel']) : '-' ?></span>
+                                         </div>
+                                     </div>
+                                     <div class="col-md-6 ps-3">
+                                         <div class="d-flex justify-content-between align-items-center mb-2">
+                                             <span class="text-muted">
+                                                 <i class="fas fa-tag me-2"></i>Marque
+                                             </span>
+                                             <span class="fw-medium"><?= h($materiel['marque']) ?></span>
+                                         </div>
+                                     </div>
+                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-barcode me-2"></i>Référence
@@ -146,10 +146,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['reference'] ? htmlspecialchars($materiel['reference']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['reference'] ? htmlspecialchars($materiel['reference']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-tasks me-2"></i>Usage
@@ -157,13 +157,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['usage_materiel'] ? htmlspecialchars($materiel['usage_materiel']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['usage_materiel'] ? htmlspecialchars($materiel['usage_materiel']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-barcode me-2"></i>Numéro de série
@@ -171,10 +171,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['numero_serie'] ? htmlspecialchars($materiel['numero_serie']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['numero_serie'] ? htmlspecialchars($materiel['numero_serie']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-wifi me-2"></i>MAC
@@ -182,13 +182,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['adresse_mac'] ? htmlspecialchars($materiel['adresse_mac']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['adresse_mac'] ? htmlspecialchars($materiel['adresse_mac']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-globe me-2"></i>IP
@@ -196,10 +196,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['adresse_ip'] ? htmlspecialchars($materiel['adresse_ip']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['adresse_ip'] ? htmlspecialchars($materiel['adresse_ip']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-mask me-2"></i>Masque
@@ -207,13 +207,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['masque'] ? htmlspecialchars($materiel['masque']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['masque'] ? htmlspecialchars($materiel['masque']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-route me-2"></i>Passerelle
@@ -221,10 +221,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['passerelle'] ? htmlspecialchars($materiel['passerelle']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['passerelle'] ? htmlspecialchars($materiel['passerelle']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-id-card me-2"></i>ID
@@ -232,13 +232,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['id_materiel'] ? htmlspecialchars($materiel['id_materiel']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['id_materiel'] ? htmlspecialchars($materiel['id_materiel']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-user me-2"></i>Login
@@ -246,10 +246,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['login'] ? htmlspecialchars($materiel['login']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['login'] ? htmlspecialchars($materiel['login']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-lock me-2"></i>Password
@@ -267,8 +267,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-0">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-cube me-2"></i>Modèle
@@ -288,8 +288,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3 pt-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-microchip me-2"></i>Version firmware
@@ -297,10 +297,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['version_firmware'] ? htmlspecialchars($materiel['version_firmware']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['version_firmware'] ? htmlspecialchars($materiel['version_firmware']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-history me-2"></i>Ancien firmware
@@ -308,12 +308,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['ancien_firmware'] ? htmlspecialchars($materiel['ancien_firmware']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['ancien_firmware'] ? htmlspecialchars($materiel['ancien_firmware']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
+                                <div class="row border-bottom pb-3 mb-0">
                                     <div class="col-12">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
@@ -328,7 +328,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                         <i class="fab fa-github me-1"></i><?= h($materiel['url_github']) ?>
                                                     </a>
                                                 <?php else: ?>
-                                                    <span class="text-muted">Non définie</span>
+                                                    <span class="text-muted">-</span>
                                                 <?php endif; ?>
                                             </span>
                                         </div>
@@ -345,8 +345,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3 pt-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-server me-2"></i>IP Primaire
@@ -354,10 +354,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['ip_primaire'] ? htmlspecialchars($materiel['ip_primaire']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['ip_primaire'] ? htmlspecialchars($materiel['ip_primaire']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-ethernet me-2"></i>MAC Primaire
@@ -365,13 +365,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['mac_primaire'] ? htmlspecialchars($materiel['mac_primaire']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['mac_primaire'] ? htmlspecialchars($materiel['mac_primaire']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-server me-2"></i>IP Secondaire
@@ -379,10 +379,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['ip_secondaire'] ? htmlspecialchars($materiel['ip_secondaire']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['ip_secondaire'] ? htmlspecialchars($materiel['ip_secondaire']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-ethernet me-2"></i>MAC Secondaire
@@ -390,13 +390,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['mac_secondaire'] ? htmlspecialchars($materiel['mac_secondaire']) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['mac_secondaire'] ? htmlspecialchars($materiel['mac_secondaire']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-0">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-download me-2"></i>Stream AES67 Reçu
@@ -404,10 +404,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['stream_aes67_recu'] ? htmlspecialchars($materiel['stream_aes67_recu']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['stream_aes67_recu'] ? htmlspecialchars($materiel['stream_aes67_recu']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-upload me-2"></i>Stream AES67 Transmis
@@ -415,7 +415,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['stream_aes67_transmis'] ? htmlspecialchars($materiel['stream_aes67_transmis']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['stream_aes67_transmis'] ? htmlspecialchars($materiel['stream_aes67_transmis']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -430,8 +430,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3 pt-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-wifi me-2"></i>SSID
@@ -439,10 +439,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['ssid'] ? htmlspecialchars($materiel['ssid']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['ssid'] ? htmlspecialchars($materiel['ssid']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-shield-alt me-2"></i>Type de cryptage
@@ -450,13 +450,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['type_cryptage'] ? htmlspecialchars($materiel['type_cryptage']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['type_cryptage'] ? htmlspecialchars($materiel['type_cryptage']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-0">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-key me-2"></i>Password
@@ -484,8 +484,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </h6>
                             </div>
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3 pt-3">
+                                     <div class="col-md-6 border-end pe-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-volume-up me-2"></i>Libellé de PA salle
@@ -493,10 +493,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['libelle_pa_salle'] ? htmlspecialchars($materiel['libelle_pa_salle']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['libelle_pa_salle'] ? htmlspecialchars($materiel['libelle_pa_salle']) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-plug me-2"></i>N° Port switch
@@ -504,13 +504,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['numero_port_switch'] ? htmlspecialchars($materiel['numero_port_switch']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['numero_port_switch'] ? htmlspecialchars($materiel['numero_port_switch']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-sitemap me-2"></i>VLAN
@@ -518,14 +518,14 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['vlan'] ? htmlspecialchars($materiel['vlan']) : 'Non défini' ?></span>
+                                            <span class="fw-medium"><?= $materiel['vlan'] ? htmlspecialchars($materiel['vlan']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Dates importantes -->
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="bi bi-tools me-2"></i>Date fin maintenance
@@ -533,10 +533,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['date_fin_maintenance'] ? date('d/m/Y', strtotime($materiel['date_fin_maintenance'])) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['date_fin_maintenance'] ? date('d/m/Y', strtotime($materiel['date_fin_maintenance'])) : '-' ?></span>
                                         </div>
                                     </div>
-                                    <div class="col-md-6">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-certificate me-2"></i>Date fin garantie
@@ -544,13 +544,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['date_fin_garantie'] ? date('d/m/Y', strtotime($materiel['date_fin_garantie'])) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['date_fin_garantie'] ? date('d/m/Y', strtotime($materiel['date_fin_garantie'])) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
                                 
-                                <div class="row">
-                                    <div class="col-md-6">
+                                <div class="row border-bottom pb-3 mb-3">
+                                     <div class="col-md-6 ps-3">
                                         <div class="d-flex justify-content-between align-items-center mb-2">
                                             <span class="text-muted">
                                                 <i class="fas fa-calendar-check me-2"></i>Date dernière intervention
@@ -558,13 +558,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['date_derniere_inter'] ? date('d/m/Y', strtotime($materiel['date_derniere_inter'])) : 'Non définie' ?></span>
+                                            <span class="fw-medium"><?= $materiel['date_derniere_inter'] ? date('d/m/Y', strtotime($materiel['date_derniere_inter'])) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
 
                                 <!-- Commentaire -->
-                                <div class="row">
+                                <div class="row border-bottom pb-3 mb-0">
                                     <div class="col-12">
                                         <div class="d-flex justify-content-between align-items-start mb-2">
                                             <span class="text-muted">
@@ -573,7 +573,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium text-end" style="max-width: 60%;"><?= $materiel['commentaire'] ? htmlspecialchars($materiel['commentaire']) : 'Aucune remarque' ?></span>
+                                            <span class="fw-medium text-end" style="max-width: 60%;"><?= $materiel['commentaire'] ? htmlspecialchars($materiel['commentaire']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
