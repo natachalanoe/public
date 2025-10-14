@@ -695,6 +695,13 @@ try {
                         header('Location: ' . BASE_URL . 'interventions');
                     }
                     break;
+                case 'getCloseDetails':
+                    if ($id) {
+                        $interventionController->getCloseDetails($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'interventions');
+                    }
+                    break;
                 case 'close':
                     if ($id) {
                         $interventionController->close($id);

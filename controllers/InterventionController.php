@@ -2385,6 +2385,135 @@ class InterventionController {
     }
 
     /**
+     * Récupère les détails de calcul de tickets pour la fermeture d'intervention
+     */
+    public function getCloseDetails($id) {
+        custom_log("DEBUG - getCloseDetails() - Début de la méthode avec ID: $id", "DEBUG");
+        
+        // Vérifier les permissions
+        checkInterventionManagementAccess();
+        custom_log("DEBUG - getCloseDetails() - Permissions vérifiées", "DEBUG");
+
+        // Récupérer l'intervention
+        $intervention = $this->interventionModel->getById($id);
+        custom_log("DEBUG - getCloseDetails() - Intervention récupérée: " . ($intervention ? 'OUI' : 'NON'), "DEBUG");
+        
+        if (!$intervention) {
+            custom_log("DEBUG - getCloseDetails() - Intervention introuvable", "ERROR");
+            http_response_code(404);
+            echo json_encode(['error' => 'Intervention introuvable.']);
+            exit;
+        }
+
+        // Vérifier si l'intervention est déjà fermée
+        if ($intervention['status_id'] == 6) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Cette intervention est déjà fermée.']);
+            exit;
+        }
+
+        // Vérifier si l'intervention est affectée au technicien connecté
+        if ($intervention['technician_id'] != $_SESSION['user']['id'] && !isAdmin()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'Vous ne pouvez fermer que les interventions qui vous sont affectées.']);
+            exit;
+        }
+
+        // Vérifier tous les prérequis
+        if (empty($intervention['type_id'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Impossible de fermer l\'intervention sans avoir défini un type d\'intervention.']);
+            exit;
+        }
+
+        if (empty($intervention['duration'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Impossible de fermer l\'intervention sans avoir défini une durée.']);
+            exit;
+        }
+
+        if (empty($intervention['technician_id'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Impossible de fermer l\'intervention sans avoir assigné un technicien.']);
+            exit;
+        }
+
+        // Récupérer les informations nécessaires pour le calcul
+        $technician = $this->userModel->getUserById($intervention['technician_id']);
+        $type = $this->interventionModel->getTypeInfo($intervention['type_id']);
+        
+        // Récupérer le coefficient d'intervention depuis les paramètres
+        $stmt = $this->db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'coef_intervention'");
+        $stmt->execute();
+        $coefIntervention = floatval($stmt->fetchColumn()) ?? 0;
+
+        // Calculer les tickets selon la formule
+        $coefUtilisateur = $technician['coef_utilisateur'] ?? 0;
+        $requiresTravel = $type['requires_travel'] ?? false;
+        
+        if ($requiresTravel) {
+            // Avec déplacement : durée + coef_utilisateur + 1 + coef_intervention
+            $tickets = $intervention['duration'] + $coefUtilisateur + 1 + $coefIntervention;
+        } else {
+            // Sans déplacement : durée + coef_utilisateur + coef_intervention
+            $tickets = $intervention['duration'] + $coefUtilisateur + $coefIntervention;
+        }
+
+        // Arrondir à l'entier supérieur
+        $ticketsUsed = ceil($tickets);
+
+        // Récupérer les informations du contrat si applicable
+        $contractInfo = null;
+        if (!empty($intervention['contract_id'])) {
+            $stmt = $this->db->prepare("
+                SELECT c.*, ct.name as type_name, 
+                       (c.tickets_number - COALESCE(SUM(i.tickets_used), 0)) as tickets_remaining
+                FROM contracts c
+                LEFT JOIN contract_types ct ON c.contract_type_id = ct.id
+                LEFT JOIN interventions i ON c.id = i.contract_id AND i.status_id = 6
+                WHERE c.id = ?
+                GROUP BY c.id
+            ");
+            $stmt->execute([$intervention['contract_id']]);
+            $contractInfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+
+        // Préparer la réponse
+        $response = [
+            'success' => true,
+            'intervention' => [
+                'id' => $intervention['id'],
+                'reference' => $intervention['reference'],
+                'title' => $intervention['title'],
+                'duration' => $intervention['duration'],
+                'technician_name' => $technician['first_name'] . ' ' . $technician['last_name'],
+                'type_name' => $type['name'],
+                'requires_travel' => $requiresTravel
+            ],
+            'calculation' => [
+                'duration' => $intervention['duration'],
+                'coef_utilisateur' => $coefUtilisateur,
+                'coef_intervention' => $coefIntervention,
+                'requires_travel' => $requiresTravel,
+                'travel_bonus' => $requiresTravel ? 1 : 0,
+                'formula' => $requiresTravel ? 
+                    "{$intervention['duration']} + {$coefUtilisateur} + 1 + {$coefIntervention} = {$tickets}" :
+                    "{$intervention['duration']} + {$coefUtilisateur} + {$coefIntervention} = {$tickets}",
+                'tickets_calculated' => $tickets,
+                'tickets_used' => $ticketsUsed
+            ],
+            'contract' => $contractInfo
+        ];
+
+        custom_log("DEBUG - getCloseDetails() - Réponse préparée: " . json_encode($response), "DEBUG");
+        
+        header('Content-Type: application/json');
+        echo json_encode($response);
+        custom_log("DEBUG - getCloseDetails() - Réponse envoyée", "DEBUG");
+        exit;
+    }
+
+    /**
      * Ferme une intervention
      */
     public function close($id) {
@@ -2433,21 +2562,28 @@ class InterventionController {
             exit;
         }
 
-        // Calculer le nombre de tickets utilisés seulement si c'est un contrat à tickets
+        // Récupérer le nombre de tickets à utiliser (peut être personnalisé)
         $ticketsUsed = 0;
         if (!empty($intervention['contract_id']) && isContractTicketById($intervention['contract_id'])) {
-            error_log("DEBUG - close() - Calcul des tickets pour l'intervention $id (contrat à tickets)");
-            error_log("DEBUG - close() - Durée: " . $intervention['duration']);
-            error_log("DEBUG - close() - Technicien ID: " . $intervention['technician_id']);
-            error_log("DEBUG - close() - Type ID: " . $intervention['type_id']);
-            
-            $ticketsUsed = $this->calculateTicketsUsed(
-                $intervention['duration'],
-                $intervention['technician_id'],
-                $intervention['type_id']
-            );
-            
-            error_log("DEBUG - close() - Tickets calculés: " . $ticketsUsed);
+            // Vérifier si un nombre de tickets personnalisé a été fourni
+            if (isset($_POST['tickets_used']) && is_numeric($_POST['tickets_used'])) {
+                $ticketsUsed = (int)$_POST['tickets_used'];
+                error_log("DEBUG - close() - Tickets personnalisés: " . $ticketsUsed);
+            } else {
+                // Calculer automatiquement le nombre de tickets
+                error_log("DEBUG - close() - Calcul des tickets pour l'intervention $id (contrat à tickets)");
+                error_log("DEBUG - close() - Durée: " . $intervention['duration']);
+                error_log("DEBUG - close() - Technicien ID: " . $intervention['technician_id']);
+                error_log("DEBUG - close() - Type ID: " . $intervention['type_id']);
+                
+                $ticketsUsed = $this->calculateTicketsUsed(
+                    $intervention['duration'],
+                    $intervention['technician_id'],
+                    $intervention['type_id']
+                );
+                
+                error_log("DEBUG - close() - Tickets calculés: " . $ticketsUsed);
+            }
         } else {
             error_log("DEBUG - close() - Pas de calcul de tickets (contrat sans tickets ou pas de contrat)");
         }
