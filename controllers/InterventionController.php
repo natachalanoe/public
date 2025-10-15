@@ -475,16 +475,20 @@ class InterventionController {
             $data['contract_id'] = null;
         }
 
+        // Vérifier si c'est une sauvegarde avant fermeture
+        $isSaveBeforeClose = isset($_POST['save_before_close']) && $_POST['save_before_close'] == '1';
+        
         // Vérifier si l'intervention est en train d'être fermée
         custom_log("DEBUG - update() - Vérification de la fermeture", "DEBUG");
         custom_log("DEBUG - update() - data['status_id']: " . ($data['status_id'] ?? 'NON DÉFINI'), "DEBUG");
         custom_log("DEBUG - update() - intervention['status_id']: " . ($intervention['status_id'] ?? 'NON DÉFINI'), "DEBUG");
+        custom_log("DEBUG - update() - isSaveBeforeClose: " . ($isSaveBeforeClose ? 'VRAI' : 'FAUX'), "DEBUG");
         
         $isBeingClosed = isset($data['status_id']) && $data['status_id'] == 6 && $intervention['status_id'] != 6;
         custom_log("DEBUG - update() - isBeingClosed: " . ($isBeingClosed ? 'VRAI' : 'FAUX'), "DEBUG");
         
-        // Si l'intervention est en train d'être fermée, vérifier que la durée est définie
-        if ($isBeingClosed) {
+        // Si l'intervention est en train d'être fermée (et ce n'est pas une sauvegarde avant fermeture), vérifier que la durée est définie
+        if ($isBeingClosed && !$isSaveBeforeClose) {
             if (empty($data['duration'])) {
                 $_SESSION['error'] = "Impossible de fermer l'intervention sans avoir défini une durée.";
                 header('Location: ' . BASE_URL . 'interventions/edit/' . $id);
@@ -515,12 +519,14 @@ class InterventionController {
             
             custom_log("DEBUG - update() - Data après calcul: " . print_r($data, true), "DEBUG");
             
-            // Ajouter la date de fermeture
-            $data['closed_at'] = date('Y-m-d H:i:s');
+            // Ajouter la date de fermeture seulement si ce n'est pas une sauvegarde avant fermeture
+            if (!$isSaveBeforeClose) {
+                $data['closed_at'] = date('Y-m-d H:i:s');
 
-            // Déduire les tickets du contrat si un contrat est associé
-            if (!empty($data['contract_id'])) {
-                $this->deductTicketsFromContract($data['contract_id'], $ticketsUsed, $id);
+                // Déduire les tickets du contrat si un contrat est associé
+                if (!empty($data['contract_id'])) {
+                    $this->deductTicketsFromContract($data['contract_id'], $ticketsUsed, $id);
+                }
             }
         }
         
@@ -554,12 +560,26 @@ class InterventionController {
                 $this->recordChanges($id, $intervention, $data);
             }
             
+            // Si c'est une sauvegarde avant fermeture, retourner du JSON
+            if ($isSaveBeforeClose) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'message' => 'Données sauvegardées avec succès']);
+                exit;
+            }
+            
             $successMessage = "Intervention mise à jour avec succès.";
             if ($ticketManagementResult) {
                 $successMessage .= " La gestion des tickets a été effectuée automatiquement.";
             }
             $_SESSION['success'] = $successMessage;
         } else {
+            // Si c'est une sauvegarde avant fermeture, retourner du JSON même en cas d'erreur
+            if ($isSaveBeforeClose) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'Erreur lors de la sauvegarde des données']);
+                exit;
+            }
+            
             $_SESSION['error'] = "Erreur lors de la mise à jour de l'intervention.";
         }
 

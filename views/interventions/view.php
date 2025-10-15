@@ -104,9 +104,17 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 }
                 
                 if ($canClose): ?>
-                    <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#closeInterventionModal">
-                        <i class="bi bi-x-lg-circle me-1"></i> Fermer l'intervention
-                    </button>
+                    <?php if (isInterventionLinkedToTicketContract($intervention['id'])): ?>
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#closeInterventionModal">
+                            <i class="bi bi-x-lg-circle me-1"></i> Fermer l'intervention
+                        </button>
+                    <?php else: ?>
+                        <a href="<?php echo BASE_URL; ?>interventions/close/<?php echo $intervention['id']; ?>" 
+                           class="btn btn-danger" 
+                           onclick="return confirm('Êtes-vous sûr de vouloir fermer cette intervention ?')">
+                            <i class="bi bi-x-lg-circle me-1"></i> Fermer l'intervention
+                        </a>
+                    <?php endif; ?>
                 <?php else: ?>
                     <button type="button" class="btn btn-danger" disabled title="<?php echo implode(', ', $closeReason); ?>">
                         <i class="bi bi-x-lg-circle me-1"></i> Fermer l'intervention
@@ -1641,6 +1649,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <?php endif; ?>
 
 <!-- Modal de confirmation de fermeture d'intervention -->
+<?php if (isInterventionLinkedToTicketContract($intervention['id'])): ?>
 <div class="modal fade" id="closeInterventionModal" tabindex="-1" aria-labelledby="closeInterventionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
@@ -1670,7 +1679,9 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+<?php endif; ?>
 
+<?php if (isInterventionLinkedToTicketContract($intervention['id'])): ?>
 <script>
 // Test simple pour voir si le JavaScript s'exécute
 console.log('DEBUG: Script de fermeture d\'intervention chargé');
@@ -1930,8 +1941,61 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ticketsInput) {
             ticketsInput.value = safeCalculation.tickets_used;
             console.log('DEBUG: Valeur définie dans l\'input:', safeCalculation.tickets_used);
+            
+            // Ajouter un gestionnaire d'événement pour mettre à jour l'impact en temps réel
+            ticketsInput.addEventListener('input', function() {
+                updateContractImpact();
+            });
         } else {
             console.error('DEBUG: Élément customTicketsUsed non trouvé');
+        }
+        
+        // Fonction pour mettre à jour l'impact sur le contrat
+        function updateContractImpact() {
+            const ticketsInput = document.getElementById('customTicketsUsed');
+            
+            if (ticketsInput && contract) {
+                const newTickets = parseInt(ticketsInput.value) || 0;
+                const currentRemaining = contract.tickets_remaining || 0;
+                const ticketsAfter = currentRemaining - newTickets;
+                
+                // Trouver l'élément "Tickets après fermeture" plus spécifiquement
+                const contractSection = document.querySelector('#closeInterventionContent .card:last-child');
+                if (contractSection) {
+                    const ticketsAfterElement = contractSection.querySelector('strong:contains("Tickets après fermeture:") + span, strong:contains("Tickets après fermeture:") + .badge');
+                    
+                    // Alternative: chercher par le texte du label précédent
+                    const allStrongs = contractSection.querySelectorAll('strong');
+                    let ticketsAfterElement = null;
+                    for (let strong of allStrongs) {
+                        if (strong.textContent.includes('Tickets après fermeture:')) {
+                            ticketsAfterElement = strong.nextElementSibling;
+                            break;
+                        }
+                    }
+                    
+                    if (ticketsAfterElement) {
+                        // Mettre à jour le nombre de tickets après fermeture
+                        ticketsAfterElement.textContent = ticketsAfter;
+                        
+                        // Changer la couleur selon l'impact
+                        ticketsAfterElement.className = 'badge';
+                        if (ticketsAfter < 0) {
+                            ticketsAfterElement.classList.add('bg-danger');
+                        } else if (ticketsAfter < 5) {
+                            ticketsAfterElement.classList.add('bg-warning');
+                        } else {
+                            ticketsAfterElement.classList.add('bg-success');
+                        }
+                    }
+                }
+                
+                // Mettre à jour la variation
+                const variationElement = document.querySelector('.text-danger');
+                if (variationElement) {
+                    variationElement.textContent = '-' + newTickets;
+                }
+            }
         }
     }
     
@@ -1965,6 +2029,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+<?php endif; ?>
 
 <script>
 // Fonction simple pour supprimer une intervention

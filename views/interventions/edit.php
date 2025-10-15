@@ -1395,6 +1395,25 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 contactClientInput.focus();
                 return false;
             }
+            
+            // Vérifier si on passe le statut à "Fermé" (statut 6)
+            const statusSelect = document.getElementById('status_id');
+            const currentStatus = <?php echo $intervention['status_id']; ?>;
+            const newStatus = parseInt(statusSelect.value);
+            
+            if (newStatus === 6 && currentStatus !== 6) {
+                // Vérifier si l'intervention est liée à un contrat à tickets
+                const isTicketContract = <?php echo isInterventionLinkedToTicketContract($intervention['id']) ? 'true' : 'false'; ?>;
+                
+                if (isTicketContract) {
+                    // Empêcher la soumission normale
+                    e.preventDefault();
+                    
+                    // Sauvegarder d'abord les modifications (sans le statut)
+                    saveInterventionDataBeforeClose();
+                }
+                // Si ce n'est pas un contrat à tickets, laisser la soumission normale se faire
+            }
         });
 
         // Initialiser la validation de fichiers pour le modal d'ajout de pièce jointe
@@ -2049,7 +2068,479 @@ document.getElementById('editAttachmentNameForm').addEventListener('submit', fun
     opacity: 0.7;
     font-style: italic;
 }
+
+/* Styles pour la modale de fermeture d'intervention */
+#closeInterventionModal .modal-dialog {
+    max-width: 800px;
+}
+
+#closeInterventionModal .card {
+    border: 1px solid var(--bs-border-color);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+#closeInterventionModal .card-header {
+    background-color: var(--bs-light);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+[data-bs-theme="dark"] #closeInterventionModal .card-header {
+    background-color: var(--bs-secondary-bg);
+}
+
+#closeInterventionModal .form-control:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+#closeInterventionModal .input-group-text {
+    background-color: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
+    color: var(--bs-body-color);
+}
+
+#closeInterventionModal code {
+    background-color: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    padding: 0.2rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.9em;
+}
+
+#closeInterventionModal .spinner-border {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 </style>
+
+<!-- Modal de confirmation de fermeture d'intervention -->
+<?php if (isInterventionLinkedToTicketContract($intervention['id'])): ?>
+<div class="modal fade" id="closeInterventionModal" tabindex="-1" aria-labelledby="closeInterventionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="closeInterventionModalLabel">
+                    <i class="bi bi-x-lg-circle me-2"></i>Confirmation de fermeture d'intervention
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div id="closeInterventionContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p class="mt-2">Chargement des détails de fermeture...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelCloseBtn" disabled>
+                    <i class="bi bi-x-lg me-1"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-danger" id="confirmCloseBtn" disabled>
+                    <i class="bi bi-check-lg me-1"></i>Fermer l'intervention
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (isInterventionLinkedToTicketContract($intervention['id'])): ?>
+<script>
+// Test simple pour voir si le JavaScript s'exécute
+console.log('DEBUG: Script de fermeture d\'intervention chargé');
+
+// Fonction pour afficher la modale de confirmation de fermeture
+function showCloseConfirmationModal() {
+    const modal = new bootstrap.Modal(document.getElementById('closeInterventionModal'));
+    modal.show();
+}
+
+// Fonction pour sauvegarder les données avant d'ouvrir la modale de fermeture
+function saveInterventionDataBeforeClose() {
+    console.log('DEBUG: Sauvegarde des données avant fermeture');
+    
+    // Récupérer toutes les données du formulaire sauf le statut
+    const form = document.getElementById('interventionForm');
+    const formData = new FormData(form);
+    
+    // Retirer le statut des données à sauvegarder
+    formData.delete('status_id');
+    
+    // Ajouter un flag pour indiquer que c'est une sauvegarde avant fermeture
+    formData.append('save_before_close', '1');
+    
+    // Afficher un indicateur de chargement
+    const submitButton = document.querySelector('button[form="interventionForm"]');
+    const originalText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="bi bi-arrow-clockwise spin me-1"></i>Sauvegarde...';
+    
+    // Envoyer les données
+    fetch('<?php echo BASE_URL; ?>interventions/update/<?php echo $intervention['id']; ?>', {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('DEBUG: Données sauvegardées avec succès');
+            // Maintenant ouvrir la modale de confirmation
+            showCloseConfirmationModal();
+        } else {
+            console.error('DEBUG: Erreur lors de la sauvegarde:', data.error);
+            alert('Erreur lors de la sauvegarde des modifications : ' + (data.error || 'Erreur inconnue'));
+        }
+    })
+    .catch(error => {
+        console.error('DEBUG: Erreur lors de la sauvegarde:', error);
+        alert('Erreur lors de la sauvegarde des modifications');
+    })
+    .finally(() => {
+        // Réactiver le bouton
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalText;
+    });
+}
+
+// Gestion de la modale de fermeture d'intervention
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DEBUG: DOMContentLoaded - Initialisation de la modale de fermeture');
+    
+    const closeModal = document.getElementById('closeInterventionModal');
+    const contentDiv = document.getElementById('closeInterventionContent');
+    const confirmBtn = document.getElementById('confirmCloseBtn');
+    const cancelBtn = document.getElementById('cancelCloseBtn');
+    
+    console.log('DEBUG: Éléments trouvés:', {
+        closeModal: !!closeModal,
+        contentDiv: !!contentDiv,
+        confirmBtn: !!confirmBtn,
+        cancelBtn: !!cancelBtn
+    });
+    
+    if (!closeModal || !contentDiv || !confirmBtn || !cancelBtn) {
+        console.error('DEBUG: Un ou plusieurs éléments de la modale sont manquants');
+        return;
+    }
+    
+    // Activer le bouton d'annulation
+    cancelBtn.style.display = 'inline-block';
+    cancelBtn.disabled = false;
+    cancelBtn.innerHTML = '<i class="bi bi-x-lg me-1"></i>Annuler la fermeture';
+    
+    // Quand la modale s'ouvre, charger les détails
+    closeModal.addEventListener('shown.bs.modal', function() {
+        console.log('DEBUG: Événement shown.bs.modal déclenché');
+        loadCloseDetails();
+    });
+    
+    // Gérer le bouton d'annulation
+    cancelBtn.addEventListener('click', function() {
+        console.log('DEBUG: Annulation de la fermeture');
+        // Fermer la modale sans fermer l'intervention
+        const modal = bootstrap.Modal.getInstance(closeModal);
+        if (modal) {
+            modal.hide();
+        }
+    });
+    
+    // Fonction pour charger les détails de fermeture
+    function loadCloseDetails() {
+        console.log('DEBUG: loadCloseDetails() appelée');
+        const interventionId = <?php echo isset($intervention['id']) ? $intervention['id'] : 'null'; ?>;
+        console.log('DEBUG: interventionId:', interventionId);
+        
+        if (!interventionId) {
+            console.error('DEBUG: interventionId est null ou undefined');
+            contentDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Erreur: ID d'intervention manquant.
+                </div>
+            `;
+            return;
+        }
+        
+        // Afficher le spinner
+        contentDiv.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <p class="mt-2">Chargement des détails de fermeture...</p>
+            </div>
+        `;
+        
+        // Faire la requête AJAX
+        const url = '<?php echo BASE_URL; ?>interventions/getCloseDetails/' + interventionId;
+        console.log('DEBUG: URL appelée:', url);
+        fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => {
+                console.log('DEBUG: Réponse reçue:', response.status, response.statusText);
+                return response.json();
+            })
+            .then(data => {
+                console.log('DEBUG: Données reçues:', data);
+                if (data.error) {
+                    contentDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            ${data.error}
+                        </div>
+                    `;
+                    confirmBtn.disabled = true;
+                } else {
+                    displayCloseDetails(data);
+                    confirmBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des détails:', error);
+                console.error('Type d\'erreur:', typeof error);
+                console.error('Message d\'erreur:', error.message);
+                console.error('Stack trace:', error.stack);
+                contentDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Erreur lors du chargement des détails de fermeture: ${error.message}
+                    </div>
+                `;
+                confirmBtn.disabled = true;
+            });
+    }
+    
+    // Fonction pour afficher les détails de fermeture
+    function displayCloseDetails(data) {
+        console.log('DEBUG: displayCloseDetails - Données reçues:', data);
+        
+        const intervention = data.intervention;
+        const calculation = data.calculation;
+        const contract = data.contract;
+        
+        // Validation des données
+        if (!intervention || !calculation) {
+            console.error('DEBUG: Données manquantes:', {intervention, calculation});
+            contentDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Erreur: Données incomplètes reçues du serveur.
+                </div>
+            `;
+            return;
+        }
+        
+        // S'assurer que tickets_used est un nombre valide
+        const ticketsUsed = parseInt(calculation.tickets_used) || 0;
+        console.log('DEBUG: tickets_used validé:', ticketsUsed);
+        console.log('DEBUG: calculation.tickets_used original:', calculation.tickets_used);
+        console.log('DEBUG: typeof calculation.tickets_used:', typeof calculation.tickets_used);
+        
+        // S'assurer que tous les champs nécessaires sont définis
+        const safeCalculation = {
+            duration: calculation.duration || 0,
+            coef_utilisateur: calculation.coef_utilisateur || 0,
+            coef_intervention: calculation.coef_intervention || 0,
+            requires_travel: calculation.requires_travel || false,
+            travel_bonus: calculation.travel_bonus || 0,
+            formula: calculation.formula || 'Calcul non disponible',
+            tickets_calculated: calculation.tickets_calculated || 0,
+            tickets_used: ticketsUsed
+        };
+        
+        let contractSection = '';
+        if (contract) {
+            const isTicketContract = contract.isticketcontract == 1;
+            const ticketsAfter = contract.tickets_remaining - ticketsUsed;
+            const ticketsColor = ticketsAfter > 3 ? 'success' : ticketsAfter > 0 ? 'warning' : 'danger';
+            
+            contractSection = `
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-text me-2"></i>Impact sur le contrat
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <strong>Contrat:</strong> ${contract.name || 'Non défini'}<br>
+                                <strong>Type:</strong> ${contract.type_name || 'Non défini'}<br>
+                                <strong>Nature:</strong> ${isTicketContract ? 
+                                    '<span class="badge bg-info"><i class="bi bi-ticket-perforated me-1"></i>Contrat à tickets</span>' : 
+                                    '<span class="badge bg-secondary"><i class="bi bi-file-text me-1"></i>Contrat sans tickets</span>'
+                                }
+                            </div>
+                            <div class="col-md-6">
+                                ${isTicketContract ? `
+                                    <strong>Tickets actuels:</strong> <span class="badge bg-primary">${contract.tickets_remaining || 0}</span><br>
+                                    <strong>Tickets après fermeture:</strong> <span class="badge bg-${ticketsColor}">${ticketsAfter}</span><br>
+                                    <strong>Variation:</strong> <span class="text-danger">-${ticketsUsed}</span>
+                                ` : '<em class="text-muted">Aucun impact sur les tickets</em>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Construire le HTML étape par étape
+        let html = `
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Attention !</strong> Vous êtes sur le point de fermer définitivement cette intervention.
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-calculator me-2"></i>Calcul des tickets utilisés
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Formule de calcul:</strong><br>
+                            <code>${safeCalculation.formula}</code><br><br>
+                            <strong>Détail:</strong><br>
+                            • Durée: ${safeCalculation.duration}h<br>
+                            • Coefficient technicien: ${safeCalculation.coef_utilisateur}<br>
+                            • Coefficient intervention: ${safeCalculation.coef_intervention}<br>
+                            ${safeCalculation.requires_travel ? '• Bonus déplacement: +1' : ''}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="customTicketsUsed" class="form-label">
+                                    <strong>Tickets à utiliser:</strong>
+                                </label>
+                                <div class="input-group">
+                                    <input type="number" 
+                                           class="form-control" 
+                                           id="customTicketsUsed" 
+                                           min="0" 
+                                           max="999"
+                                           step="1">
+                                    <span class="input-group-text">tickets</span>
+                                </div>
+                                <div class="form-text">
+                                    Valeur calculée automatiquement. Vous pouvez la modifier si nécessaire.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            ${contractSection}
+        `;
+        
+        contentDiv.innerHTML = html;
+        
+        // Définir la valeur de l'input après avoir créé le HTML
+        const ticketsInput = document.getElementById('customTicketsUsed');
+        if (ticketsInput) {
+            ticketsInput.value = safeCalculation.tickets_used;
+            console.log('DEBUG: Valeur définie dans l\'input:', safeCalculation.tickets_used);
+            
+            // Ajouter un gestionnaire d'événement pour mettre à jour l'impact en temps réel
+            ticketsInput.addEventListener('input', function() {
+                updateContractImpact();
+            });
+        } else {
+            console.error('DEBUG: Élément customTicketsUsed non trouvé');
+        }
+        
+        // Fonction pour mettre à jour l'impact sur le contrat
+        function updateContractImpact() {
+            const ticketsInput = document.getElementById('customTicketsUsed');
+            
+            if (ticketsInput && contract) {
+                const newTickets = parseInt(ticketsInput.value) || 0;
+                const currentRemaining = contract.tickets_remaining || 0;
+                const ticketsAfter = currentRemaining - newTickets;
+                
+                // Trouver l'élément "Tickets après fermeture" plus spécifiquement
+                const contractSection = document.querySelector('#closeInterventionContent .card:last-child');
+                if (contractSection) {
+                    // Alternative: chercher par le texte du label précédent
+                    const allStrongs = contractSection.querySelectorAll('strong');
+                    let ticketsAfterElement = null;
+                    for (let strong of allStrongs) {
+                        if (strong.textContent.includes('Tickets après fermeture:')) {
+                            ticketsAfterElement = strong.nextElementSibling;
+                            break;
+                        }
+                    }
+                    
+                    if (ticketsAfterElement) {
+                        // Mettre à jour le nombre de tickets après fermeture
+                        ticketsAfterElement.textContent = ticketsAfter;
+                        
+                        // Changer la couleur selon l'impact
+                        ticketsAfterElement.className = 'badge';
+                        if (ticketsAfter < 0) {
+                            ticketsAfterElement.classList.add('bg-danger');
+                        } else if (ticketsAfter < 5) {
+                            ticketsAfterElement.classList.add('bg-warning');
+                        } else {
+                            ticketsAfterElement.classList.add('bg-success');
+                        }
+                    }
+                }
+                
+                // Mettre à jour la variation
+                const variationElement = document.querySelector('.text-danger');
+                if (variationElement) {
+                    variationElement.textContent = '-' + newTickets;
+                }
+            }
+        }
+    }
+    
+    // Gérer la confirmation de fermeture
+    confirmBtn.addEventListener('click', function() {
+        const interventionId = <?php echo $intervention['id']; ?>;
+        const ticketsUsed = document.getElementById('customTicketsUsed').value;
+        
+        if (!ticketsUsed || ticketsUsed < 0) {
+            alert('Veuillez saisir un nombre de tickets valide.');
+            return;
+        }
+        
+        // Désactiver le bouton pendant le traitement
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin me-1"></i>Fermeture en cours...';
+        
+        // Créer un formulaire pour envoyer les données
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '<?php echo BASE_URL; ?>interventions/close/' + interventionId;
+        
+        const ticketsInput = document.createElement('input');
+        ticketsInput.type = 'hidden';
+        ticketsInput.name = 'tickets_used';
+        ticketsInput.value = ticketsUsed;
+        
+        form.appendChild(ticketsInput);
+        document.body.appendChild(form);
+        form.submit();
+    });
+});
+</script>
+<?php endif; ?>
 
 <?php
 // Inclure le footer
