@@ -24,12 +24,54 @@ class DocumentationController {
     }
 
     /**
+     * Génère un nom de fichier unique en conservant le nom original
+     * En cas de doublon, ajoute un incrément à la fin du nom
+     */
+    private function generateUniqueFileName($uploadDir, $originalFileName) {
+        // Nettoyer le nom de fichier (supprimer les caractères spéciaux dangereux)
+        $cleanFileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalFileName);
+        
+        // Séparer le nom et l'extension
+        $pathInfo = pathinfo($cleanFileName);
+        $name = $pathInfo['filename'];
+        $extension = isset($pathInfo['extension']) ? '.' . $pathInfo['extension'] : '';
+        
+        $fileName = $name . $extension;
+        $filePath = $uploadDir . $fileName;
+        
+        // Si le fichier n'existe pas, on peut l'utiliser
+        if (!file_exists($filePath)) {
+            return $fileName;
+        }
+        
+        // Sinon, chercher un nom disponible avec un incrément
+        $counter = 1;
+        do {
+            $fileName = $name . '_' . $counter . $extension;
+            $filePath = $uploadDir . $fileName;
+            $counter++;
+        } while (file_exists($filePath));
+        
+        return $fileName;
+    }
+
+    /**
      * Vérifie si l'utilisateur est connecté
      */
     private function checkAccess() {
         if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
+            // Vérifier si c'est une requête AJAX
+            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+                // Réponse JSON pour les requêtes AJAX
+                header('Content-Type: application/json');
+                echo json_encode(['error' => 'Session expirée. Veuillez vous reconnecter.']);
+                exit;
+            } else {
+                // Redirection normale pour les requêtes classiques
+                header('Location: ' . BASE_URL . 'auth/login');
+                exit;
+            }
         }
     }
 
@@ -42,47 +84,78 @@ class DocumentationController {
         // Récupération des filtres
         $client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : null;
         $site_id = isset($_GET['site_id']) ? (int)$_GET['site_id'] : null;
-        $room_id = isset($_GET['room_id']) ? (int)$_GET['room_id'] : null;
+        $salle_id = isset($_GET['salle_id']) ? (int)$_GET['salle_id'] : null;
+        
+        // Sauvegarder les filtres dans la session pour la redirection après suppression
+        $_SESSION['documentation_filters'] = [
+            'client_id' => $client_id,
+            'site_id' => $site_id,
+            'salle_id' => $salle_id
+        ];
 
         // Récupération des données pour les filtres
         $clients = $this->clientModel->getAllClients();
         $sites = $client_id ? $this->siteModel->getSitesByClientId($client_id) : [];
-        $rooms = $site_id ? $this->roomModel->getRoomsBySite($site_id) : [];
+        $salles = $site_id ? $this->roomModel->getRoomsBySiteId($site_id) : [];
 
-        // Requête pour compter les documents par niveau
-        $query = "
-            SELECT 
-                c.id as client_id,
-                c.name as client_name,
-                c.status as client_status,
-                NULL as site_id,
-                NULL as site_name,
-                NULL as room_id,
-                NULL as room_name,
-                COUNT(d.id) as doc_count
-            FROM documentation d
-            JOIN clients c ON d.client_id = c.id
-        ";
+        // Initialiser la liste de documentation vide
+        $documentation_list = [];
 
-        $params = [];
+        // Ne charger les documents que si un client est sélectionné
         if ($client_id) {
-            $query .= " WHERE c.id = ?";
+            // Requête pour récupérer les pièces jointes de documentation
+            $query = "
+                SELECT 
+                    pj.*,
+                    COALESCE(pj.content, pj.commentaire) as description,
+                    c.name as client_nom,
+                    s.name as site_nom,
+                    r.name as salle_nom,
+                    c.id as client_id,
+                    s.id as site_id,
+                    r.id as salle_id,
+                    u.username as uploader_name
+                FROM pieces_jointes pj
+                INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                LEFT JOIN clients c ON (lpj.type_liaison = 'documentation_client' AND lpj.entite_id = c.id)
+                LEFT JOIN sites s ON (lpj.type_liaison = 'documentation_site' AND lpj.entite_id = s.id)
+                LEFT JOIN rooms r ON (lpj.type_liaison = 'documentation_room' AND lpj.entite_id = r.id)
+                LEFT JOIN users u ON pj.created_by = u.id
+                WHERE lpj.type_liaison IN ('documentation_client', 'documentation_site', 'documentation_room')
+            ";
+
+            $params = [];
+
+            // Filtres
+            $query .= " AND (c.id = ? OR s.client_id = ? OR r.site_id IN (SELECT id FROM sites WHERE client_id = ?))";
             $params[] = $client_id;
-        }
+            $params[] = $client_id;
+            $params[] = $client_id;
 
-        $query .= " GROUP BY c.id, c.name, c.status ORDER BY c.name";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->execute($params);
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        // Organisation des résultats
-        $client_docs = [];
-        foreach ($results as $row) {
-            if ($row['doc_count'] > 0) {
-                $client_docs[] = $row;
+            if ($site_id) {
+                $query .= " AND (s.id = ? OR r.site_id = ?)";
+                $params[] = $site_id;
+                $params[] = $site_id;
             }
+
+            if ($salle_id) {
+                $query .= " AND r.id = ?";
+                $params[] = $salle_id;
+            }
+
+            $query .= " ORDER BY c.name, s.name, r.name, pj.date_creation DESC";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute($params);
+            $documentation_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
+
+        // Préparer les données pour la vue
+        $filters = [
+            'client_id' => $client_id,
+            'site_id' => $site_id,
+            'salle_id' => $salle_id
+        ];
 
         // Passage des données à la vue
         require_once __DIR__ . '/../views/documentation/index.php';
@@ -104,67 +177,6 @@ class DocumentationController {
     public function add() {
         $this->checkAccess();
         
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $data = [
-                'title' => $_POST['title'] ?? '',
-                'description' => $_POST['description'] ?? '',
-                'content' => $_POST['content'] ?? null,
-                'attachment_path' => '',
-                'client_id' => $_POST['client_id'] ?? null,
-                'site_id' => $_POST['site_id'] ?? null,
-                'room_id' => $_POST['room_id'] ?? null,
-                'category_id' => $_POST['category_id'] ?? null
-            ];
-
-            // Gestion de l'upload du fichier
-            if (isset($_FILES['document']) && $_FILES['document']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = __DIR__ . '/../../uploads/documents/';
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
-
-                // Créer le répertoire du client s'il n'existe pas
-                $clientDir = $uploadDir . $data['client_id'] . '/';
-                if (!file_exists($clientDir)) {
-                    mkdir($clientDir, 0777, true);
-                }
-
-                // Préparer le nom du fichier
-                $originalName = $_FILES['document']['name'];
-                $safeName = str_replace(' ', '_', $originalName);
-                $extension = pathinfo($safeName, PATHINFO_EXTENSION);
-                $baseName = pathinfo($safeName, PATHINFO_FILENAME);
-                
-                // Vérifier si le fichier existe déjà et ajouter un numéro incrémental si nécessaire
-                $counter = 1;
-                $finalName = $safeName;
-                while (file_exists($clientDir . $finalName)) {
-                    $finalName = $baseName . '_' . $counter . '.' . $extension;
-                    $counter++;
-                }
-
-                $targetPath = $clientDir . $finalName;
-
-                if (move_uploaded_file($_FILES['document']['tmp_name'], $targetPath)) {
-                    $data['attachment_path'] = 'uploads/documents/' . $data['client_id'] . '/' . $finalName;
-                } else {
-                    $_SESSION['error'] = "Erreur lors de l'upload du fichier.";
-                    header('Location: ' . BASE_URL . 'documentation/add');
-                    exit;
-                }
-            }
-
-            if ($this->documentationModel->addDocument($data)) {
-                $_SESSION['success'] = "Document ajouté avec succès.";
-                header('Location: ' . BASE_URL . 'documentation/view/' . $data['client_id']);
-                exit;
-            } else {
-                $_SESSION['error'] = "Erreur lors de l'ajout du document.";
-                header('Location: ' . BASE_URL . 'documentation/add');
-                exit;
-            }
-        }
-        
         $clients = $this->clientModel->getAllClients();
         $sites = [];
         $rooms = [];
@@ -182,35 +194,241 @@ class DocumentationController {
     }
 
     /**
-     * Traite l'ajout d'un nouveau document
+     * Traite l'ajout d'un nouveau document (méthode store pour upload multiple)
+     */
+    public function store() {
+        $this->checkAccess();
+        
+        // Log pour debug
+        error_log("[DEBUG] DocumentationController::store - Début de la méthode");
+        error_log("[DEBUG] DocumentationController::store - REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
+        error_log("[DEBUG] DocumentationController::store - _POST: " . json_encode($_POST));
+        error_log("[DEBUG] DocumentationController::store - _FILES: " . json_encode($_FILES));
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            error_log("[ERROR] DocumentationController::store - Méthode non autorisée");
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Méthode non autorisée']);
+            exit;
+        }
+        
+        $clientId = isset($_POST['client_id']) ? (int)$_POST['client_id'] : null;
+        $siteId = isset($_POST['site_id']) && !empty($_POST['site_id']) ? (int)$_POST['site_id'] : null;
+        $roomId = isset($_POST['room_id']) && !empty($_POST['room_id']) ? (int)$_POST['room_id'] : null;
+        
+        if (!$clientId) {
+            error_log("[ERROR] DocumentationController::store - Client ID manquant");
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Client ID requis']);
+            exit;
+        }
+        
+        if (!isset($_FILES['files']) || empty($_FILES['files']['name'][0])) {
+            error_log("[ERROR] DocumentationController::store - Aucun fichier sélectionné");
+            header('Content-Type: application/json');
+            echo json_encode(['error' => 'Aucun fichier sélectionné']);
+            exit;
+        }
+        
+        error_log("[DEBUG] DocumentationController::store - clientId: $clientId, siteId: $siteId, roomId: $roomId");
+        
+        $uploadedFiles = [];
+        $errors = [];
+        
+        try {
+            // Créer le répertoire de destination
+            $uploadDir = __DIR__ . '/../../uploads/documentation/' . $clientId . '/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+            
+            error_log("[DEBUG] DocumentationController::store - Répertoire d'upload: $uploadDir");
+        
+        // Traiter chaque fichier
+        foreach ($_FILES['files']['tmp_name'] as $index => $tmpName) {
+            if ($_FILES['files']['error'][$index] !== UPLOAD_ERR_OK) {
+                $errors[] = "Erreur lors de l'upload du fichier " . ($index + 1);
+                continue;
+            }
+            
+            $originalFileName = $_FILES['files']['name'][$index];
+            $customName = isset($_POST['custom_names'][$index]) ? $_POST['custom_names'][$index] : $originalFileName;
+            $visibleByClient = isset($_POST['visible_by_client'][$index]) ? 0 : 1; // 0 = visible, 1 = masqué
+            $fileSize = $_FILES['files']['size'][$index];
+            $fileTmpPath = $tmpName;
+            
+            error_log("[DEBUG] DocumentationController::store - Traitement fichier $index: $originalFileName");
+            
+            // Vérifier la taille du fichier (50MB max)
+            $maxFileSize = 50 * 1024 * 1024;
+            if ($fileSize > $maxFileSize) {
+                $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 50MB)";
+                continue;
+            }
+            
+            // Vérifier l'extension
+            $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
+            $allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'zip', 'rar'];
+            
+            if (!in_array($fileExtension, $allowedExtensions)) {
+                $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
+                continue;
+            }
+            
+            // Générer un nom de fichier unique en conservant le nom original
+            $fileName = $this->generateUniqueFileName($uploadDir, $originalFileName);
+            $filePath = $uploadDir . $fileName;
+            
+            if (move_uploaded_file($fileTmpPath, $filePath)) {
+                try {
+                    $this->db->beginTransaction();
+                    
+                    // Insérer la pièce jointe
+                    $query = "INSERT INTO pieces_jointes (
+                                nom_fichier, nom_personnalise, chemin_fichier, type_fichier, taille_fichier, 
+                                commentaire, masque_client, created_by, date_creation
+                              ) VALUES (
+                                :nom_fichier, :nom_personnalise, :chemin_fichier, :type_fichier, :taille_fichier,
+                                :commentaire, :masque_client, :created_by, NOW()
+                              )";
+                    
+                    $stmt = $this->db->prepare($query);
+                    $result = $stmt->execute([
+                        ':nom_fichier' => $originalFileName,
+                        ':nom_personnalise' => $customName,
+                        ':chemin_fichier' => 'uploads/documentation/' . $clientId . '/' . $fileName,
+                        ':type_fichier' => $fileExtension,
+                        ':taille_fichier' => $fileSize,
+                        ':commentaire' => null,
+                        ':masque_client' => $visibleByClient,
+                        ':created_by' => $_SESSION['user']['id']
+                    ]);
+                    
+                    if ($result) {
+                        $pieceJointeId = $this->db->lastInsertId();
+                        
+                        // Créer la liaison selon le niveau
+                        if ($roomId) {
+                            // Liaison avec une salle
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation_room', :room_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $pieceJointeId,
+                                ':room_id' => $roomId
+                            ]);
+                        } elseif ($siteId) {
+                            // Liaison avec un site
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation_site', :site_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $pieceJointeId,
+                                ':site_id' => $siteId
+                            ]);
+                        } else {
+                            // Liaison avec le client
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation_client', :client_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $pieceJointeId,
+                                ':client_id' => $clientId
+                            ]);
+                        }
+                        
+                        $this->db->commit();
+                        $uploadedFiles[] = $customName;
+                    } else {
+                        $this->db->rollBack();
+                        $errors[] = "Erreur lors de l'enregistrement du fichier '$originalFileName'";
+                        // Supprimer le fichier uploadé
+                        if (file_exists($filePath)) {
+                            unlink($filePath);
+                        }
+                    }
+                } catch (Exception $e) {
+                    $this->db->rollBack();
+                    $errors[] = "Erreur lors de l'enregistrement du fichier '$originalFileName': " . $e->getMessage();
+                    // Supprimer le fichier uploadé
+                    if (file_exists($filePath)) {
+                        unlink($filePath);
+                    }
+                }
+            } else {
+                $errors[] = "Erreur lors de l'upload du fichier '$originalFileName'";
+            }
+        }
+        
+            // Retourner la réponse
+            header('Content-Type: application/json');
+            if (count($uploadedFiles) > 0) {
+                $message = count($uploadedFiles) . ' fichier(s) uploadé(s) avec succès';
+                if (count($errors) > 0) {
+                    $message .= '. ' . count($errors) . ' erreur(s): ' . implode(', ', $errors);
+                }
+                echo json_encode([
+                    'success' => true,
+                    'message' => $message,
+                    'uploaded_files' => $uploadedFiles,
+                    'errors' => $errors
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => false,
+                    'error' => 'Aucun fichier n\'a pu être uploadé. Erreurs: ' . implode(', ', $errors)
+                ]);
+            }
+            exit;
+            
+        } catch (Exception $e) {
+            error_log("[ERROR] DocumentationController::store - Erreur générale: " . $e->getMessage());
+            error_log("[ERROR] DocumentationController::store - Stack trace: " . $e->getTraceAsString());
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => false,
+                'error' => 'Erreur de connexion: ' . $e->getMessage()
+            ]);
+            exit;
+        }
+    }
+
+    /**
+     * Traite l'ajout d'un nouveau document (ancienne méthode create)
      */
     public function create() {
         $this->checkAccess();
         
+        error_log("[DEBUG] Documentation Create: Method called, REQUEST_METHOD = " . $_SERVER['REQUEST_METHOD']);
+        error_log("[DEBUG] Documentation Create: _FILES = " . json_encode($_FILES));
+        
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = [
-                'title' => $_POST['title'] ?? '',
+                'nom_fichier' => $_POST['title'] ?? '',
                 'description' => $_POST['description'] ?? '',
                 'content' => $_POST['content'] ?? null,
-                'attachment_path' => null,
+                'chemin_fichier' => null,
+                'type_fichier' => null,
+                'taille_fichier' => 0,
                 'client_id' => isset($_POST['client_id']) ? (int)$_POST['client_id'] : null,
                 'site_id' => isset($_POST['site_id']) && !empty($_POST['site_id']) ? (int)$_POST['site_id'] : null,
                 'room_id' => isset($_POST['room_id']) && !empty($_POST['room_id']) ? (int)$_POST['room_id'] : null,
                 'category_id' => isset($_POST['category_id']) ? (int)$_POST['category_id'] : null,
-                'visible_by_client' => isset($_POST['visible_by_client']) ? 1 : 0,
-                'user_id' => $_SESSION['user']['id']
+                'masque_client' => isset($_POST['visible_by_client']) ? 0 : 1, // Inversé : 0 = visible, 1 = masqué
+                'created_by' => $_SESSION['user']['id']
             ];
 
-            if (empty($data['title']) || empty($data['client_id']) || empty($data['category_id'])) {
+            if (empty($data['nom_fichier']) || empty($data['client_id']) || empty($data['category_id'])) {
                 $_SESSION['error'] = "Les champs Titre, Client et Catégorie sont obligatoires.";
                 $redirectParams = http_build_query([
                     'client_id' => $data['client_id'],
                     'site_id' => $data['site_id'],
                     'room_id' => $data['room_id'],
                     'form_category_id' => $data['category_id'],
-                    'form_title' => $data['title'],
+                    'form_title' => $data['nom_fichier'],
                     'form_description' => $data['description'],
-                    'form_visible_by_client' => $data['visible_by_client']
+                    'form_visible_by_client' => $data['masque_client']
                 ]);
                 header('Location: ' . BASE_URL . 'documentation/add?' . $redirectParams);
                 exit;
@@ -223,6 +441,8 @@ class DocumentationController {
                 $fileTmpPath = $file['tmp_name'];
                 $fileSize = $file['size'];
                 // $fileError = $file['error']; // Already checked UPLOAD_ERR_OK
+                
+                error_log("[DEBUG] Documentation Upload: File detected - Name: " . $originalFileName . ", Size: " . $fileSize . ", Tmp: " . $fileTmpPath);
 
                 // 1. Server-side File Size Check (e.g., 10MB limit like interventions)
                 //    Get this from php.ini ideally, or define a constant
@@ -298,8 +518,11 @@ class DocumentationController {
                 error_log("[DEBUG] Documentation Upload: Attempting move_uploaded_file. Source: '" . $fileTmpPath . "', Target: '" . $targetPath . "'");
 
                 if (move_uploaded_file($fileTmpPath, $targetPath)) {
-                    $data['attachment_path'] = 'uploads/documents/' . $data['client_id'] . '/' . $finalFileNameWithExt; // Relative path for DB
-                    error_log("[DEBUG] Documentation Upload: Move successful for '" . $targetPath . "'. DB Path: " . $data['attachment_path']);
+                    $data['chemin_fichier'] = 'uploads/documents/' . $data['client_id'] . '/' . $finalFileNameWithExt; // Relative path for DB
+                    $data['taille_fichier'] = $fileSize;
+                    $data['type_fichier'] = $fileExtension;
+                    error_log("[DEBUG] Documentation Upload: Move successful for '" . $targetPath . "'. DB Path: " . $data['chemin_fichier']);
+                    error_log("[DEBUG] Documentation Upload: File size: " . $data['taille_fichier'] . ", Type: " . $data['type_fichier']);
                     if (!file_exists($targetPath)) {
                          error_log("[WARN] Documentation Upload: File '" . $targetPath . "' NOT FOUND IMMEDIATELY AFTER successful move_uploaded_file! AV or other interference highly suspected.");
                     }
@@ -318,19 +541,79 @@ class DocumentationController {
                 $this->redirectBackToFormWithError($data); // Use helper
                 exit;
             }
-            // No specific 'else' needed for UPLOAD_ERR_NO_FILE, attachment_path remains null.
+            // No specific 'else' needed for UPLOAD_ERR_NO_FILE, chemin_fichier remains null.
+            } else {
+                // Log pour debug si aucun fichier n'est détecté
+                if (isset($_FILES['document_file'])) {
+                    error_log("[DEBUG] Documentation Upload: File upload error - Error code: " . $_FILES['document_file']['error']);
+                } else {
+                    error_log("[DEBUG] Documentation Upload: No file detected in _FILES");
+                }
+            }
 
             if (empty($data['site_id'])) $data['site_id'] = null;
             if (empty($data['room_id'])) $data['room_id'] = null;
 
-            if ($this->documentationModel->addDocument($data)) {
+            // Insérer dans pieces_jointes (avec category_id et content)
+            $insertQuery = "INSERT INTO pieces_jointes (nom_fichier, chemin_fichier, type_fichier, taille_fichier, category_id, content, masque_client, created_by, date_creation, commentaire) 
+                           VALUES (:nom_fichier, :chemin_fichier, :type_fichier, :taille_fichier, :category_id, :content, :masque_client, :created_by, NOW(), :commentaire)";
+            
+            // Log des données avant insertion
+            error_log("[DEBUG] Documentation Create: Data to insert: " . json_encode($data));
+            
+            $stmt = $this->db->prepare($insertQuery);
+            $result = $stmt->execute([
+                ':nom_fichier' => $data['nom_fichier'],
+                ':chemin_fichier' => $data['chemin_fichier'],
+                ':type_fichier' => $data['type_fichier'],
+                ':taille_fichier' => $data['taille_fichier'],
+                ':category_id' => $data['category_id'],
+                ':content' => $data['content'],
+                ':masque_client' => $data['masque_client'],
+                ':created_by' => $data['created_by'],
+                ':commentaire' => $data['description'] // Garder aussi dans commentaire pour compatibilité
+            ]);
+
+            if ($result) {
+                $pieceJointeId = $this->db->lastInsertId();
+                
+                // Créer la liaison selon le niveau
+                if ($data['room_id']) {
+                    // Liaison avec une salle
+                    $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                  VALUES (:piece_jointe_id, 'documentation', :room_id)";
+                    $linkStmt = $this->db->prepare($linkQuery);
+                    $linkStmt->execute([
+                        ':piece_jointe_id' => $pieceJointeId,
+                        ':room_id' => $data['room_id']
+                    ]);
+                } elseif ($data['site_id']) {
+                    // Liaison avec un site
+                    $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                  VALUES (:piece_jointe_id, 'documentation', :site_id)";
+                    $linkStmt = $this->db->prepare($linkQuery);
+                    $linkStmt->execute([
+                        ':piece_jointe_id' => $pieceJointeId,
+                        ':site_id' => $data['site_id']
+                    ]);
+                } else {
+                    // Liaison avec le client
+                    $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                  VALUES (:piece_jointe_id, 'documentation', :client_id)";
+                    $linkStmt = $this->db->prepare($linkQuery);
+                    $linkStmt->execute([
+                        ':piece_jointe_id' => $pieceJointeId,
+                        ':client_id' => $data['client_id']
+                    ]);
+                }
+                
                 $_SESSION['success'] = "Document ajouté avec succès.";
                 header('Location: ' . BASE_URL . 'documentation/view/' . $data['client_id']);
                 exit;
             } else {
                 $_SESSION['error'] = "Erreur lors de l'ajout du document à la base de données.";
                 // If DB insert fails after a successful file move, unlink the orphaned file
-                if (!empty($data['attachment_path']) && file_exists($targetPath)) { // Check if file was moved and path exists
+                if (!empty($data['chemin_fichier']) && file_exists($targetPath)) { // Check if file was moved and path exists
                     error_log("[CLEANUP] Documentation Upload: DB insert failed. Unlinking orphaned file: " . $targetPath);
                     unlink($targetPath);
                 }
@@ -339,17 +622,13 @@ class DocumentationController {
                     'site_id' => $data['site_id'],
                     'room_id' => $data['room_id'],
                     'form_category_id' => $data['category_id'],
-                    'form_title' => $data['title'],
+                    'form_title' => $data['nom_fichier'],
                     'form_description' => $data['description'],
-                    'form_visible_by_client' => $data['visible_by_client']
+                    'form_visible_by_client' => $data['masque_client']
                 ]);
                 header('Location: ' . BASE_URL . 'documentation/add?' . $redirectParams);
                 exit;
             }
-        }
-        $_SESSION['error'] = "Requête invalide.";
-        header('Location: ' . BASE_URL . 'documentation/add');
-        exit;
     }
 
     /**
@@ -361,7 +640,14 @@ class DocumentationController {
         // Log pour debug
         error_log("[DEBUG] DocumentationController::edit - Attempting to edit document ID: " . $id);
 
-        $document = $this->documentationModel->getDocumentById((int)$id);
+        // Récupérer le document depuis pieces_jointes
+        $query = "SELECT pj.*, lpj.type_liaison, lpj.entite_id 
+                  FROM pieces_jointes pj 
+                  LEFT JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id 
+                  WHERE pj.id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$id]);
+        $document = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$document) {
             error_log("[ERROR] DocumentationController::edit - Document not found for ID: " . $id);
@@ -373,31 +659,69 @@ class DocumentationController {
         // Log pour debug
         error_log("[DEBUG] DocumentationController::edit - Document found: " . json_encode($document));
 
+        // Déterminer le client, site et room selon l'entité liée
+        $client_id = null;
+        $site_id = null;
+        $room_id = null;
+        
+        if ($document['type_liaison'] === 'documentation') {
+            $entite_id = $document['entite_id'];
+            
+            // Vérifier si c'est un client
+            $clientQuery = "SELECT id FROM clients WHERE id = ?";
+            $clientStmt = $this->db->prepare($clientQuery);
+            $clientStmt->execute([$entite_id]);
+            if ($clientStmt->fetch()) {
+                $client_id = $entite_id;
+            } else {
+                // Vérifier si c'est un site
+                $siteQuery = "SELECT id, client_id FROM sites WHERE id = ?";
+                $siteStmt = $this->db->prepare($siteQuery);
+                $siteStmt->execute([$entite_id]);
+                $site = $siteStmt->fetch(PDO::FETCH_ASSOC);
+                if ($site) {
+                    $site_id = $entite_id;
+                    $client_id = $site['client_id'];
+                } else {
+                    // C'est probablement une salle
+                    $roomQuery = "SELECT r.id, r.site_id, s.client_id FROM rooms r 
+                                 LEFT JOIN sites s ON r.site_id = s.id 
+                                 WHERE r.id = ?";
+                    $roomStmt = $this->db->prepare($roomQuery);
+                    $roomStmt->execute([$entite_id]);
+                    $room = $roomStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($room) {
+                        $room_id = $entite_id;
+                        $site_id = $room['site_id'];
+                        $client_id = $room['client_id'];
+                    }
+                }
+            }
+        }
+
         // Récupérer les données nécessaires pour les listes déroulantes
         $clients = $this->clientModel->getAllClients();
         $categories = $this->categoryModel->getAllCategories();
-        $sites = [];
-        $rooms = [];
-
-        // Si un client est défini pour le document, charger ses sites
-        if (!empty($document['client_id'])) {
-            $sites = $this->siteModel->getSitesByClientId($document['client_id']);
-        }
-
-        // Si un site est défini pour le document, charger ses salles
-        if (!empty($document['site_id'])) {
-            $rooms = $this->roomModel->getRoomsBySiteId($document['site_id']);
-        }
+        $sites = $client_id ? $this->siteModel->getSitesByClientId($client_id) : [];
+        $rooms = $site_id ? $this->roomModel->getRoomsBySiteId($site_id) : [];
         
         // Récupérer les valeurs du formulaire depuis GET si elles existent (pour la persistance après rechargement client/site)
         $form_category_id = $_GET['form_category_id'] ?? $document['category_id'];
-        $form_title = $_GET['form_title'] ?? $document['title'];
+        $form_title = $_GET['form_title'] ?? $document['nom_fichier'];
         $form_description = $_GET['form_description'] ?? $document['description'];
-        $form_visible_by_client_val = $_GET['form_visible_by_client'] ?? $document['visible_by_client'];
+        $form_visible_by_client_val = $_GET['form_visible_by_client'] ?? ($document['masque_client'] == 0 ? 1 : 0);
         // $form_content est géré via sessionStorage par JavaScript, et sera initialisé avec $document['content'] dans la vue.
 
         // Le chemin du fichier actuel pour l'affichage (non modifiable directement ici, géré par la logique d'update)
-        $current_attachment_path = $document['attachment_path'];
+        $current_attachment_path = $document['chemin_fichier'];
+
+        // Ajouter les informations de liaison au document pour la vue
+        $document['client_id'] = $client_id;
+        $document['site_id'] = $site_id;
+        $document['room_id'] = $room_id;
+        $document['title'] = $document['nom_fichier'];
+        $document['visible_by_client'] = $document['masque_client'] == 0 ? 1 : 0;
+        $document['attachment_path'] = $document['chemin_fichier'];
 
         require_once __DIR__ . '/../views/documentation/edit.php';
     }
@@ -455,7 +779,15 @@ class DocumentationController {
             exit;
         }
 
-        $existingDocument = $this->documentationModel->getDocumentById($documentId);
+        // Récupérer le document existant depuis pieces_jointes
+        $query = "SELECT pj.*, lpj.type_liaison, lpj.entite_id 
+                  FROM pieces_jointes pj 
+                  LEFT JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id 
+                  WHERE pj.id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$documentId]);
+        $existingDocument = $stmt->fetch(PDO::FETCH_ASSOC);
+        
         if (!$existingDocument) {
             $_SESSION['error'] = "Document non trouvé pour la mise à jour.";
             header('Location: ' . BASE_URL . 'documentation');
@@ -464,30 +796,30 @@ class DocumentationController {
 
         $data = [
             'id' => $documentId,
-            'title' => $_POST['title'] ?? '',
+            'nom_fichier' => $_POST['title'] ?? '',
             'description' => $_POST['description'] ?? '',
             'content' => $_POST['content'] ?? null,
             'client_id' => isset($_POST['client_id']) ? (int)$_POST['client_id'] : null,
             'site_id' => isset($_POST['site_id']) && !empty($_POST['site_id']) ? (int)$_POST['site_id'] : null,
             'room_id' => isset($_POST['room_id']) && !empty($_POST['room_id']) ? (int)$_POST['room_id'] : null,
             'category_id' => isset($_POST['category_id']) ? (int)$_POST['category_id'] : null,
-            'visible_by_client' => isset($_POST['visible_by_client']) ? 1 : 0,
+            'masque_client' => isset($_POST['visible_by_client']) ? 0 : 1, // Inversé : 0 = visible, 1 = masqué
             'user_id' => $_SESSION['user']['id'] // For updated_by or similar if model supports it
         ];
 
         // Validate required fields
-        if (empty($data['title']) || empty($data['client_id']) || empty($data['category_id'])) {
+        if (empty($data['nom_fichier']) || empty($data['client_id']) || empty($data['category_id'])) {
             $_SESSION['error'] = "Les champs Titre, Client et Catégorie sont obligatoires.";
             $this->redirectBackToEditFormWithError($documentId, $data);
             exit;
         }
         
         $currentAttachmentPathOnServer = null;
-        if (!empty($existingDocument['attachment_path'])) {
+        if (!empty($existingDocument['chemin_fichier'])) {
              // Convert relative DB path to absolute server path for file operations
-            $currentAttachmentPathOnServer = __DIR__ . '/../../' . $existingDocument['attachment_path'];
+            $currentAttachmentPathOnServer = __DIR__ . '/../../' . $existingDocument['chemin_fichier'];
         }
-        $data['attachment_path'] = $existingDocument['attachment_path']; // Assume keeping old attachment initially
+        $data['chemin_fichier'] = $existingDocument['chemin_fichier']; // Assume keeping old attachment initially
 
         $fileUploadedSuccessfully = false;
         $newlyUploadedFilePath = null;
@@ -573,7 +905,9 @@ class DocumentationController {
             $newlyUploadedFilePath = $clientSpecificDir . $finalFileNameWithExt; // Absolute path
 
             if (move_uploaded_file($file['tmp_name'], $newlyUploadedFilePath)) {
-                $data['attachment_path'] = 'uploads/documents/' . $data['client_id'] . '/' . $finalFileNameWithExt; // Relative path for DB
+                $data['chemin_fichier'] = 'uploads/documents/' . $data['client_id'] . '/' . $finalFileNameWithExt; // Relative path for DB
+                $data['taille_fichier'] = $file['size'];
+                $data['type_fichier'] = $fileExtension;
                 $fileUploadedSuccessfully = true;
                 error_log("[INFO] Documentation Update: New file uploaded successfully: " . $newlyUploadedFilePath);
             } else {
@@ -598,10 +932,38 @@ class DocumentationController {
         error_log("[DEBUG] DocumentationController::update - Final data: " . json_encode($data));
 
         try {
-            if ($this->documentationModel->updateDocument($documentId, $data)) {
+            // Mettre à jour la table pieces_jointes (avec category_id et content)
+            $updateQuery = "UPDATE pieces_jointes 
+                           SET nom_fichier = :nom_fichier, 
+                               chemin_fichier = :chemin_fichier, 
+                               type_fichier = :type_fichier, 
+                               taille_fichier = :taille_fichier, 
+                               category_id = :category_id,
+                               content = :content,
+                               masque_client = :masque_client,
+                               commentaire = :commentaire
+                           WHERE id = :id";
+            
+            $stmt = $this->db->prepare($updateQuery);
+            $result = $stmt->execute([
+                ':nom_fichier' => $data['nom_fichier'],
+                ':chemin_fichier' => $data['chemin_fichier'],
+                ':type_fichier' => $data['type_fichier'] ?? $existingDocument['type_fichier'],
+                ':taille_fichier' => $data['taille_fichier'] ?? $existingDocument['taille_fichier'],
+                ':category_id' => $data['category_id'],
+                ':content' => $data['content'],
+                ':masque_client' => $data['masque_client'],
+                ':commentaire' => $data['description'],
+                ':id' => $documentId
+            ]);
+
+            if ($result) {
+                // Mettre à jour la liaison si nécessaire
+                $this->updateDocumentLiaison($documentId, $data);
+                
                 $_SESSION['success'] = "Document mis à jour avec succès.";
                 // Redirect to the view page of the client, or index if client_id is somehow missing
-                $redirectClientId = $data['client_id'] ?? $existingDocument['client_id'];
+                $redirectClientId = $data['client_id'];
                 if ($redirectClientId) {
                      header('Location: ' . BASE_URL . 'documentation/view/' . $redirectClientId);
                 } else {
@@ -627,6 +989,46 @@ class DocumentationController {
         }
     }
 
+    /**
+     * Met à jour la liaison d'un document
+     */
+    private function updateDocumentLiaison($documentId, $data) {
+        // Supprimer l'ancienne liaison
+        $deleteQuery = "DELETE FROM liaisons_pieces_jointes WHERE piece_jointe_id = ?";
+        $deleteStmt = $this->db->prepare($deleteQuery);
+        $deleteStmt->execute([$documentId]);
+        
+        // Créer la nouvelle liaison selon le niveau
+        if ($data['room_id']) {
+            // Liaison avec une salle
+            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                          VALUES (:piece_jointe_id, 'documentation', :room_id)";
+            $linkStmt = $this->db->prepare($linkQuery);
+            $linkStmt->execute([
+                ':piece_jointe_id' => $documentId,
+                ':room_id' => $data['room_id']
+            ]);
+        } elseif ($data['site_id']) {
+            // Liaison avec un site
+            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                          VALUES (:piece_jointe_id, 'documentation', :site_id)";
+            $linkStmt = $this->db->prepare($linkQuery);
+            $linkStmt->execute([
+                ':piece_jointe_id' => $documentId,
+                ':site_id' => $data['site_id']
+            ]);
+        } else {
+            // Liaison avec le client
+            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                          VALUES (:piece_jointe_id, 'documentation', :client_id)";
+            $linkStmt = $this->db->prepare($linkQuery);
+            $linkStmt->execute([
+                ':piece_jointe_id' => $documentId,
+                ':client_id' => $data['client_id']
+            ]);
+        }
+    }
+
     // Helper function to redirect back to edit form with error and preserved data
     private function redirectBackToEditFormWithError($documentId, $data_from_controller) {
         $redirectParams = http_build_query([
@@ -635,9 +1037,9 @@ class DocumentationController {
             'site_id' => $data_from_controller['site_id'] ?? null,
             'room_id' => $data_from_controller['room_id'] ?? null,
             'form_category_id' => $data_from_controller['category_id'] ?? null,
-            'form_title' => $data_from_controller['title'] ?? '',
+            'form_title' => $data_from_controller['nom_fichier'] ?? '',
             'form_description' => $data_from_controller['description'] ?? '',
-            'form_visible_by_client' => $data_from_controller['visible_by_client'] ?? '0' 
+            'form_visible_by_client' => $data_from_controller['masque_client'] == 0 ? 1 : 0
             // Content is handled by sessionStorage on client-side
         ]);
         // The base URL should be the edit page for this specific document
@@ -649,10 +1051,17 @@ class DocumentationController {
      * Supprime un document
      */
     public function delete($id) {
-        $this->checkAccess();
+        // Vérifier les permissions de suppression
+        checkDocumentationDeleteAccess();
         
-        // Récupérer le document avant de le supprimer pour avoir son chemin de fichier
-        $document = $this->documentationModel->getDocumentById($id);
+        // Récupérer le document depuis pieces_jointes
+        $query = "SELECT pj.*, lpj.type_liaison, lpj.entite_id 
+                  FROM pieces_jointes pj 
+                  LEFT JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id 
+                  WHERE pj.id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$id]);
+        $document = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$document) {
             $_SESSION['error'] = "Document non trouvé.";
@@ -660,156 +1069,462 @@ class DocumentationController {
             exit;
         }
 
+        // Déterminer le client pour la redirection
+        $client_id = null;
+        if ($document['type_liaison'] === 'documentation') {
+            $entite_id = $document['entite_id'];
+            
+            // Vérifier si c'est un client
+            $clientQuery = "SELECT id FROM clients WHERE id = ?";
+            $clientStmt = $this->db->prepare($clientQuery);
+            $clientStmt->execute([$entite_id]);
+            if ($clientStmt->fetch()) {
+                $client_id = $entite_id;
+            } else {
+                // Vérifier si c'est un site
+                $siteQuery = "SELECT client_id FROM sites WHERE id = ?";
+                $siteStmt = $this->db->prepare($siteQuery);
+                $siteStmt->execute([$entite_id]);
+                $site = $siteStmt->fetch(PDO::FETCH_ASSOC);
+                if ($site) {
+                    $client_id = $site['client_id'];
+                } else {
+                    // C'est probablement une salle
+                    $roomQuery = "SELECT r.site_id, s.client_id FROM rooms r 
+                                 LEFT JOIN sites s ON r.site_id = s.id 
+                                 WHERE r.id = ?";
+                    $roomStmt = $this->db->prepare($roomQuery);
+                    $roomStmt->execute([$entite_id]);
+                    $room = $roomStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($room) {
+                        $client_id = $room['client_id'];
+                    }
+                }
+            }
+        }
+
         // Supprimer le fichier physique s'il existe
-        if (!empty($document['attachment_path'])) {
-            $filePath = __DIR__ . '/../../' . $document['attachment_path'];
+        if (!empty($document['chemin_fichier'])) {
+            $filePath = __DIR__ . '/../../' . $document['chemin_fichier'];
             if (file_exists($filePath)) {
                 if (!unlink($filePath)) {
                     error_log("[ERROR] Documentation Delete: Failed to delete file: " . $filePath);
                     $_SESSION['error'] = "Erreur lors de la suppression du fichier physique.";
-                    header('Location: ' . BASE_URL . 'documentation/view/' . $document['client_id']);
+                    if ($client_id) {
+                        header('Location: ' . BASE_URL . 'documentation/view/' . $client_id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'documentation');
+                    }
                     exit;
                 }
                 error_log("[INFO] Documentation Delete: File deleted successfully: " . $filePath);
             }
         }
 
-        // Supprimer l'entrée dans la base de données
-        if ($this->documentationModel->deleteDocument($id)) {
+        // Supprimer les liaisons
+        $deleteLiaisonQuery = "DELETE FROM liaisons_pieces_jointes WHERE piece_jointe_id = ?";
+        $deleteLiaisonStmt = $this->db->prepare($deleteLiaisonQuery);
+        $deleteLiaisonStmt->execute([$id]);
+
+        // Supprimer l'entrée dans pieces_jointes
+        $deleteQuery = "DELETE FROM pieces_jointes WHERE id = ?";
+        $deleteStmt = $this->db->prepare($deleteQuery);
+        
+        if ($deleteStmt->execute([$id])) {
             $_SESSION['success'] = "Document supprimé avec succès.";
         } else {
             $_SESSION['error'] = "Erreur lors de la suppression du document dans la base de données.";
         }
         
-        // Rediriger vers la vue du client
-        header('Location: ' . BASE_URL . 'documentation/view/' . $document['client_id']);
+        // Rediriger vers la page de documentation avec les filtres conservés
+        $redirectUrl = BASE_URL . 'documentation';
+        $params = [];
+        
+        // Récupérer les filtres depuis la session ou les paramètres
+        if (isset($_SESSION['documentation_filters'])) {
+            $filters = $_SESSION['documentation_filters'];
+        } else {
+            // Essayer de récupérer depuis les paramètres de requête
+            $filters = [
+                'client_id' => $_GET['client_id'] ?? null,
+                'site_id' => $_GET['site_id'] ?? null,
+                'salle_id' => $_GET['salle_id'] ?? null
+            ];
+        }
+        
+        // Ajouter les filtres à l'URL
+        if (!empty($filters['client_id'])) {
+            $params['client_id'] = $filters['client_id'];
+        }
+        if (!empty($filters['site_id'])) {
+            $params['site_id'] = $filters['site_id'];
+        }
+        if (!empty($filters['salle_id'])) {
+            $params['salle_id'] = $filters['salle_id'];
+        }
+        
+        // Construire l'URL avec les paramètres
+        if (!empty($params)) {
+            $redirectUrl .= '?' . http_build_query($params);
+        }
+        
+        header('Location: ' . $redirectUrl);
         exit;
     }
 
     /**
-     * Affiche les documents d'un client par catégorie
+     * Ajoute plusieurs pièces jointes de documentation (Drag & Drop)
+     */
+    public function addMultipleAttachments() {
+        // Vérifier si l'utilisateur est connecté
+        if (!isset($_SESSION['user'])) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Non autorisé']);
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Méthode non autorisée']);
+            exit;
+        }
+
+        try {
+            // Récupérer les données du formulaire
+            $clientId = $_POST['client_id'] ?? null;
+            $siteId = $_POST['site_id'] ?? null;
+            $roomId = $_POST['room_id'] ?? null;
+            $categoryId = $_POST['category_id'] ?? null;
+
+            if (!$clientId || !$categoryId) {
+                throw new Exception("Client et catégorie sont obligatoires");
+            }
+
+            // Vérifier qu'il y a des fichiers
+            if (!isset($_FILES['attachments']) || empty($_FILES['attachments']['name'][0])) {
+                throw new Exception("Aucun fichier à uploader");
+            }
+
+            require_once INCLUDES_PATH . '/FileUploadValidator.php';
+            
+            $uploadedFiles = [];
+            $errors = [];
+            
+            // Traiter chaque fichier
+            foreach ($_FILES['attachments']['tmp_name'] as $index => $tmpName) {
+                if ($_FILES['attachments']['error'][$index] !== UPLOAD_ERR_OK) {
+                    $errors[] = "Erreur lors de l'upload du fichier " . ($index + 1);
+                    continue;
+                }
+
+                $originalFileName = $_FILES['attachments']['name'][$index];
+                $fileSize = $_FILES['attachments']['size'][$index];
+                $fileTmpPath = $tmpName;
+
+                // Vérifier la taille du fichier
+                $maxFileSize = 10 * 1024 * 1024; // 10MB
+                if ($fileSize > $maxFileSize) {
+                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 10MB)";
+                    continue;
+                }
+
+                // Vérifier l'extension
+                $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
+                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
+                    $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
+                    continue;
+                }
+
+                // Créer le répertoire de destination
+                $uploadDir = __DIR__ . '/../../uploads/documents/' . $clientId;
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                // Générer un nom de fichier unique en gardant le nom original
+                $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalFileName);
+                
+                // Vérifier si le fichier existe déjà et ajouter un suffixe si nécessaire
+                $baseName = $fileName;
+                $counter = 0;
+                
+                do {
+                    $finalFileName = $counter === 0 ? $baseName : 
+                                    pathinfo($baseName, PATHINFO_FILENAME) . '_' . $counter . '.' . $fileExtension;
+                    $filePath = $uploadDir . '/' . $finalFileName;
+                    $counter++;
+                } while (file_exists($filePath));
+
+                // Déplacer le fichier
+                if (move_uploaded_file($fileTmpPath, $filePath)) {
+                    // Récupérer les options pour ce fichier
+                    $description = $_POST['file_description'][$index] ?? null;
+                    $masqueClient = isset($_POST['file_masque_client'][$index]) ? 1 : 0;
+
+                    // Préparer les données pour la base
+                    $data = [
+                        'nom_fichier' => $originalFileName,
+                        'chemin_fichier' => 'uploads/documents/' . $clientId . '/' . $finalFileName,
+                        'type_fichier' => $fileExtension,
+                        'taille_fichier' => $fileSize,
+                        'category_id' => $categoryId,
+                        'content' => null,
+                        'commentaire' => $description,
+                        'masque_client' => $masqueClient,
+                        'created_by' => $_SESSION['user']['id']
+                    ];
+
+                    // Insérer dans pieces_jointes
+                    $insertQuery = "INSERT INTO pieces_jointes (nom_fichier, chemin_fichier, type_fichier, taille_fichier, category_id, content, masque_client, created_by, date_creation, commentaire) 
+                                   VALUES (:nom_fichier, :chemin_fichier, :type_fichier, :taille_fichier, :category_id, :content, :masque_client, :created_by, NOW(), :commentaire)";
+                    
+                    $stmt = $this->db->prepare($insertQuery);
+                    $result = $stmt->execute([
+                        ':nom_fichier' => $data['nom_fichier'],
+                        ':chemin_fichier' => $data['chemin_fichier'],
+                        ':type_fichier' => $data['type_fichier'],
+                        ':taille_fichier' => $data['taille_fichier'],
+                        ':category_id' => $data['category_id'],
+                        ':content' => $data['content'],
+                        ':masque_client' => $data['masque_client'],
+                        ':created_by' => $data['created_by'],
+                        ':commentaire' => $data['commentaire']
+                    ]);
+
+                    if ($result) {
+                        $pieceJointeId = $this->db->lastInsertId();
+                        
+                        // Créer la liaison selon le niveau
+                        if ($roomId) {
+                            // Liaison avec une salle
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation', :room_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $pieceJointeId,
+                                ':room_id' => $roomId
+                            ]);
+                        } elseif ($siteId) {
+                            // Liaison avec un site
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation', :site_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $pieceJointeId,
+                                ':site_id' => $siteId
+                            ]);
+                        } else {
+                            // Liaison avec le client
+                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                          VALUES (:piece_jointe_id, 'documentation', :client_id)";
+                            $linkStmt = $this->db->prepare($linkQuery);
+                            $linkStmt->execute([
+                                ':piece_jointe_id' => $pieceJointeId,
+                                ':client_id' => $clientId
+                            ]);
+                        }
+                        
+                        $uploadedFiles[] = $originalFileName;
+                    } else {
+                        $errors[] = "Erreur lors de l'insertion en base pour '$originalFileName'";
+                    }
+                } else {
+                    $errors[] = "Erreur lors du déplacement du fichier '$originalFileName'";
+                }
+            }
+
+            // Préparer la réponse
+            $response = [
+                'success' => true,
+                'uploaded_files' => $uploadedFiles,
+                'errors' => $errors
+            ];
+
+            if (!empty($errors)) {
+                $response['message'] = count($uploadedFiles) . " fichier(s) uploadé(s), " . count($errors) . " erreur(s)";
+            } else {
+                $response['message'] = count($uploadedFiles) . " fichier(s) uploadé(s) avec succès !";
+            }
+
+            header('Content-Type: application/json');
+            echo json_encode($response);
+
+        } catch (Exception $e) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Supprime un document via AJAX
+     */
+    public function deleteAttachment($id) {
+        $this->checkAccess();
+        
+        // Récupérer le document depuis pieces_jointes
+        $query = "SELECT pj.*, lpj.type_liaison, lpj.entite_id 
+                  FROM pieces_jointes pj 
+                  LEFT JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id 
+                  WHERE pj.id = ?";
+        $stmt = $this->db->prepare($query);
+        $stmt->execute([$id]);
+        $document = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$document) {
+            http_response_code(404);
+            echo json_encode(['success' => false, 'message' => 'Document non trouvé.']);
+            exit;
+        }
+
+        // Supprimer le fichier physique s'il existe
+        if (!empty($document['chemin_fichier'])) {
+            $filePath = __DIR__ . '/../../' . $document['chemin_fichier'];
+            if (file_exists($filePath)) {
+                unlink($filePath);
+            }
+        }
+
+        // Supprimer les liaisons
+        $deleteLiaisonQuery = "DELETE FROM liaisons_pieces_jointes WHERE piece_jointe_id = ?";
+        $deleteLiaisonStmt = $this->db->prepare($deleteLiaisonQuery);
+        $deleteLiaisonStmt->execute([$id]);
+
+        // Supprimer l'entrée dans pieces_jointes
+        $deleteQuery = "DELETE FROM pieces_jointes WHERE id = ?";
+        $deleteStmt = $this->db->prepare($deleteQuery);
+        
+        if ($deleteStmt->execute([$id])) {
+            echo json_encode(['success' => true, 'message' => 'Document supprimé avec succès.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la suppression du document.']);
+        }
+        exit;
+    }
+
+    /**
+     * Affiche les documents d'un client par site et salle
      */
     public function view($clientId) {
         $this->checkAccess();
         
         // Récupération des filtres
         $siteId = isset($_GET['site_id']) ? (int)$_GET['site_id'] : null;
-        $roomId = isset($_GET['room_id']) ? (int)$_GET['room_id'] : null;
+        $salleId = isset($_GET['salle_id']) ? (int)$_GET['salle_id'] : null;
         
         // Récupération des données pour les filtres
         $client = $this->clientModel->getClientById($clientId);
         $sites = $this->siteModel->getSitesByClientId($clientId);
         $rooms = $siteId ? $this->roomModel->getRoomsBySiteId($siteId) : [];
         
-        // Récupération des catégories
-        $categories = $this->categoryModel->getAllCategories();
-        
-        // Récupération des documents par catégorie
-        $documentsByCategory = [];
-        foreach ($categories as $category) {
-            $query = "SELECT d.*, s.name as site_name, r.name as room_name, 
-                     u.first_name, u.last_name
-                     FROM documentation d
-                     LEFT JOIN sites s ON d.site_id = s.id
-                     LEFT JOIN rooms r ON d.room_id = r.id
-                     LEFT JOIN users u ON d.created_by = u.id
-                     WHERE d.client_id = :client_id 
-                     AND d.category_id = :category_id";
-            
-            $params = [
-                ':client_id' => $clientId,
-                ':category_id' => $category['id']
-            ];
-            
-            if ($siteId) {
-                $query .= " AND d.site_id = :site_id";
-                $params[':site_id'] = $siteId;
-            }
-            
-            if ($roomId) {
-                $query .= " AND d.room_id = :room_id";
-                $params[':room_id'] = $roomId;
-            }
-            
-            $query .= " ORDER BY d.created_at DESC";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->execute($params);
-            $documents = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            if (!empty($documents)) {
-                $documentsByCategory[$category['id']] = [
-                    'category' => $category,
-                    'documents' => $documents
-                ];
-            }
+        // Requête pour récupérer les pièces jointes de documentation
+        $query = "
+            SELECT 
+                pj.*,
+                COALESCE(pj.content, pj.commentaire) as description,
+                c.name as client_nom,
+                s.name as site_nom,
+                r.name as salle_nom,
+                c.id as client_id,
+                s.id as site_id,
+                r.id as salle_id
+            FROM pieces_jointes pj
+            INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+            LEFT JOIN clients c ON (lpj.type_liaison = 'documentation' AND lpj.entite_id = c.id)
+            LEFT JOIN sites s ON (lpj.type_liaison = 'documentation' AND lpj.entite_id = s.id)
+            LEFT JOIN rooms r ON (lpj.type_liaison = 'documentation' AND lpj.entite_id = r.id)
+            WHERE lpj.type_liaison = 'documentation' 
+            AND (c.id = ? OR s.client_id = ? OR r.site_id IN (SELECT id FROM sites WHERE client_id = ?))
+        ";
+
+        $params = [$clientId, $clientId, $clientId];
+
+        // Filtres
+        if ($siteId) {
+            $query .= " AND (s.id = ? OR r.site_id = ?)";
+            $params[] = $siteId;
+            $params[] = $siteId;
         }
-        
-        // Récupération des pièces jointes
-        $attachmentsQuery = "SELECT pj.*, s.name as site_name, r.name as room_name
-                            FROM pieces_jointes pj
-                            INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
-                            LEFT JOIN sites s ON lpj.entite_id = s.id AND lpj.type_liaison = 'documentation_site'
-                            LEFT JOIN rooms r ON lpj.entite_id = r.id AND lpj.type_liaison = 'documentation_room'
-                            WHERE (lpj.type_liaison = 'documentation_client' AND lpj.entite_id = :client_id1)
-                               OR (lpj.type_liaison = 'documentation_site' AND s.client_id = :client_id2)
-                               OR (lpj.type_liaison = 'documentation_room' AND r.site_id IN (SELECT id FROM sites WHERE client_id = :client_id3))";
-        
-        $attachmentsParams = [
-            ':client_id1' => $clientId,
-            ':client_id2' => $clientId,
-            ':client_id3' => $clientId
+
+        if ($salleId) {
+            $query .= " AND r.id = ?";
+            $params[] = $salleId;
+        }
+
+        $query .= " ORDER BY s.name, r.name, pj.date_creation DESC";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+        $documentation_list = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Préparer les données pour la vue
+        $filters = [
+            'site_id' => $siteId,
+            'salle_id' => $salleId
         ];
         
-        if ($siteId) {
-            $attachmentsQuery .= " AND ((lpj.type_liaison = 'documentation_site' AND lpj.entite_id = :site_id) OR (lpj.type_liaison = 'documentation_room' AND r.site_id = :site_id_room))";
-            $attachmentsParams[':site_id'] = $siteId;
-            $attachmentsParams[':site_id_room'] = $siteId;
-        }
-        
-        if ($roomId) {
-            $attachmentsQuery .= " AND lpj.type_liaison = 'documentation_room' AND lpj.entite_id = :room_id";
-            $attachmentsParams[':room_id'] = $roomId;
-        }
-        
-        $attachmentsQuery .= " ORDER BY pj.date_creation DESC";
-        
-        $attachmentsStmt = $this->db->prepare($attachmentsQuery);
-        $attachmentsStmt->execute($attachmentsParams);
-        $attachments = $attachmentsStmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Ajouter les pièces jointes comme une catégorie spéciale
-        if (!empty($attachments)) {
-            $documentsByCategory['attachments'] = [
-                'category' => [
-                    'id' => 'attachments',
-                    'name' => 'Pièces jointes'
-                ],
-                'documents' => $attachments
-            ];
-        }
-        
         require_once __DIR__ . '/../views/documentation/view.php';
+    }
+
+    /**
+     * Récupère les sites d'un client spécifique via AJAX
+     */
+    public function get_sites() {
+        // Vérifier si l'utilisateur est connecté
+        if (!isset($_SESSION['user'])) {
+            header('Content-Type: application/json');
+            http_response_code(401);
+            echo json_encode(['error' => 'Non autorisé']);
+            exit;
+        }
+
+        if (!isset($_GET['client_id'])) {
+            header('Content-Type: application/json');
+            http_response_code(400);
+            echo json_encode(['error' => 'Client ID is required']);
+            exit;
+        }
+
+        $client_id = (int)$_GET['client_id'];
+
+        try {
+            $sites = $this->siteModel->getSitesByClientId($client_id);
+            header('Content-Type: application/json');
+            echo json_encode($sites);
+        } catch (PDOException $e) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+            echo json_encode(['error' => 'Database error']);
+        }
     }
 
     /**
      * Récupère les salles d'un site spécifique via AJAX
      */
     public function get_rooms() {
-        $this->checkAccess();
-        
-        if (!isset($_GET['site_id']) || empty($_GET['site_id'])) {
-            header('Content-Type: application/json');
-            echo json_encode([]);
-            exit;
+        // Vérifier si l'utilisateur est connecté
+        if (!isset($_SESSION['user'])) {
+            http_response_code(401);
+            echo json_encode(['error' => 'Non autorisé']);
+            return;
         }
+
+        $siteId = $_GET['site_id'] ?? null;
         
-        $siteId = (int)$_GET['site_id'];
-        $rooms = $this->roomModel->getRoomsBySiteId($siteId);
-        
-        header('Content-Type: application/json');
-        echo json_encode($rooms);
-        exit;
+        if (!$siteId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ID du site manquant']);
+            return;
+        }
+
+        try {
+            $rooms = $this->roomModel->getRoomsBySiteId($siteId);
+            echo json_encode($rooms);
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la récupération des salles : " . $e->getMessage(), 'ERROR');
+            http_response_code(500);
+            echo json_encode(['error' => 'Erreur lors de la récupération des salles']);
+        }
     }
 
     /**
@@ -1026,53 +1741,4 @@ class DocumentationController {
         exit;
     }
 
-    /**
-     * Supprime une pièce jointe
-     */
-    public function deleteAttachment($attachmentId) {
-        $this->checkAccess();
-        
-        if ($_SERVER['REQUEST_METHOD'] !== 'DELETE') {
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Méthode non autorisée']);
-            exit;
-        }
-        
-        // Récupérer les informations de la pièce jointe
-        $query = "SELECT pj.* FROM pieces_jointes pj WHERE pj.id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([':id' => $attachmentId]);
-        $attachment = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$attachment) {
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Pièce jointe introuvable']);
-            exit;
-        }
-        
-        // Supprimer le fichier physique
-        $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
-        if (file_exists($filePath)) {
-            unlink($filePath);
-        }
-        
-        // Supprimer les liaisons
-        $linkQuery = "DELETE FROM liaisons_pieces_jointes WHERE piece_jointe_id = :id";
-        $linkStmt = $this->db->prepare($linkQuery);
-        $linkStmt->execute([':id' => $attachmentId]);
-        
-        // Supprimer la pièce jointe
-        $deleteQuery = "DELETE FROM pieces_jointes WHERE id = :id";
-        $deleteStmt = $this->db->prepare($deleteQuery);
-        $result = $deleteStmt->execute([':id' => $attachmentId]);
-        
-        if ($result) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => true]);
-        } else {
-            header('Content-Type: application/json');
-            echo json_encode(['error' => 'Erreur lors de la suppression']);
-        }
-        exit;
-    }
 } 

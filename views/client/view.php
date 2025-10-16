@@ -59,11 +59,9 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <a href="<?php echo $returnUrl; ?>" class="btn btn-secondary me-2">
             <i class="bi bi-arrow-left me-1"></i> Retour
         </a>
-        <!-- Documentation temporairement masqué
-        <a href="<?php echo BASE_URL; ?>documentation/view/<?php echo $client['id'] ?? ''; ?>" class="btn btn-info me-2">
-            Documentation
+        <a href="<?php echo BASE_URL; ?>documentation?client_id=<?php echo $client['id'] ?? ''; ?>" class="btn btn-info me-2">
+            <i class="bi bi-book me-1"></i> Documentation
         </a>
-        -->
         <a href="<?php echo BASE_URL; ?>materiel?client_id=<?php echo $client['id'] ?? ''; ?>" class="btn btn-primary me-2">
             <i class="bi bi-box-seam me-1"></i> Matériel
         </a>

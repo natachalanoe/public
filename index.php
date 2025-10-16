@@ -278,6 +278,9 @@ try {
                 case 'create':
                     $documentationController->create();
                     break;
+                case 'store':
+                    $documentationController->store();
+                    break;
                 case 'edit':
                     if ($id) {
                         $documentationController->edit($id);
@@ -306,6 +309,9 @@ try {
                         header('Location: ' . BASE_URL . 'documentation');
                     }
                     break;
+                case 'get_sites':
+                    $documentationController->get_sites();
+                    break;
                 case 'get_rooms':
                     $documentationController->get_rooms();
                     break;
@@ -322,6 +328,9 @@ try {
                         header('Content-Type: application/json');
                         echo json_encode(['error' => 'ID manquant']);
                     }
+                    break;
+                case 'addMultipleAttachments':
+                    $documentationController->addMultipleAttachments();
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'documentation');
