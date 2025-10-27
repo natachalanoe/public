@@ -1962,9 +1962,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Trouver l'élément "Tickets après fermeture" plus spécifiquement
                 const contractSection = document.querySelector('#closeInterventionContent .card:last-child');
                 if (contractSection) {
-                    const ticketsAfterElement = contractSection.querySelector('strong:contains("Tickets après fermeture:") + span, strong:contains("Tickets après fermeture:") + .badge');
-                    
-                    // Alternative: chercher par le texte du label précédent
+                    // Chercher par le texte du label précédent
                     const allStrongs = contractSection.querySelectorAll('strong');
                     let ticketsAfterElement = null;
                     for (let strong of allStrongs) {
