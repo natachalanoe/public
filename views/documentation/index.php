@@ -312,7 +312,7 @@ foreach ($documentation_list as $doc) {
                                                         <th style="width: 10%;">Taille</th>
                                                         <th style="width: 10%;">Visibilité</th>
                                                         <th style="width: 15%;">Date</th>
-                                                        <th style="width: 10%;">Uploader</th>
+                                                        <th style="width: 10%;">User</th>
                                                         <th style="width: 10%;">Actions</th>
                                                     </tr>
                                                 </thead>
@@ -323,8 +323,22 @@ foreach ($documentation_list as $doc) {
                                                                 <div class="d-flex align-items-center">
                                                                     <i class="<?= getFileIcon($doc['type_fichier'] ?? '') ?> text-primary me-2"></i>
                                                                     <div class="flex-grow-1 min-w-0">
-                                                                        <div class="fw-bold text-primary">
-                                                                            <?= h($doc['nom_personnalise'] ?? $doc['nom_fichier'] ?? 'Document sans nom') ?>
+                                                                        <div class="fw-bold text-primary d-flex align-items-center gap-2">
+                                                                            <span class="editable-name" 
+                                                                                  data-id="<?= $doc['id'] ?>"
+                                                                                  data-current-name="<?= h($doc['nom_personnalise'] ?? $doc['nom_fichier'] ?? 'Document sans nom') ?>"
+                                                                                  style="cursor: pointer;"
+                                                                                  title="Double-clic pour modifier">
+                                                                                <?= h($doc['nom_personnalise'] ?? $doc['nom_fichier'] ?? 'Document sans nom') ?>
+                                                                            </span>
+                                                                            <button type="button" 
+                                                                                    class="btn btn-sm btn-link p-0 edit-name-btn" 
+                                                                                    data-id="<?= $doc['id'] ?>"
+                                                                                    data-current-name="<?= h($doc['nom_personnalise'] ?? $doc['nom_fichier'] ?? 'Document sans nom') ?>"
+                                                                                    title="Modifier le nom"
+                                                                                    style="font-size: 0.75rem; line-height: 1;">
+                                                                                <i class="bi bi-pencil"></i>
+                                                                            </button>
                                                                         </div>
                                                                         <?php if (!empty($doc['nom_personnalise']) && $doc['nom_personnalise'] !== $doc['nom_fichier']): ?>
                                                                             <small class="text-muted">
@@ -377,7 +391,7 @@ foreach ($documentation_list as $doc) {
                                                                 <?php endif; ?>
                                                             </td>
                                                             <td>
-                                                                <div class="btn-group btn-group-sm">
+                                                                <div class="d-flex gap-1">
                                                                     <!-- Bouton aperçu (pour images et PDF) -->
                                                                     <?php 
                                                                     $fileType = strtolower($doc['type_fichier'] ?? '');
@@ -385,33 +399,37 @@ foreach ($documentation_list as $doc) {
                                                                     ?>
                                                                     <?php if ($canPreview && !empty($doc['chemin_fichier'])): ?>
                                                                         <button type="button" 
-                                                                                class="btn btn-outline-info btn-sm" 
+                                                                                class="btn btn-sm btn-outline-info btn-action" 
                                                                                 title="Aperçu"
-                                                                                onclick="previewFile('<?= BASE_URL . $doc['chemin_fichier'] ?>', '<?= h($doc['nom_personnalise'] ?? $doc['nom_fichier']) ?>', '<?= $fileType ?>')">
+                                                                                data-bs-toggle="modal" 
+                                                                                data-bs-target="#previewModal<?= $doc['id'] ?>">
                                                                             <i class="bi bi-eye"></i>
                                                                         </button>
                                                                     <?php endif; ?>
                                                                     
                                                                     <!-- Bouton télécharger -->
                                                                     <?php if (!empty($doc['chemin_fichier'])): ?>
-                                                                        <a href="<?= BASE_URL ?>documentation/download/<?= $doc['id'] ?>" 
-                                                                           class="btn btn-outline-success btn-sm" 
+                                                                        <a href="<?= BASE_URL ?>documentation/download?attachment_id=<?= $doc['id'] ?>" 
+                                                                           class="btn btn-sm btn-outline-success btn-action" 
                                                                            title="Télécharger">
                                                                             <i class="bi bi-download"></i>
                                                                         </a>
                                                                     <?php endif; ?>
                                                                     
-                                                                    <!-- Bouton détails -->
-                                                                    <a href="<?= BASE_URL ?>documentation/view/<?= $doc['id'] ?>" 
-                                                                       class="btn btn-outline-primary btn-sm" 
-                                                                       title="Détails">
-                                                                        <i class="bi bi-info-circle"></i>
-                                                                    </a>
+                                                                    <!-- Bouton visibilité (pour les utilisateurs autorisés) -->
+                                                                    <?php if (canManageDocumentation()): ?>
+                                                                        <a href="<?= BASE_URL ?>documentation/toggleAttachmentVisibility?attachment_id=<?= $doc['id'] ?>" 
+                                                                           class="btn btn-sm btn-outline-warning btn-action" 
+                                                                           title="<?= ($doc['masque_client'] ?? 0) == 1 ? 'Rendre visible aux clients' : 'Masquer aux clients' ?>"
+                                                                           onclick="return confirm('<?= ($doc['masque_client'] ?? 0) == 1 ? 'Rendre ce document visible aux clients ?' : 'Masquer ce document aux clients ?' ?>');">
+                                                                            <i class="bi <?= ($doc['masque_client'] ?? 0) == 1 ? 'bi-eye' : 'bi-eye-slash' ?>"></i>
+                                                                        </a>
+                                                                    <?php endif; ?>
                                                                     
                                                                     <!-- Bouton suppression (pour les utilisateurs autorisés) -->
                                                                     <?php if (canDeleteDocumentation()): ?>
                                                                         <button type="button" 
-                                                                                class="btn btn-outline-danger btn-sm" 
+                                                                                class="btn btn-sm btn-outline-danger btn-action" 
                                                                                 title="Supprimer"
                                                                                 onclick="confirmDeleteDocument(<?= $doc['id'] ?>, '<?= h($doc['nom_personnalise'] ?? $doc['nom_fichier']) ?>')">
                                                                             <i class="bi bi-trash"></i>
@@ -420,6 +438,58 @@ foreach ($documentation_list as $doc) {
                                                                 </div>
                                                             </td>
                                                         </tr>
+                                                        
+                                                        <!-- Modal d'aperçu pour ce document -->
+                                                        <?php if ($canPreview && !empty($doc['chemin_fichier'])): ?>
+                                                            <?php 
+                                                            $extension = strtolower(pathinfo($doc['nom_fichier'], PATHINFO_EXTENSION));
+                                                            ?>
+                                                            <div class="modal fade" id="previewModal<?= $doc['id'] ?>" tabindex="-1" aria-hidden="true">
+                                                                <div class="modal-dialog modal-xl">
+                                                                    <div class="modal-content">
+                                                                        <div class="modal-header">
+                                                                            <h5 class="modal-title"><?= h($doc['nom_personnalise'] ?? $doc['nom_fichier']) ?></h5>
+                                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                                        </div>
+                                                                        <div class="modal-body">
+                                                                            <div class="preview-container">
+                                                                                <?php if ($extension === 'pdf'): ?>
+                                                                                    <iframe src="<?= BASE_URL ?>documentation/preview?attachment_id=<?= $doc['id'] ?>" 
+                                                                                            width="100%" 
+                                                                                            height="600px" 
+                                                                                            frameborder="0">
+                                                                                    </iframe>
+                                                                                <?php elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
+                                                                                    <img src="<?= BASE_URL ?>documentation/preview?attachment_id=<?= $doc['id'] ?>" 
+                                                                                         class="img-fluid" 
+                                                                                         alt="<?= h($doc['nom_personnalise'] ?? $doc['nom_fichier']) ?>"
+                                                                                         onerror="handleImageError(this, <?= $doc['id'] ?>, '<?= h($doc['nom_personnalise'] ?? $doc['nom_fichier']) ?>')"
+                                                                                         onload="handleImageLoad(this)">
+                                                                                <?php else: ?>
+                                                                                    <div class="alert alert-info">
+                                                                                        <i class="bi bi-info-circle me-1"></i> 
+                                                                                        Ce type de fichier ne peut pas être prévisualisé. 
+                                                                                        <a href="<?= BASE_URL ?>documentation/download?attachment_id=<?= $doc['id'] ?>" 
+                                                                                           class="alert-link" 
+                                                                                           target="_blank">
+                                                                                            Télécharger le fichier
+                                                                                        </a>
+                                                                                    </div>
+                                                                                <?php endif; ?>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div class="modal-footer">
+                                                                            <a href="<?= BASE_URL ?>documentation/download?attachment_id=<?= $doc['id'] ?>" 
+                                                                               class="btn btn-primary" 
+                                                                               target="_blank">
+                                                                                <i class="bi bi-download me-1"></i> Télécharger
+                                                                            </a>
+                                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        <?php endif; ?>
                                                     <?php endforeach; ?>
                                                 </tbody>
                                             </table>
@@ -433,24 +503,6 @@ foreach ($documentation_list as $doc) {
             </div>
         <?php endforeach; ?>
     <?php endif; ?>
-</div>
-
-<!-- Modal d'aperçu des fichiers -->
-<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="previewModalLabel">Aperçu du fichier</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="previewModalBody">
-                <!-- Le contenu sera chargé dynamiquement -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>
@@ -555,31 +607,32 @@ function updateRoomsAndSubmit() {
 
 // Les fonctions getFileIcon et formatFileSize sont maintenant définies en PHP dans functions.php
 
-// Fonction pour l'aperçu des fichiers
-function previewFile(fileUrl, fileName, fileType) {
-    const modal = document.getElementById('previewModal');
-    const modalTitle = document.getElementById('previewModalLabel');
-    const modalBody = document.getElementById('previewModalBody');
+// Fonctions pour gérer l'aperçu des images
+function handleImageError(img, attachmentId, fileName) {
+    console.error('Erreur lors du chargement de l\'image:', fileName);
+    console.error('URL de l\'image:', img.src);
     
-    modalTitle.textContent = fileName;
-    
-    if (fileType === 'pdf') {
-        modalBody.innerHTML = `
-            <div class="text-center">
-                <iframe src="${fileUrl}" width="100%" height="600px" style="border: none;"></iframe>
-            </div>
-        `;
-    } else if (['jpg', 'jpeg', 'png', 'gif'].includes(fileType)) {
-        modalBody.innerHTML = `
-            <div class="text-center">
-                <img src="${fileUrl}" class="img-fluid" alt="${fileName}" style="max-height: 70vh;">
-            </div>
-        `;
-    }
-    
-    // Afficher la modale
-    const bsModal = new bootstrap.Modal(modal);
-    bsModal.show();
+    // Remplacer l'image par un message d'erreur avec option de téléchargement
+    const container = img.parentElement;
+    container.innerHTML = `
+        <div class="alert alert-warning text-center">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Impossible d'afficher l'aperçu de l'image</strong><br>
+            <small class="text-muted">${fileName}</small><br><br>
+            <a href="<?= BASE_URL ?>documentation/download?attachment_id=${attachmentId}" 
+               class="btn btn-sm btn-outline-primary" 
+               target="_blank">
+                <i class="bi bi-download me-1"></i> Télécharger le fichier
+            </a>
+        </div>
+    `;
+}
+
+function handleImageLoad(img) {
+    // Image chargée avec succès
+    console.log('Image chargée avec succès:', img.src);
+    img.style.display = 'block';
+    img.classList.add('img-fluid');
 }
 
 // Fonction pour confirmer la suppression d'un document
@@ -588,6 +641,111 @@ function confirmDeleteDocument(documentId, documentName) {
         // Rediriger vers la page de suppression
         window.location.href = `<?= BASE_URL ?>documentation/delete/${documentId}`;
     }
+}
+
+// Fonction pour éditer le nom personnalisé
+function editDocumentName(element) {
+    const currentName = element.getAttribute('data-current-name');
+    const docId = element.getAttribute('data-id');
+    const span = element;
+    const parent = span.parentElement;
+    const editBtn = parent.querySelector('.edit-name-btn');
+    
+    // Si déjà en édition, ne rien faire
+    if (parent.querySelector('input.editing-name-input')) {
+        return;
+    }
+    
+    // Créer un input inline
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-control form-control-sm editing-name-input';
+    input.value = currentName;
+    input.style.minWidth = '200px';
+    input.style.display = 'inline-block';
+    
+    // Cacher le span et le bouton
+    span.style.display = 'none';
+    if (editBtn) editBtn.style.display = 'none';
+    
+    // Ajouter l'input après le span
+    parent.insertBefore(input, span.nextSibling);
+    
+    // Focus et sélectionner le texte
+    input.focus();
+    input.select();
+    
+    // Sauvegarder au Enter ou Escape
+    const saveEdit = () => {
+        const newName = input.value.trim();
+        if (newName === currentName) {
+            // Pas de changement, restaurer
+            input.remove();
+            span.style.display = '';
+            if (editBtn) editBtn.style.display = '';
+            return;
+        }
+        
+        // Le nom peut être vide (on utilisera nom_fichier dans ce cas)
+        // Désactiver l'input pendant la sauvegarde
+        input.disabled = true;
+        
+        // Sauvegarder via AJAX (envoyer null si vide)
+        const nomToSend = newName || '';
+        fetch('<?= BASE_URL ?>documentation/updateName', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: `attachment_id=${docId}&nom_personnalise=${encodeURIComponent(nomToSend)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour l'affichage avec le nom affiché (nom_personnalise ou nom_fichier)
+                const displayName = data.display_name || newName || currentName;
+                span.setAttribute('data-current-name', displayName);
+                span.textContent = displayName;
+                if (editBtn) {
+                    editBtn.setAttribute('data-current-name', displayName);
+                }
+                // Retirer l'input et réafficher
+                input.remove();
+                span.style.display = '';
+                if (editBtn) editBtn.style.display = '';
+                // Recharger la page pour mettre à jour l'affichage complet
+                window.location.reload();
+            } else {
+                input.disabled = false;
+                alert('Erreur : ' + (data.error || 'Erreur inconnue'));
+                input.focus();
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            input.disabled = false;
+            alert('Erreur de connexion');
+            input.focus();
+        });
+    };
+    
+    const cancelEdit = () => {
+        input.remove();
+        span.style.display = '';
+        if (editBtn) editBtn.style.display = '';
+    };
+    
+    input.addEventListener('blur', saveEdit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+        }
+    });
 }
 
 // S'assurer que les fonctions sont disponibles après le chargement du DOM
@@ -603,6 +761,43 @@ document.addEventListener('DOMContentLoaded', function() {
         client: !!clientSelect,
         site: !!siteSelect,
         room: !!roomSelect
+    });
+    
+    // Gérer l'édition des noms de documents
+    document.querySelectorAll('.editable-name').forEach(element => {
+        element.addEventListener('dblclick', function() {
+            editDocumentName(this);
+        });
+    });
+    
+    document.querySelectorAll('.edit-name-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const span = this.parentElement.querySelector('.editable-name');
+            if (span) {
+                editDocumentName(span);
+            }
+        });
+    });
+    
+    // Gérer les erreurs d'iframe pour les PDFs
+    const iframes = document.querySelectorAll('iframe[src*="documentation/preview"]');
+    iframes.forEach(iframe => {
+        iframe.addEventListener('error', function() {
+            const container = this.parentElement;
+            const attachmentId = this.src.match(/attachment_id=(\d+)/)?.[1];
+            container.innerHTML = `
+                <div class="alert alert-warning text-center">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Impossible d'afficher l'aperçu du PDF</strong><br><br>
+                    <a href="<?= BASE_URL ?>documentation/download?attachment_id=${attachmentId}" 
+                       class="btn btn-sm btn-outline-primary" 
+                       target="_blank">
+                        <i class="bi bi-download me-1"></i> Télécharger le fichier
+                    </a>
+                </div>
+            `;
+        });
     });
 });
 </script>

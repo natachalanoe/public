@@ -184,6 +184,13 @@ require_once __DIR__ . '/functions.php';
               </a>
             </li>
 
+            <li class="menu-item <?php echo isActivePage('documentation_client'); ?>">
+              <a href="<?php echo BASE_URL; ?>documentation_client" class="menu-link">
+                <i class="menu-icon bi bi-book"></i>
+                <div data-i18n="documentation">Documentation</div>
+              </a>
+            </li>
+
             <?php if (canModifyOwnInfo()): ?>
             <li class="menu-item <?php echo isActivePage('profileClient'); ?>">
               <a href="<?php echo BASE_URL; ?>profileClient" class="menu-link">

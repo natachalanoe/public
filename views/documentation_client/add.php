@@ -1,11 +1,11 @@
 <?php
 require_once __DIR__ . '/../../includes/functions.php';
-require_once __DIR__ . '/../../includes/FileUploadValidator.php';
 /**
- * Vue d'ajout de document client
+ * Vue d'ajout de documentation client
+ * Formulaire de création avec zone de glisser-déposer pour les documents
  */
 
-// Vérification de l'accès
+// Vérifier si l'utilisateur est connecté
 if (!isset($_SESSION['user'])) {
     header('Location: ' . BASE_URL . 'auth/login');
     exit;
@@ -15,21 +15,12 @@ if (!isset($_SESSION['user'])) {
 $userType = $_SESSION['user']['user_type'] ?? null;
 
 setPageVariables(
-    'Ajouter un document',
+    'Ajouter de la Documentation',
     'documentation_client'
 );
 
 // Définir la page courante pour le menu
 $currentPage = 'documentation_client';
-
-// URL de retour
-$returnUrl = BASE_URL . 'documentation_client';
-
-// Récupérer les valeurs du formulaire depuis GET pour les pré-remplir après rechargement
-$form_category_id = $_GET['form_category_id'] ?? null;
-$form_title = $_GET['form_title'] ?? '';
-$form_description = $_GET['form_description'] ?? '';
-// $form_content est géré via sessionStorage par JavaScript
 
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
@@ -39,155 +30,303 @@ include_once __DIR__ . '/../../includes/navbar.php';
 // Récupérer les données depuis le contrôleur
 $sites = $sites ?? [];
 $rooms = $rooms ?? [];
-$categories = $categories ?? [];
 
-// Récupérer les clients uniques depuis les sites autorisés
-$authorizedClients = [];
-foreach ($sites as $site) {
-    $clientId = $site['client_id'];
-    if (!isset($authorizedClients[$clientId])) {
-        $authorizedClients[$clientId] = $site['client_name'] ?? 'Client ' . $clientId;
-    }
+// Récupérer le client_id depuis les sites autorisés (premier client trouvé)
+$client_id = null;
+if (!empty($sites)) {
+    $client_id = $sites[0]['client_id'];
 }
 ?>
 
-<div class="container-fluid flex-grow-1 container-p-y">
-    <div class="row">
-        <div class="col-12">
-            <!-- En-tête avec actions -->
-            <div class="d-flex bd-highlight mb-3">
-                <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Ajouter un document</h4></div>
+<style>
+/* Styles pour la zone de drag & drop */
+.drop-zone {
+    border: 2px dashed #dee2e6;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
 
-                <div class="ms-auto p-2 bd-highlight">
-                    <a href="<?= $returnUrl ?>" class="btn btn-secondary me-2">
-                        <i class="bi bi-arrow-left me-1"></i> Retour
+.drop-zone:hover {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+.drop-zone.dragover {
+    border-color: #198754;
+    background-color: #d1e7dd;
+    transform: scale(1.02);
+}
+
+.drop-message {
+    color: #6c757d;
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+}
+
+.drop-message i {
+    font-size: 2rem;
+    color: #0d6efd;
+    margin-bottom: 0.5rem;
+}
+
+/* Styles pour la liste des fichiers */
+.file-list {
+    margin-top: 1rem;
+}
+
+.file-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.file-item:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.file-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+}
+
+.file-icon {
+    font-size: 1.5rem;
+    margin-right: 0.75rem;
+    color: #0d6efd;
+}
+
+.file-details {
+    flex-grow: 1;
+}
+
+.file-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.file-size {
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+.file-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.file-form {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: end;
+}
+
+.file-options {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+/* Styles pour les statistiques */
+.stats {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 0.5rem;
+    background-color: #e9ecef;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: #198754;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Styles pour les messages d'erreur */
+.error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Styles pour les boutons */
+.btn-remove {
+    color: #dc3545;
+    border: 1px solid #dc3545;
+    background: transparent;
+}
+
+.btn-remove:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .file-form {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+    }
+    
+    .file-options {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+}
+</style>
+
+<div class="container-fluid flex-grow-1 container-p-y">
+    <!-- En-tête avec titre et bouton de retour -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="fw-bold mb-1">
+                        <i class="bi bi-plus-circle me-2 me-1"></i>Ajouter de la Documentation
+                    </h4>
+                    <p class="text-muted mb-0">Upload de documents avec gestion des noms</p>
+                </div>
+                <div>
+                    <?php
+                    // Construire l'URL de retour avec les paramètres de filtres
+                    $returnParams = [];
+                    if (isset($_GET['site_id']) && !empty($_GET['site_id'])) {
+                        $returnParams['site_id'] = $_GET['site_id'];
+                    }
+                    if (isset($_GET['salle_id']) && !empty($_GET['salle_id'])) {
+                        $returnParams['salle_id'] = $_GET['salle_id'];
+                    }
+                    
+                    $returnUrl = BASE_URL . 'documentation_client';
+                    if (!empty($returnParams)) {
+                        $returnUrl .= '?' . http_build_query($returnParams);
+                    }
+                    ?>
+                    <a href="<?= $returnUrl ?>" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left me-2 me-1"></i>Retour à la liste
                     </a>
-                    <button type="submit" form="addDocumentForm" class="btn btn-primary" id="submitAddDocument">
-                        Enregistrer
-                    </button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <?php if (isset($_SESSION['error'])): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <?php echo $_SESSION['error']; unset($_SESSION['error']); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; ?>
-            <?php if (isset($_SESSION['success'])): ?>
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <?php echo $_SESSION['success']; unset($_SESSION['success']); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; ?>
-
-            <form id="addDocumentForm" action="<?= BASE_URL ?>documentation_client/create" method="post" enctype="multipart/form-data">
-                <div class="card">
-                    <div class="card-header">
-                         <h5 class="card-title mb-0">Détails du document</h5>
+    <!-- Formulaire d'ajout -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="bi bi-file-text me-2 me-1"></i>Informations de la Documentation
+            </h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="<?= BASE_URL ?>documentation_client/store" class="needs-validation" novalidate id="documentationForm">
+                <!-- Sélection du site/salle -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="site_id" class="form-label fw-bold">Site</label>
+                        <select class="form-select" id="site_id" name="site_id" onchange="updateRooms()">
+                            <option value="">Sélectionner un site (optionnel)</option>
+                            <?php if (isset($sites) && is_array($sites)): ?>
+                                <?php foreach ($sites as $site): ?>
+                                    <option value="<?= $site['id'] ?>" <?= (isset($_GET['site_id']) && $_GET['site_id'] == $site['id']) ? 'selected' : '' ?>>
+                                        <?= h($site['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
                     </div>
-                    <div class="card-body">
-                                <div class="row g-3">
-                            <!-- Colonne 1: Catégorie, Titre, Description, Pièce jointe -->
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                            <label for="category_id" class="form-label">Catégorie <span class="text-danger">*</span></label>
-                                            <select class="form-select" id="category_id" name="category_id" required>
-                                                <option value="">Sélectionner une catégorie</option>
-                                                <?php foreach ($categories as $category): ?>
-                                            <option value="<?= $category['id'] ?>" <?= ($form_category_id == $category['id']) ? 'selected' : '' ?>>
-                                                        <?= h($category['name']) ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select>
-                                        </div>
-                                <div class="mb-3">
-                                    <label for="title" class="form-label">Titre <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control" id="title" name="title" required value="<?= h($form_title) ?>">
-                                </div>
-                                <div class="mb-3">
-                                    <label for="description" class="form-label">Description</label>
-                                    <textarea class="form-control" id="description" name="description" rows="3"><?= h($form_description) ?></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="document_file" class="form-label">Pièce jointe</label>
-                                    <input type="file" class="form-control" id="document_file" name="document" accept="<?= FileUploadValidator::getAcceptAttribute($GLOBALS['db']) ?>">
-                                    <div class="form-text">
-                                        Formats acceptés : <?= FileUploadValidator::getExtensionsForDisplay($GLOBALS['db']) ?><br>
-                                        Taille maximale : <?php echo ini_get('upload_max_filesize'); ?>
-                                    </div>
-                                    <div id="documentFileError" class="invalid-feedback"></div>
-                                        </div>
-                                        </div>
+                    
+                    <div class="col-md-6">
+                        <label for="room_id" class="form-label fw-bold">Salle</label>
+                        <select class="form-select" id="room_id" name="room_id">
+                            <option value="">Sélectionner une salle (optionnel)</option>
+                            <?php if (isset($rooms) && is_array($rooms)): ?>
+                                <?php foreach ($rooms as $room): ?>
+                                    <option value="<?= $room['id'] ?>" <?= (isset($_GET['salle_id']) && $_GET['salle_id'] == $room['id']) ? 'selected' : '' ?>>
+                                        <?= h($room['name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+                </div>
 
-                            <!-- Colonne 2: Contenu détaillé -->
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="content" class="form-label">Contenu détaillé</label>
-                                            <div class="editor-toolbar mb-1">
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('bold')">
-                                                    <i class="fas fa-bold"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('italic')">
-                                                    <i class="fas fa-italic"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="formatText('underline')">
-                                                    <i class="fas fa-underline"></i>
-                                                </button>
-                                                <select class="form-select form-select-sm d-inline-block w-auto ms-2" onchange="formatHeading(this.value)">
-                                                    <option value="">Style de titre</option>
-                                                    <option value="h1">Titre 1</option>
-                                                    <option value="h2">Titre 2</option>
-                                                    <option value="h3">Titre 3</option>
-                                                    <option value="p">Paragraphe</option>
-                                                </select>
-                                            </div>
-                                    <div id="content" class="form-control editor-content" contenteditable="true" style="min-height: 200px; overflow-y: auto; resize: vertical;" data-placeholder="Saisissez votre contenu ici..."></div>
-                                            <input type="hidden" name="content" id="content-hidden">
+                <!-- Zone de drag & drop -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Documents <span class="text-danger">*</span></label>
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-message">
+                            <i class="bi bi-cloud-upload"></i>
+                            <div>Glissez-déposez vos documents ici</div>
+                            <small class="text-muted">ou cliquez pour sélectionner</small>
+                        </div>
+                        
+                        <input type="file" id="fileInput" multiple style="display: none;" 
+                               accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar">
+                        
+                        <div class="file-list" id="fileList"></div>
+                        
+                        <div class="stats" id="stats" style="display: none;">
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Fichiers valides:</strong> <span id="validCount">0</span>
                                 </div>
-                                        </div>
-
-                            <!-- Colonne 3: Client, Site, Salle -->
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="client_id" class="form-label">Client <span class="text-danger">*</span></label>
-                                    <select class="form-select" id="client_id" name="client_id" required>
-                                        <option value="">Sélectionner un client</option>
-                                        <?php foreach ($authorizedClients as $clientId => $clientName): ?>
-                                            <option value="<?= $clientId ?>" <?= (isset($_GET['client_id']) && $_GET['client_id'] == $clientId) ? 'selected' : '' ?>>
-                                                <?= h($clientName) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                        </div>
-                                <div class="mb-3">
-                                    <label for="site_id" class="form-label">Site</label>
-                                    <select class="form-select" id="site_id" name="site_id">
-                                        <option value="">Sélectionner un site (optionnel)</option>
-                                        <?php foreach ($sites as $site): ?>
-                                            <option value="<?= $site['id'] ?>" 
-                                                    data-client="<?= $site['client_id'] ?>"
-                                                    <?= (isset($_GET['site_id']) && $_GET['site_id'] == $site['id']) ? 'selected' : '' ?>>
-                                                <?= h($site['name']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                    </div>
-                                <div class="mb-3">
-                                    <label for="room_id" class="form-label">Salle</label>
-                                    <select class="form-select" id="room_id" name="room_id">
-                                        <option value="">Sélectionner une salle (optionnel)</option>
-                                        <?php foreach ($rooms as $room): ?>
-                                            <option value="<?= $room['id'] ?>" 
-                                                    data-site="<?= $room['site_id'] ?>"
-                                                    <?= (isset($_GET['room_id']) && $_GET['room_id'] == $room['id']) ? 'selected' : '' ?>>
-                                                <?= h($room['name']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                <div class="col-6">
+                                    <strong>Fichiers rejetés:</strong> <span id="invalidCount">0</span>
                                 </div>
                             </div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                            </div>
                         </div>
+                    </div>
+                    <div class="invalid-feedback" id="filesError">
+                        Veuillez ajouter au moins un document.
+                    </div>
+                </div>
+
+                <!-- Boutons d'action -->
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <button type="button" class="btn btn-outline-danger" id="clearAllBtn" onclick="clearAllFiles()" style="display: none;">
+                            <i class="bi bi-trash me-1"></i>Vider la liste
+                        </button>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                            <i class="bi bi-check-lg me-1"></i>Enregistrer la Documentation
+                        </button>
                     </div>
                 </div>
             </form>
@@ -196,292 +335,330 @@ foreach ($sites as $site) {
 </div>
 
 <script>
-// Fonction pour formater le texte
-function formatText(command) {
-    document.execCommand(command, false, null);
-    document.getElementById('content').focus();
-}
-
-// Fonction pour formater les titres
-function formatHeading(tag) {
-    if (tag === 'p') {
-        document.execCommand('formatBlock', false, 'p');
-    } else if (tag) {
-        document.execCommand('formatBlock', false, tag);
+// Classe pour gérer le drag & drop et l'upload
+class DocumentationUploader {
+    constructor() {
+        this.dropZone = document.getElementById('dropZone');
+        this.fileInput = document.getElementById('fileInput');
+        this.fileList = document.getElementById('fileList');
+        this.stats = document.getElementById('stats');
+        this.validCount = document.getElementById('validCount');
+        this.invalidCount = document.getElementById('invalidCount');
+        this.progressFill = document.getElementById('progressFill');
+        this.clearAllBtn = document.getElementById('clearAllBtn');
+        this.submitBtn = document.getElementById('submitBtn');
+        this.filesError = document.getElementById('filesError');
+        this.form = document.getElementById('documentationForm');
+        
+        this.files = [];
+        this.maxSize = 50 * 1024 * 1024; // 50MB
+        this.allowedTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/plain',
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/gif',
+            'application/zip',
+            'application/x-rar-compressed'
+        ];
+        
+        this.init();
     }
-    document.getElementById('content').focus();
-}
-
-// Gestionnaire pour le formulaire
-document.getElementById('addDocumentForm').addEventListener('submit', function(e) {
-    // Copier le contenu HTML dans le champ caché avant la soumission
-    document.getElementById('content-hidden').value = document.getElementById('content').innerHTML;
-});
-
-// Le JS pour recharger la page sur changement de client/site est conservé
-document.getElementById('client_id').addEventListener('change', function() {
-    const clientId = this.value;
-    const currentUrl = new URL(window.location.href);
-
-    // Sauvegarder les données du formulaire
-    const formDataToPreserve = {
-        category_id: document.getElementById('category_id').value,
-        title: document.getElementById('title').value,
-        description: document.getElementById('description').value
-    };
-    for (const key in formDataToPreserve) {
-        if (formDataToPreserve[key]) { // Ne pas ajouter de paramètres vides
-            currentUrl.searchParams.set(`form_${key}`, formDataToPreserve[key]);
+    
+    init() {
+        this.setupEventListeners();
+    }
+    
+    setupEventListeners() {
+        // Drag & Drop events
+        this.dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.add('dragover');
+        });
+        
+        this.dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.remove('dragover');
+        });
+        
+        this.dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            this.dropZone.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files);
+            this.handleFiles(files);
+        });
+        
+        // Click to select files
+        this.dropZone.addEventListener('click', (e) => {
+            if (e.target === this.dropZone || e.target.classList.contains('drop-message') || e.target.closest('.drop-message')) {
+                this.fileInput.click();
+            }
+        });
+        
+        this.fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            this.handleFiles(files);
+        });
+        
+        // Form submission
+        this.form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.submitForm();
+        });
+    }
+    
+    handleFiles(newFiles) {
+        const validatedFiles = this.validateFiles(newFiles);
+        this.files = [...this.files, ...validatedFiles];
+        this.displayFiles();
+        this.updateStats();
+        this.updateSubmitButton();
+    }
+    
+    validateFiles(files) {
+        return files.map(file => {
+            const validation = {
+                file: file,
+                valid: true,
+                errors: []
+            };
+            
+            // Vérifier la taille
+            if (file.size > this.maxSize) {
+                validation.valid = false;
+                validation.errors.push('Fichier trop volumineux (max 50MB)');
+            }
+            
+            // Vérifier le type
+            if (!this.allowedTypes.includes(file.type)) {
+                validation.valid = false;
+                validation.errors.push('Type de fichier non autorisé');
+            }
+            
+            return validation;
+        });
+    }
+    
+    displayFiles() {
+        this.fileList.innerHTML = '';
+        
+        this.files.forEach((fileData, index) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div class="file-header">
+                    <div class="file-info">
+                        <i class="${this.getFileIcon(fileData.file.type)} file-icon"></i>
+                        <div class="file-details">
+                            <div class="file-name">${fileData.file.name}</div>
+                            <div class="file-size">${this.formatFileSize(fileData.file.size)}</div>
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button type="button" class="btn btn-sm btn-remove" onclick="removeFile(${index})">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="file-form">
+                    <div>
+                        <label class="form-label">Nom personnalisé</label>
+                        <input type="text" class="form-control" name="custom_names[]" 
+                               value="${fileData.file.name}" placeholder="Nom du document">
+                        <input type="hidden" name="file_names[]" value="${fileData.file.name}">
+                        <input type="hidden" name="file_sizes[]" value="${fileData.file.size}">
+                        <input type="hidden" name="file_types[]" value="${fileData.file.type}">
+                    </div>
+                </div>
+                ${fileData.errors.length > 0 ? `
+                    <div class="error-message">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        ${fileData.errors.join(', ')}
+                    </div>
+                ` : ''}
+            `;
+            
+            this.fileList.appendChild(fileItem);
+        });
+    }
+    
+    updateStats() {
+        const validFiles = this.files.filter(f => f.valid);
+        const invalidFiles = this.files.filter(f => !f.valid);
+        
+        this.validCount.textContent = validFiles.length;
+        this.invalidCount.textContent = invalidFiles.length;
+        
+        if (this.files.length > 0) {
+            this.stats.style.display = 'block';
+            this.clearAllBtn.style.display = 'inline-block';
+            
+            const progress = (validFiles.length / this.files.length) * 100;
+            this.progressFill.style.width = `${progress}%`;
+        } else {
+            this.stats.style.display = 'none';
+            this.clearAllBtn.style.display = 'none';
         }
     }
-    // Sauvegarder le contenu de l'éditeur dans sessionStorage
-    sessionStorage.setItem('preserved_document_content', document.getElementById('content').innerHTML);
-
-    currentUrl.searchParams.set('client_id', clientId);
-    currentUrl.searchParams.delete('site_id'); // Reset site and room if client changes
-    currentUrl.searchParams.delete('room_id');
-    if (clientId) {
-        window.location.href = currentUrl.toString();
-    } else { // Si "Sélectionner un client" est choisi, recharger sans client_id
-        currentUrl.searchParams.delete('client_id');
-        // Conserver les autres form_ params
-        window.location.href = currentUrl.toString();
-    }
-});
-
-document.getElementById('site_id').addEventListener('change', function() {
-    const clientId = document.getElementById('client_id').value;
-    const siteId = this.value;
-    const currentUrl = new URL(window.location.href);
-
-    // Sauvegarder les données du formulaire
-    const formDataToPreserve = {
-        category_id: document.getElementById('category_id').value,
-        title: document.getElementById('title').value,
-        description: document.getElementById('description').value
-    };
-    for (const key in formDataToPreserve) {
-        if (formDataToPreserve[key]) { // Ne pas ajouter de paramètres vides
-            currentUrl.searchParams.set(`form_${key}`, formDataToPreserve[key]);
+    
+    updateSubmitButton() {
+        const validFiles = this.files.filter(f => f.valid);
+        
+        if (validFiles.length > 0) {
+            this.submitBtn.disabled = false;
+            this.filesError.style.display = 'none';
+        } else {
+            this.submitBtn.disabled = true;
+            if (validFiles.length === 0) {
+                this.filesError.style.display = 'block';
+            }
         }
     }
-    // Sauvegarder le contenu de l'éditeur dans sessionStorage
-    sessionStorage.setItem('preserved_document_content', document.getElementById('content').innerHTML);
-
-    currentUrl.searchParams.set('client_id', clientId); // Assurer que client_id est là
-    currentUrl.searchParams.delete('room_id'); // Reset room if site changes
-    if (siteId) {
-        currentUrl.searchParams.set('site_id', siteId);
-    } else {
-        currentUrl.searchParams.delete('site_id');
-    }
-    if (clientId) { // On ne recharge que si un client est sélectionné
-      window.location.href = currentUrl.toString();
-    }
-});
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Restaurer le contenu de l'éditeur depuis sessionStorage
-    const preservedContent = sessionStorage.getItem('preserved_document_content');
-    if (preservedContent) {
-        document.getElementById('content').innerHTML = preservedContent;
-        sessionStorage.removeItem('preserved_document_content'); // Nettoyer après usage
-    }
-
-    const documentForm = document.getElementById('addDocumentForm');
-    const documentFileInput = document.getElementById('document_file');
-    const documentFileError = document.getElementById('documentFileError');
-    const submitDocumentButton = document.getElementById('submitAddDocument');
-
-    const allowedTypes = [
-        'image/jpeg', 'image/png', 'image/gif',
-        'application/pdf',
-        'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/zip', 'application/x-zip', 'application/x-zip-compressed', 'application/octet-stream', // octet-stream for broader zip/rar compatibility
-        'application/x-rar-compressed', 'application/vnd.rar', // Common RAR MIME types
-        'application/x-7z-compressed', // Common 7z MIME type
-        'text/plain', 'text/csv', 'application/csv'
-    ];
-
-    const phpMaxFileSize = '<?php echo ini_get("upload_max_filesize"); ?>';
-
-    function parsePhpSize(sizeStr) {
-        if (!sizeStr) return 0;
-        const units = { 'K': 1024, 'M': 1024 * 1024, 'G': 1024 * 1024 * 1024 };
-        const lastChar = sizeStr.charAt(sizeStr.length - 1).toUpperCase();
-        const num = parseFloat(sizeStr);
-        if (units[lastChar]) {
-            return num * units[lastChar];
+    
+    submitForm() {
+        const validFiles = this.files.filter(f => f.valid);
+        if (validFiles.length === 0) {
+            alert('Veuillez ajouter au moins un fichier valide.');
+            return;
         }
-        return num;
+        
+        // Créer un FormData pour l'upload
+        const formData = new FormData();
+        
+        // Ajouter les paramètres du formulaire
+        formData.append('site_id', document.getElementById('site_id').value || '');
+        formData.append('room_id', document.getElementById('room_id').value || '');
+        
+        // Ajouter les fichiers
+        validFiles.forEach((fileData, index) => {
+            formData.append('files[]', fileData.file);
+            const customNameInput = document.querySelectorAll(`input[name="custom_names[]"]`)[index];
+            formData.append('custom_names[]', customNameInput ? customNameInput.value : fileData.file.name);
+        });
+        
+        // Désactiver le bouton de soumission
+        this.submitBtn.disabled = true;
+        this.submitBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Enregistrement...';
+        
+        // Envoyer la requête
+        fetch('<?= BASE_URL ?>documentation_client/store', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Rediriger vers la liste avec les filtres
+                const returnParams = new URLSearchParams();
+                if (document.getElementById('site_id').value) returnParams.set('site_id', document.getElementById('site_id').value);
+                if (document.getElementById('room_id').value) returnParams.set('salle_id', document.getElementById('room_id').value);
+                
+                window.location.href = `<?= BASE_URL ?>documentation_client${returnParams.toString() ? '?' + returnParams.toString() : ''}`;
+            } else {
+                // Vérifier si c'est une erreur de session
+                if (data.error && data.error.includes('Session expirée')) {
+                    alert('Votre session a expiré. Vous allez être redirigé vers la page de connexion.');
+                    window.location.href = '<?= BASE_URL ?>auth/login';
+                } else {
+                    alert('Erreur lors de l\'enregistrement: ' + (data.error || 'Erreur inconnue'));
+                    this.submitBtn.disabled = false;
+                    this.submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Enregistrer la Documentation';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur de connexion: ' + error.message);
+            this.submitBtn.disabled = false;
+            this.submitBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Enregistrer la Documentation';
+        });
     }
-
-    const maxFileSize = parsePhpSize(phpMaxFileSize);
-
-    function formatFileSize(bytes) {
-        if (bytes === 0 || isNaN(bytes)) return '0 B';
+    
+    getFileIcon(fileType) {
+        if (fileType.includes('pdf')) return 'bi bi-file-pdf';
+        if (fileType.includes('word')) return 'bi bi-file-word';
+        if (fileType.includes('excel') || fileType.includes('sheet')) return 'bi bi-file-excel';
+        if (fileType.includes('image')) return 'bi bi-file-image';
+        if (fileType.includes('zip') || fileType.includes('rar')) return 'bi bi-file-zip';
+        if (fileType.includes('text')) return 'bi bi-file-text';
+        return 'bi bi-file';
+    }
+    
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 B';
         const k = 1024;
-        const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
+}
 
-    if (documentFileInput) {
-        documentFileInput.addEventListener('change', function() {
-            const file = this.files[0];
-            // Réinitialiser les messages d'erreur et état
-            documentFileError.textContent = '';
-            documentFileError.style.display = 'none';
-            documentFileInput.classList.remove('is-invalid');
-            if (submitDocumentButton) {
-                 submitDocumentButton.disabled = false;
-            }
+// Variables globales
+let uploader;
 
-            if (file) {
-                // Réinitialiser les messages d'erreur et état (déjà fait plus haut, mais s'assurer ici aussi)
-                documentFileError.textContent = '';
-                documentFileError.style.display = 'none';
-                documentFileInput.classList.remove('is-invalid');
-                if (submitDocumentButton) {
-                    submitDocumentButton.disabled = false;
-                }
+// Fonctions globales
+function removeFile(index) {
+    uploader.files.splice(index, 1);
+    uploader.displayFiles();
+    uploader.updateStats();
+    uploader.updateSubmitButton();
+}
 
-                // --- Revised type validation for 'change' event ---
-                let isFileTypeValid = false;
-                if (file.type && allowedTypes.includes(file.type)) {
-                    isFileTypeValid = true;
-                } else if (!file.type) { // file.type is empty, try extension
-                    const extension = file.name.split('.').pop().toLowerCase();
-                    const extToMime = {
-                        'csv': ['text/csv', 'application/csv'],
-                        'zip': ['application/zip', 'application/x-zip', 'application/x-zip-compressed', 'application/octet-stream'],
-                        'rar': ['application/x-rar-compressed', 'application/vnd.rar', 'application/octet-stream'],
-                        '7z': ['application/x-7z-compressed', 'application/octet-stream']
-                        // Note: .doc, .docx, .xls, .xlsx often have reliable MIME types, so specific ext mapping might not be as critical here
-                        // as for archives or .csv
-                    };
-                    if (extToMime[extension]) {
-                        for (const mime of extToMime[extension]) {
-                            if (allowedTypes.includes(mime)) {
-                                isFileTypeValid = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!isFileTypeValid) {
-                    documentFileError.textContent = 'Ce format n\'est pas accepté, rapprochez-vous de l\'administrateur du site, ou utilisez un format compressé.';
-                    documentFileError.style.display = 'block';
-                    documentFileInput.classList.add('is-invalid');
-                    if (submitDocumentButton) {
-                        submitDocumentButton.disabled = true;
-                    }
-                    return; // Stop processing if type is invalid
-                }
-                // --- End of revised type validation ---
-
-                // Vérifier la taille du fichier
-                if (file.size > maxFileSize) {
-                    documentFileError.textContent = `Le fichier est trop volumineux (${formatFileSize(file.size)}). Taille maximale autorisée : ${formatFileSize(maxFileSize)} (${phpMaxFileSize}).`;
-                    documentFileError.style.display = 'block';
-                    documentFileInput.classList.add('is-invalid');
-                    if (submitDocumentButton) {
-                        submitDocumentButton.disabled = true;
-                    }
-                    return;
-                }
-            }
-        });
+function clearAllFiles() {
+    if (confirm('Êtes-vous sûr de vouloir supprimer tous les fichiers ?')) {
+        uploader.files = [];
+        uploader.displayFiles();
+        uploader.updateStats();
+        uploader.updateSubmitButton();
     }
+}
 
-    if (documentForm) {
-        documentForm.addEventListener('submit', function(e) {
-            const file = documentFileInput ? documentFileInput.files[0] : null;
-            if (file) {
-                let isInvalid = false;
-                // Re-valider le type
-                const extension = file.name.split('.').pop().toLowerCase();
-                let typeAllowedByExtensionOrMime = allowedTypes.includes(file.type);
-
-                if (!file.type && !typeAllowedByExtensionOrMime) { // If MIME type is empty, check by extension
-                     const extToMime = {
-                        'csv': ['text/csv', 'application/csv'],
-                        'zip': ['application/zip', 'application/x-zip', 'application/x-zip-compressed', 'application/octet-stream'],
-                        'rar': ['application/x-rar-compressed', 'application/vnd.rar', 'application/octet-stream'],
-                        '7z': ['application/x-7z-compressed', 'application/octet-stream']
-                    };
-                    if (extToMime[extension]) {
-                        for (const mime of extToMime[extension]) {
-                            if (allowedTypes.includes(mime)) {
-                                typeAllowedByExtensionOrMime = true;
-                                break;
-                            }
-                        }
-                    }
+function updateRooms() {
+    const siteId = document.getElementById('site_id').value;
+    const roomSelect = document.getElementById('room_id');
+    
+    if (siteId) {
+        fetch(`<?= BASE_URL ?>documentation_client/get_rooms?site_id=${siteId}`)
+            .then(response => response.json())
+            .then(data => {
+                roomSelect.innerHTML = '<option value="">Sélectionner une salle (optionnel)</option>';
+                if (Array.isArray(data)) {
+                    data.forEach(room => {
+                        const option = document.createElement('option');
+                        option.value = room.id;
+                        option.textContent = room.name;
+                        roomSelect.appendChild(option);
+                    });
                 }
-
-
-                if (!typeAllowedByExtensionOrMime) {
-                    documentFileError.textContent = 'Type de fichier non autorisé. Veuillez sélectionner un fichier valide.';
-                    documentFileError.style.display = 'block';
-                    documentFileInput.classList.add('is-invalid');
-                    isInvalid = true;
-                }
-
-                // Re-valider la taille
-                if (file.size > maxFileSize) {
-                    documentFileError.textContent = `Le fichier est trop volumineux (${formatFileSize(file.size)}). Taille maximale autorisée : ${formatFileSize(maxFileSize)} (${phpMaxFileSize}).`;
-                    documentFileError.style.display = 'block'; // Assurez-vous que le message est visible
-                    documentFileInput.classList.add('is-invalid');
-                    isInvalid = true;
-                }
-
-                if (isInvalid) {
-                    e.preventDefault(); // Empêcher la soumission du formulaire
-                    if (submitDocumentButton) {
-                       submitDocumentButton.disabled = true;
-                    }
-                    // Optionally, scroll to the error or focus the input
-                    documentFileInput.focus();
-                    return false;
-                }
-            }
-            // S'il n'y a pas de fichier, ou si le fichier est valide, la soumission continue.
-            // Le champ de fichier n'est pas "required", donc pas de fichier est un cas valide.
-        });
+            })
+            .catch(error => {
+                console.error('Erreur lors de la mise à jour des salles:', error);
+            });
+    } else {
+        roomSelect.innerHTML = '<option value="">Sélectionner une salle (optionnel)</option>';
     }
+}
+
+// Initialisation
+document.addEventListener('DOMContentLoaded', function() {
+    uploader = new DocumentationUploader();
 });
 </script>
 
-<style>
-.editor-content {
-    border: 1px solid #ced4da;
-    padding: 10px;
-    line-height: 1.5;
-}
-
-.editor-content:empty:before {
-    content: attr(data-placeholder);
-    color: #6c757d;
-    pointer-events: none;
-}
-
-.editor-toolbar {
-    border: 1px solid #ced4da;
-    padding: 5px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-}
-
-.editor-toolbar button {
-    margin-right: 5px;
-}
-
-.editor-toolbar select {
-    margin-left: 5px;
-}
-</style>
-
-<?php include_once __DIR__ . '/../../includes/footer.php'; ?> 
+<?php
+// Inclure le footer
+include_once __DIR__ . '/../../includes/footer.php';
+?>

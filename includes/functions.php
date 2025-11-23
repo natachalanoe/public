@@ -360,6 +360,10 @@ function checkInterventionManagementAccess() {
  * Vérifie que l'utilisateur a la permission de gérer la documentation
  * Redirige vers le dashboard si ce n'est pas le cas
  */
+function canManageDocumentation() {
+    return hasPermission('tech_manage_documentation');
+}
+
 function checkDocumentationManagementAccess() {
     checkStaffAccess();
     

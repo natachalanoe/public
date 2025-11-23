@@ -332,6 +332,30 @@ try {
                 case 'addMultipleAttachments':
                     $documentationController->addMultipleAttachments();
                     break;
+                case 'download':
+                    if (isset($_GET['attachment_id'])) {
+                        $documentationController->download($_GET['attachment_id']);
+                    } else {
+                        header('Location: ' . BASE_URL . 'documentation');
+                    }
+                    break;
+                case 'preview':
+                    if (isset($_GET['attachment_id'])) {
+                        $documentationController->preview($_GET['attachment_id']);
+                    } else {
+                        header('Location: ' . BASE_URL . 'documentation');
+                    }
+                    break;
+                case 'toggleAttachmentVisibility':
+                    if (isset($_GET['attachment_id'])) {
+                        $documentationController->toggleAttachmentVisibility($_GET['attachment_id']);
+                    } else {
+                        header('Location: ' . BASE_URL . 'documentation');
+                    }
+                    break;
+                case 'updateName':
+                    $documentationController->updateName();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'documentation');
                     break;
@@ -1181,6 +1205,9 @@ try {
                 case 'create':
                     $documentationClientController->create();
                     break;
+                case 'store':
+                    $documentationClientController->store();
+                    break;
                 case 'edit':
                     if ($id) {
                         $documentationClientController->edit($id);
@@ -1204,6 +1231,23 @@ try {
                     break;
                 case 'get_rooms':
                     $documentationClientController->get_rooms();
+                    break;
+                case 'download':
+                    if (isset($_GET['attachment_id'])) {
+                        $documentationClientController->download($_GET['attachment_id']);
+                    } else {
+                        header('Location: ' . BASE_URL . 'documentation_client');
+                    }
+                    break;
+                case 'preview':
+                    if (isset($_GET['attachment_id'])) {
+                        $documentationClientController->preview($_GET['attachment_id']);
+                    } else {
+                        header('Location: ' . BASE_URL . 'documentation_client');
+                    }
+                    break;
+                case 'updateName':
+                    $documentationClientController->updateName();
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'documentation_client');

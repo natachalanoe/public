@@ -104,36 +104,58 @@ class DocumentationController {
         // Ne charger les documents que si un client est sélectionné
         if ($client_id) {
             // Requête pour récupérer les pièces jointes de documentation
+            // On récupère toujours les informations complètes (client, site, salle) même si le document
+            // est lié directement à une salle ou un site
             $query = "
                 SELECT 
                     pj.*,
                     COALESCE(pj.content, pj.commentaire) as description,
-                    c.name as client_nom,
-                    s.name as site_nom,
+                    COALESCE(c.name, c2.name, c3.name) as client_nom,
+                    COALESCE(s.name, s2.name) as site_nom,
                     r.name as salle_nom,
-                    c.id as client_id,
-                    s.id as site_id,
+                    COALESCE(c.id, c2.id, c3.id) as client_id,
+                    COALESCE(s.id, s2.id) as site_id,
                     r.id as salle_id,
                     u.username as uploader_name
                 FROM pieces_jointes pj
                 INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                -- JOIN pour les documents liés directement au client
                 LEFT JOIN clients c ON (lpj.type_liaison = 'documentation_client' AND lpj.entite_id = c.id)
+                -- JOIN pour les documents liés directement au site
                 LEFT JOIN sites s ON (lpj.type_liaison = 'documentation_site' AND lpj.entite_id = s.id)
+                -- JOIN pour récupérer le client depuis le site (quand document lié au site)
+                LEFT JOIN clients c2 ON s.client_id = c2.id
+                -- JOIN pour les documents liés directement à la salle
                 LEFT JOIN rooms r ON (lpj.type_liaison = 'documentation_room' AND lpj.entite_id = r.id)
+                -- JOIN pour récupérer le site depuis la salle (quand document lié à la salle)
+                LEFT JOIN sites s2 ON r.site_id = s2.id
+                -- JOIN pour récupérer le client depuis le site de la salle (quand document lié à la salle)
+                LEFT JOIN clients c3 ON s2.client_id = c3.id
                 LEFT JOIN users u ON pj.created_by = u.id
                 WHERE lpj.type_liaison IN ('documentation_client', 'documentation_site', 'documentation_room')
             ";
 
             $params = [];
 
-            // Filtres
-            $query .= " AND (c.id = ? OR s.client_id = ? OR r.site_id IN (SELECT id FROM sites WHERE client_id = ?))";
+            // Filtres - vérifier le client_id dans toutes les possibilités
+            $query .= " AND (
+                c.id = ? 
+                OR c2.id = ? 
+                OR c3.id = ? 
+                OR s.client_id = ? 
+                OR s2.client_id = ? 
+                OR r.site_id IN (SELECT id FROM sites WHERE client_id = ?)
+            )";
+            $params[] = $client_id;
+            $params[] = $client_id;
+            $params[] = $client_id;
             $params[] = $client_id;
             $params[] = $client_id;
             $params[] = $client_id;
 
             if ($site_id) {
-                $query .= " AND (s.id = ? OR r.site_id = ?)";
+                $query .= " AND (s.id = ? OR s2.id = ? OR r.site_id = ?)";
+                $params[] = $site_id;
                 $params[] = $site_id;
                 $params[] = $site_id;
             }
@@ -143,7 +165,7 @@ class DocumentationController {
                 $params[] = $salle_id;
             }
 
-            $query .= " ORDER BY c.name, s.name, r.name, pj.date_creation DESC";
+            $query .= " ORDER BY client_nom, site_nom, salle_nom, pj.date_creation DESC";
 
             $stmt = $this->db->prepare($query);
             $stmt->execute($params);
@@ -1739,6 +1761,298 @@ class DocumentationController {
             ]);
         }
         exit;
+    }
+
+    /**
+     * Télécharge une pièce jointe de documentation
+     */
+    public function download($pieceJointeId) {
+        $this->checkAccess();
+
+        try {
+            // Récupérer les informations de la pièce jointe directement depuis la base
+            $query = "SELECT * FROM pieces_jointes WHERE id = :piece_jointe_id";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':piece_jointe_id' => $pieceJointeId]);
+            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$pieceJointe) {
+                throw new Exception("Pièce jointe non trouvée");
+            }
+
+            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
+            
+            if (!file_exists($filePath)) {
+                throw new Exception("Fichier non trouvé");
+            }
+
+            // Définir les headers pour le téléchargement
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
+            header('Content-Length: ' . filesize($filePath));
+            header('Cache-Control: no-cache, must-revalidate');
+            header('Pragma: no-cache');
+
+            // Nettoyer les buffers de sortie avant d'envoyer le fichier
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            // Lire et envoyer le fichier
+            readfile($filePath);
+            exit;
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors du téléchargement de la pièce jointe : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors du téléchargement : " . $e->getMessage();
+            header('Location: ' . BASE_URL . 'documentation');
+            exit;
+        }
+    }
+
+    /**
+     * Aperçu d'une pièce jointe de documentation
+     */
+    public function preview($attachmentId) {
+        $this->checkAccess();
+
+        try {
+            // Log pour débogage
+            custom_log("Tentative d'aperçu documentation pour l'ID: " . $attachmentId, 'DEBUG');
+            
+            // Récupérer les informations de la pièce jointe directement depuis la base
+            $query = "SELECT * FROM pieces_jointes WHERE id = :piece_jointe_id";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':piece_jointe_id' => $attachmentId]);
+            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$pieceJointe) {
+                throw new Exception("Pièce jointe non trouvée");
+            }
+
+            custom_log("Pièce jointe trouvée: " . json_encode($pieceJointe), 'DEBUG');
+
+            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
+            custom_log("Chemin du fichier: " . $filePath, 'DEBUG');
+            
+            if (!file_exists($filePath)) {
+                custom_log("Le fichier n'existe pas: " . $filePath, 'ERROR');
+                throw new Exception("Fichier non trouvé");
+            }
+
+            custom_log("Fichier trouvé, taille: " . filesize($filePath), 'DEBUG');
+
+            // Définir les en-têtes pour l'aperçu
+            $mimeType = mime_content_type($filePath);
+            custom_log("Type MIME détecté: " . ($mimeType ?: 'null'), 'DEBUG');
+            
+            if (!$mimeType) {
+                // Fallback basé sur l'extension si mime_content_type échoue
+                $extension = strtolower(pathinfo($pieceJointe['nom_fichier'], PATHINFO_EXTENSION));
+                switch ($extension) {
+                    case 'pdf':
+                        $mimeType = 'application/pdf';
+                        break;
+                    case 'jpg':
+                    case 'jpeg':
+                        $mimeType = 'image/jpeg';
+                        break;
+                    case 'png':
+                        $mimeType = 'image/png';
+                        break;
+                    case 'gif':
+                        $mimeType = 'image/gif';
+                        break;
+                    case 'webp':
+                        $mimeType = 'image/webp';
+                        break;
+                    case 'svg':
+                        $mimeType = 'image/svg+xml';
+                        break;
+                    case 'bmp':
+                        $mimeType = 'image/bmp';
+                        break;
+                    default:
+                        $mimeType = 'application/octet-stream';
+                        break;
+                }
+            }
+            
+            header('Content-Type: ' . $mimeType);
+            
+            // Pour les images et PDFs, utiliser inline pour la prévisualisation
+            if (strpos($mimeType, 'image/') === 0 || $mimeType === 'application/pdf') {
+                header('Content-Disposition: inline; filename="' . $pieceJointe['nom_fichier'] . '"');
+            } else {
+                header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
+            }
+
+            header('Content-Length: ' . filesize($filePath));
+            // Headers plus permissifs pour la prévisualisation
+            header('Cache-Control: public, max-age=3600');
+            header('X-Content-Type-Options: nosniff');
+
+            // Nettoyer les buffers de sortie avant d'envoyer le fichier
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            // Lire et envoyer le fichier
+            readfile($filePath);
+            exit;
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'aperçu de la pièce jointe : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors de l'aperçu : " . $e->getMessage();
+            header('Location: ' . BASE_URL . 'documentation');
+            exit;
+        }
+    }
+
+    /**
+     * Change la visibilité d'une pièce jointe de documentation
+     */
+    public function toggleAttachmentVisibility($pieceJointeId) {
+        $this->checkAccess();
+
+        try {
+            // Récupérer les informations de la pièce jointe
+            $query = "SELECT * FROM pieces_jointes WHERE id = :piece_jointe_id";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':piece_jointe_id' => $pieceJointeId]);
+            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$pieceJointe) {
+                throw new Exception("Pièce jointe non trouvée");
+            }
+
+            // Inverser la visibilité
+            $newVisibility = $pieceJointe['masque_client'] == 1 ? 0 : 1;
+            
+            // Mettre à jour dans la base de données
+            $updateQuery = "UPDATE pieces_jointes SET masque_client = :masque_client WHERE id = :id";
+            $updateStmt = $this->db->prepare($updateQuery);
+            $updateStmt->execute([
+                ':masque_client' => $newVisibility,
+                ':id' => $pieceJointeId
+            ]);
+            
+            $_SESSION['success'] = $newVisibility == 1 ? 
+                "Document masqué aux clients" : 
+                "Document rendu visible aux clients";
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors du changement de visibilité : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors du changement de visibilité : " . $e->getMessage();
+        }
+
+        // Rediriger vers la page de documentation avec les filtres conservés
+        $redirectUrl = BASE_URL . 'documentation';
+        $params = [];
+        
+        // Récupérer les filtres depuis la session ou les paramètres
+        if (isset($_SESSION['documentation_filters'])) {
+            $filters = $_SESSION['documentation_filters'];
+        } else {
+            $filters = [
+                'client_id' => $_GET['client_id'] ?? null,
+                'site_id' => $_GET['site_id'] ?? null,
+                'salle_id' => $_GET['salle_id'] ?? null
+            ];
+        }
+        
+        // Ajouter les filtres à l'URL
+        if (!empty($filters['client_id'])) {
+            $params['client_id'] = $filters['client_id'];
+        }
+        if (!empty($filters['site_id'])) {
+            $params['site_id'] = $filters['site_id'];
+        }
+        if (!empty($filters['salle_id'])) {
+            $params['salle_id'] = $filters['salle_id'];
+        }
+        
+        // Construire l'URL avec les paramètres
+        if (!empty($params)) {
+            $redirectUrl .= '?' . http_build_query($params);
+        }
+        
+        header('Location: ' . $redirectUrl);
+        exit;
+    }
+
+    /**
+     * Met à jour le nom personnalisé d'un document
+     */
+    public function updateName() {
+        $this->checkAccess();
+        
+        // Vérifier que c'est une requête AJAX
+        if (empty($_SERVER['HTTP_X_REQUESTED_WITH']) || 
+            strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) != 'xmlhttprequest') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Requête non autorisée']);
+            exit;
+        }
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Méthode non autorisée']);
+            exit;
+        }
+        
+        $attachmentId = isset($_POST['attachment_id']) ? (int)$_POST['attachment_id'] : null;
+        $nomPersonnalise = isset($_POST['nom_personnalise']) ? trim($_POST['nom_personnalise']) : null;
+        
+        if (!$attachmentId) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'ID du document manquant']);
+            exit;
+        }
+        
+        // Le nom personnalisé peut être vide (NULL), on utilisera nom_fichier dans ce cas
+        if ($nomPersonnalise === '') {
+            $nomPersonnalise = null;
+        }
+        
+        try {
+            // Vérifier que le document existe
+            $query = "SELECT * FROM pieces_jointes WHERE id = ?";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$attachmentId]);
+            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$pieceJointe) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => 'Document non trouvé']);
+                exit;
+            }
+            
+            // Mettre à jour le nom personnalisé
+            $updateQuery = "UPDATE pieces_jointes SET nom_personnalise = :nom_personnalise WHERE id = :id";
+            $updateStmt = $this->db->prepare($updateQuery);
+            $updateStmt->execute([
+                ':nom_personnalise' => $nomPersonnalise,
+                ':id' => $attachmentId
+            ]);
+            
+            // Récupérer le nom d'affichage (nom_personnalise ou nom_fichier)
+            $displayName = $nomPersonnalise ?: $pieceJointe['nom_fichier'];
+            
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true, 
+                'message' => 'Nom mis à jour avec succès',
+                'display_name' => $displayName
+            ]);
+            exit;
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la mise à jour du nom : " . $e->getMessage(), 'ERROR');
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Erreur lors de la mise à jour']);
+            exit;
+        }
     }
 
 } 
