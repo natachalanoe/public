@@ -17,6 +17,11 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'interventions';
 
+// Définir les breadcrumbs personnalisés pour l'édition d'intervention
+if (isset($intervention) && !empty($intervention)) {
+    $GLOBALS['customBreadcrumbs'] = generateInterventionEditBreadcrumbs($intervention);
+}
+
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
@@ -37,7 +42,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </a>
 
         
-        <button type="submit" form="interventionForm" class="btn btn-primary">Enregistrer les modifications</button>
+        <button type="button" id="saveButton" class="btn btn-primary">Enregistrer les modifications</button>
 
     </div>
 </div>
@@ -171,8 +176,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <!-- Déplacement -->
                                 <div>
                                     <label class="form-label fw-bold mb-0">Déplacement</label>
-                                    <input type="text" class="form-control bg-body text-body" id="type_requires_travel" value="<?php echo isset($intervention['type_requires_travel']) && $intervention['type_requires_travel'] == 1 ? 'Oui' : 'Non'; ?>" readonly>
-                                    <input type="hidden" name="type_requires_travel" value="<?php echo isset($intervention['type_requires_travel']) ? $intervention['type_requires_travel'] : '0'; ?>">
+                                    <select class="form-select bg-body text-body" id="type_requires_travel" name="type_requires_travel">
+                                        <option value="0" <?php echo (!isset($intervention['type_requires_travel']) || $intervention['type_requires_travel'] == 0) ? 'selected' : ''; ?>>Non</option>
+                                        <option value="1" <?php echo (isset($intervention['type_requires_travel']) && $intervention['type_requires_travel'] == 1) ? 'selected' : ''; ?>>Oui</option>
+                                    </select>
                                 </div>
 
                                 <!-- Contrat -->
@@ -970,8 +977,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         const siteSelect = document.getElementById('site_id');
         const roomSelect = document.getElementById('room_id');
         const typeSelect = document.getElementById('type_id');
-        const typeRequiresTravelInput = document.getElementById('type_requires_travel');
-        const typeRequiresTravelHidden = document.querySelector('input[name="type_requires_travel"]');
+        const typeRequiresTravelSelect = document.getElementById('type_requires_travel');
         const contractSelect = document.getElementById('contract_id');
 
         // Helpers utilisés par les modales (déclarés tôt pour être disponibles partout)
@@ -1328,24 +1334,69 @@ include_once __DIR__ . '/../../includes/navbar.php';
         });
         
         // Fonction pour charger les contacts d'un client
+        let contactsLoading = false;
+        let currentContactsRequest = null;
+        
         function loadContacts(clientId) {
             if (!clientId) {
                 contactClientSelect.innerHTML = '<option value="">Sélectionner un contact existant</option>';
                 return;
             }
             
-            fetch(`${BASE_URL}interventions/getContacts/${clientId}`)
-                .then(response => response.json())
-                .then(contacts => {
-                    contactClientSelect.innerHTML = '<option value="">Sélectionner un contact existant</option>';
-                    contacts.forEach(contact => {
-                        const option = document.createElement('option');
-                        option.value = contact.email;
-                        option.textContent = `${contact.first_name} ${contact.last_name} (${contact.email})`;
-                        contactClientSelect.appendChild(option);
-                    });
+            // Annuler la requête précédente si elle est en cours
+            if (currentContactsRequest) {
+                // Note: fetch n'a pas de méthode abort() native, mais on peut ignorer la réponse
+                contactsLoading = false;
+            }
+            
+            // Éviter les requêtes multiples simultanées
+            if (contactsLoading) {
+                return;
+            }
+            
+            contactsLoading = true;
+            contactClientSelect.disabled = true;
+            contactClientSelect.innerHTML = '<option value="">Chargement...</option>';
+            
+            // Créer un AbortController pour gérer le timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 secondes
+            
+            currentContactsRequest = fetch(`${BASE_URL}interventions/getContacts/${clientId}`, {
+                signal: controller.signal
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
                 })
-                .catch(() => {/* noop */});
+                .then(contacts => {
+                    clearTimeout(timeoutId);
+                    contactClientSelect.innerHTML = '<option value="">Sélectionner un contact existant</option>';
+                    if (contacts && Array.isArray(contacts)) {
+                        contacts.forEach(contact => {
+                            const option = document.createElement('option');
+                            option.value = contact.email;
+                            option.textContent = `${contact.first_name} ${contact.last_name} (${contact.email})`;
+                            contactClientSelect.appendChild(option);
+                        });
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    if (error.name !== 'AbortError') {
+                        console.error('Erreur lors du chargement des contacts:', error);
+                        contactClientSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+                    } else {
+                        contactClientSelect.innerHTML = '<option value="">Timeout - Veuillez réessayer</option>';
+                    }
+                })
+                .finally(() => {
+                    contactsLoading = false;
+                    contactClientSelect.disabled = false;
+                    currentContactsRequest = null;
+                });
         }
         
         // Charger les contacts au chargement de la page si un client est déjà sélectionné
@@ -2445,6 +2496,26 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             
             ${contractSection}
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-envelope me-2"></i>Notification par email
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="sendEmailOnClose" name="send_email" value="1" checked>
+                        <label class="form-check-label" for="sendEmailOnClose">
+                            <strong>Envoyer un email de notification au client</strong>
+                        </label>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Un email sera envoyé au contact client pour l'informer de la fermeture de l'intervention.
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
         
         contentDiv.innerHTML = html;
@@ -2533,14 +2604,108 @@ document.addEventListener('DOMContentLoaded', function() {
         ticketsInput.type = 'hidden';
         ticketsInput.name = 'tickets_used';
         ticketsInput.value = ticketsUsed;
-        
         form.appendChild(ticketsInput);
+        
+        // Ajouter la case à cocher pour l'envoi d'email
+        const sendEmailCheckbox = document.getElementById('sendEmailOnClose');
+        if (sendEmailCheckbox && sendEmailCheckbox.checked) {
+            const emailInput = document.createElement('input');
+            emailInput.type = 'hidden';
+            emailInput.name = 'send_email';
+            emailInput.value = '1';
+            form.appendChild(emailInput);
+        }
+        
         document.body.appendChild(form);
         form.submit();
     });
 });
 </script>
 <?php endif; ?>
+
+<!-- Modal de notification technicien -->
+<div class="modal fade" id="notifyTechnicianModal" tabindex="-1" aria-labelledby="notifyTechnicianModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="notifyTechnicianModalLabel">
+                    <i class="bi bi-envelope me-2"></i>Notifier le technicien
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Le technicien a été modifié. Souhaitez-vous lui envoyer un email de notification ?</p>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="notifyTechnicianCheckbox" checked>
+                    <label class="form-check-label" for="notifyTechnicianCheckbox">
+                        Envoyer un email au technicien
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="confirmNotifyBtn">
+                    <i class="bi bi-check-lg me-1"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const saveButton = document.getElementById('saveButton');
+    const form = document.getElementById('interventionForm');
+    const originalTechnicianId = <?php echo $intervention['technician_id'] ?? 'null'; ?>;
+    const technicianSelect = document.getElementById('technician_id');
+    let shouldShowModal = false;
+    
+    // Intercepter le clic sur le bouton Enregistrer
+    saveButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Vérifier si le technicien a changé
+        const currentTechnicianId = technicianSelect.value ? parseInt(technicianSelect.value) : null;
+        
+        // Si le technicien a changé et qu'un technicien est sélectionné, afficher la modale
+        if (currentTechnicianId && currentTechnicianId !== originalTechnicianId) {
+            shouldShowModal = true;
+            const modal = new bootstrap.Modal(document.getElementById('notifyTechnicianModal'));
+            modal.show();
+        } else {
+            // Pas de changement de technicien, soumettre directement
+            form.submit();
+        }
+    });
+    
+    // Gérer la confirmation dans la modale
+    document.getElementById('confirmNotifyBtn').addEventListener('click', function() {
+        const notifyCheckbox = document.getElementById('notifyTechnicianCheckbox');
+        
+        // Ajouter un champ caché pour indiquer si on doit envoyer l'email
+        if (notifyCheckbox.checked) {
+            // Supprimer l'ancien champ s'il existe
+            const existingInput = form.querySelector('input[name="notify_technician"]');
+            if (existingInput) {
+                existingInput.remove();
+            }
+            
+            const notifyInput = document.createElement('input');
+            notifyInput.type = 'hidden';
+            notifyInput.name = 'notify_technician';
+            notifyInput.value = '1';
+            form.appendChild(notifyInput);
+        }
+        
+        // Fermer la modale
+        const modal = bootstrap.Modal.getInstance(document.getElementById('notifyTechnicianModal'));
+        modal.hide();
+        
+        // Soumettre le formulaire
+        form.submit();
+    });
+});
+</script>
 
 <?php
 // Inclure le footer

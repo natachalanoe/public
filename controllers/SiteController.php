@@ -1,17 +1,20 @@
 <?php
 require_once __DIR__ . '/../models/SiteModel.php';
 require_once __DIR__ . '/../models/ContactModel.php';
+require_once __DIR__ . '/../models/ClientModel.php';
 
 class SiteController {
     private $db;
     private $siteModel;
     private $contactModel;
+    private $clientModel;
 
     public function __construct() {
         global $db;
         $this->db = $db;
         $this->siteModel = new SiteModel($this->db);
         $this->contactModel = new ContactModel($this->db);
+        $this->clientModel = new ClientModel($this->db);
     }
 
     /**
@@ -82,9 +85,18 @@ class SiteController {
             }
         }
 
+        // Récupérer les informations du client
+        $client = $this->clientModel->getClientById($clientId);
+        if (!$client) {
+            $_SESSION['error'] = "Client non trouvé.";
+            header('Location: ' . BASE_URL . 'clients');
+            exit;
+        }
+
         // Récupérer les contacts du client pour le select
         $contacts = $this->contactModel->getContactsByClientId($clientId);
 
+        // Définir les variables pour la vue
         $pageTitle = "Ajouter un site";
         require_once VIEWS_PATH . '/site/add.php';
     }

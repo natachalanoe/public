@@ -281,18 +281,18 @@ class DocumentationController {
             
             error_log("[DEBUG] DocumentationController::store - Traitement fichier $index: $originalFileName");
             
-            // Vérifier la taille du fichier (50MB max)
-            $maxFileSize = 50 * 1024 * 1024;
+            // Vérifier la taille du fichier (limite du serveur)
+            $maxFileSize = getServerMaxUploadSize();
             if ($fileSize > $maxFileSize) {
-                $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 50MB)";
+                $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
                 continue;
             }
             
             // Vérifier l'extension
+            require_once INCLUDES_PATH . '/FileUploadValidator.php';
             $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-            $allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'zip', 'rar'];
             
-            if (!in_array($fileExtension, $allowedExtensions)) {
+            if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
                 $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
                 continue;
             }
@@ -466,19 +466,12 @@ class DocumentationController {
                 
                 error_log("[DEBUG] Documentation Upload: File detected - Name: " . $originalFileName . ", Size: " . $fileSize . ", Tmp: " . $fileTmpPath);
 
-                // 1. Server-side File Size Check (e.g., 10MB limit like interventions)
-                //    Get this from php.ini ideally, or define a constant
-                $phpMaxUpload = $this->parsePhpIniSize(ini_get('upload_max_filesize'));
-                $phpPostMax = $this->parsePhpIniSize(ini_get('post_max_size'));
-                $serverMaxFileSize = min($phpMaxUpload, $phpPostMax); // Effective limit
-
-                // You might want a specific application limit, e.g. 10MB from intervention example
-                $applicationMaxFileSize = 10 * 1024 * 1024; // 10MB
-                $maxFileSize = min($serverMaxFileSize, $applicationMaxFileSize);
+                // 1. Server-side File Size Check (limite du serveur)
+                $maxFileSize = getServerMaxUploadSize();
 
 
                 if ($fileSize > $maxFileSize) {
-                    $_SESSION['error'] = "Le fichier est trop volumineux. Taille maximale autorisée: " . $this->formatBytes($maxFileSize) . ".";
+                    $_SESSION['error'] = "Le fichier est trop volumineux. Taille maximale autorisée: " . formatFileSize($maxFileSize) . ".";
                     // Redirect logic from before...
                     $this->redirectBackToFormWithError($data); // Helper function might be good
                     exit;
@@ -748,29 +741,6 @@ class DocumentationController {
         require_once __DIR__ . '/../views/documentation/edit.php';
     }
 
-    // Helper function to parse PHP ini sizes like '16M' into bytes
-    private function parsePhpIniSize($sizeStr) {
-        if (empty($sizeStr)) return 0;
-        $sizeStr = trim($sizeStr);
-        $last = strtolower($sizeStr[strlen($sizeStr)-1]);
-        $val = intval($sizeStr);
-        switch($last) {
-            case 'g': $val *= 1024; // Fall-through
-            case 'm': $val *= 1024; // Fall-through
-            case 'k': $val *= 1024;
-        }
-        return $val;
-    }
-
-    // Helper function to format bytes into readable string
-    private function formatBytes($bytes, $precision = 2) {
-        $units = array('B', 'KB', 'MB', 'GB', 'TB');
-        $bytes = max($bytes, 0);
-        $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
-        $pow = min($pow, count($units) - 1);
-        $bytes /= pow(1024, $pow);
-        return round($bytes, $precision) . ' ' . $units[$pow];
-    }
 
     // Helper function to redirect back to add form with error and preserved data
     private function redirectBackToFormWithError($data_from_controller) {
@@ -868,14 +838,10 @@ class DocumentationController {
         if (isset($_FILES['document_file']) && $_FILES['document_file']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['document_file'];
             // Perform validation (size, type) - reusing logic from create()
-            $phpMaxUpload = $this->parsePhpIniSize(ini_get('upload_max_filesize'));
-            $phpPostMax = $this->parsePhpIniSize(ini_get('post_max_size'));
-            $serverMaxFileSize = min($phpMaxUpload, $phpPostMax);
-            $applicationMaxFileSize = 10 * 1024 * 1024; // 10MB
-            $maxFileSize = min($serverMaxFileSize, $applicationMaxFileSize);
+            $maxFileSize = getServerMaxUploadSize();
 
             if ($file['size'] > $maxFileSize) {
-                $_SESSION['error'] = "Le nouveau fichier est trop volumineux. Taille maximale autorisée: " . $this->formatBytes($maxFileSize) . ".";
+                $_SESSION['error'] = "Le nouveau fichier est trop volumineux. Taille maximale autorisée: " . formatFileSize($maxFileSize) . ".";
                 $this->redirectBackToEditFormWithError($documentId, $data);
                 exit;
             }
@@ -1244,9 +1210,9 @@ class DocumentationController {
                 $fileTmpPath = $tmpName;
 
                 // Vérifier la taille du fichier
-                $maxFileSize = 10 * 1024 * 1024; // 10MB
+                $maxFileSize = getServerMaxUploadSize();
                 if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 10MB)";
+                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
                     continue;
                 }
 
@@ -1671,12 +1637,13 @@ class DocumentationController {
         $uploadedFiles = [];
         $errors = [];
         
+        require_once INCLUDES_PATH . '/FileUploadValidator.php';
+        
         foreach ($_FILES['files']['name'] as $key => $filename) {
             if ($_FILES['files']['error'][$key] === UPLOAD_ERR_OK) {
                 $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                $allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'zip', 'rar'];
                 
-                if (!in_array($fileExtension, $allowedExtensions)) {
+                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
                     $errors[] = "Extension non autorisée pour le fichier: $filename";
                     continue;
                 }

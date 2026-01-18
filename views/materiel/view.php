@@ -26,6 +26,11 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'materiel';
 
+// Définir les breadcrumbs personnalisés pour la vue matériel
+if (isset($materiel) && !empty($materiel)) {
+    $GLOBALS['customBreadcrumbs'] = generateMaterielViewBreadcrumbs($materiel);
+}
+
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
@@ -533,7 +538,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['date_fin_maintenance'] ? date('d/m/Y', strtotime($materiel['date_fin_maintenance'])) : '-' ?></span>
+                                            <span class="fw-medium"><?= !empty($materiel['date_fin_maintenance']) && $materiel['date_fin_maintenance'] !== '0000-00-00' && strpos($materiel['date_fin_maintenance'], '0000-00-00') !== 0 ? formatDateFrench($materiel['date_fin_maintenance']) : '-' ?></span>
                                         </div>
                                     </div>
                                      <div class="col-md-6 ps-3">
@@ -544,7 +549,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['date_fin_garantie'] ? date('d/m/Y', strtotime($materiel['date_fin_garantie'])) : '-' ?></span>
+                                            <span class="fw-medium"><?= !empty($materiel['date_fin_garantie']) && $materiel['date_fin_garantie'] !== '0000-00-00' && strpos($materiel['date_fin_garantie'], '0000-00-00') !== 0 ? formatDateFrench($materiel['date_fin_garantie']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>
@@ -558,7 +563,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     <i class="<?php echo getIcon('visibility_hidden', 'bi bi-eye-slash'); ?> text-warning ms-1" title="Masqué aux clients"></i>
                                                 <?php endif; ?>
                                             </span>
-                                            <span class="fw-medium"><?= $materiel['date_derniere_inter'] ? date('d/m/Y', strtotime($materiel['date_derniere_inter'])) : '-' ?></span>
+                                            <span class="fw-medium"><?= !empty($materiel['date_derniere_inter']) && $materiel['date_derniere_inter'] !== '0000-00-00' && strpos($materiel['date_derniere_inter'], '0000-00-00') !== 0 ? formatDateFrench($materiel['date_derniere_inter']) : '-' ?></span>
                                         </div>
                                     </div>
                                 </div>

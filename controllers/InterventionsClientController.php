@@ -402,10 +402,10 @@ class InterventionsClientController {
                     ? trim($_POST['custom_names'][$index]) 
                     : null;
 
-                // Vérifier la taille du fichier
-                $maxFileSize = 10 * 1024 * 1024; // 10MB
+                // Vérifier la taille du fichier (limite du serveur)
+                $maxFileSize = getServerMaxUploadSize();
                 if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 10MB)";
+                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
                     continue;
                 }
 

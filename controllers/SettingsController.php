@@ -1442,7 +1442,7 @@ class SettingsController {
                    '• Utilisateur : ' . $username . '<br><br>' .
                    'Si vous recevez cet email, la configuration SMTP fonctionne correctement !';
             
-            $result = $mailService->sendEmail($to, $subject, $body);
+            $result = $mailService->sendTestEmail($to, $subject, $body);
             
             // Restaurer les paramètres originaux
             $config->set('oauth2_enabled', $originalOAuth2Enabled);

@@ -35,12 +35,44 @@ require_once __DIR__ . '/functions.php';
               </a>
             </li>
 
-            <li class="menu-item <?php echo isActivePage('interventions'); ?>">
-              <a href="<?php echo BASE_URL; ?>interventions" class="menu-link">
+            <?php 
+            // Fonction pour détecter si on est sur une page d'intervention
+            $currentUrl = $_SERVER['REQUEST_URI'] ?? '';
+            $currentPath = parse_url($currentUrl, PHP_URL_PATH);
+            $basePath = parse_url(BASE_URL, PHP_URL_PATH);
+            $relativePath = $basePath ? str_replace($basePath, '', $currentPath) : $currentPath;
+            $relativePath = trim($relativePath, '/');
+            
+            $isInterventionPage = isActivePage('interventions') || 
+                                 strpos($relativePath, 'interventions/') === 0 ||
+                                 $relativePath === 'interventions';
+            
+            // Détection précise de chaque page
+            $isInterventionCurativesPage = $relativePath === 'interventions/curatives' || 
+                                         strpos($relativePath, 'interventions/curatives') === 0;
+            $isInterventionPreventivesPage = $relativePath === 'interventions/preventives' || 
+                                            strpos($relativePath, 'interventions/preventives') === 0;
+            ?>
+            <li class="menu-item <?php echo $isInterventionPage ? 'active open' : ''; ?>">
+              <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon bi bi-tools"></i>
-                <div data-i18n="Page 1">Interventions</div>
+                <div data-i18n="interventions">Interventions</div>
               </a>
-             </li>
+              <ul class="menu-sub">
+                <li class="menu-item <?php echo $isInterventionCurativesPage ? 'active' : ''; ?>">
+                  <a href="<?php echo BASE_URL; ?>interventions/curatives" class="menu-link">
+                    <i class="menu-icon bi bi-tools me-2"></i>
+                    <div data-i18n="interventions_curatives">Curatives</div>
+                  </a>
+                </li>
+                <li class="menu-item <?php echo $isInterventionPreventivesPage ? 'active' : ''; ?>">
+                  <a href="<?php echo BASE_URL; ?>interventions/preventives" class="menu-link">
+                    <i class="menu-icon bi bi-shield-check me-2"></i>
+                    <div data-i18n="interventions_preventives">Préventives</div>
+                  </a>
+                </li>
+              </ul>
+            </li>
 
             <li class="menu-item <?php echo isActivePage('agenda'); ?>">
               <a href="<?php echo BASE_URL; ?>agenda" class="menu-link">
@@ -217,6 +249,15 @@ require_once __DIR__ . '/functions.php';
                     <i class="menu-icon bi bi-power"></i>
                     <div data-i18n="logout">Déconnexion</div>
                 </a>
+            </li>
+
+            <!-- Version -->
+            <li class="menu-item mt-auto">
+                <div class="menu-link d-flex align-items-center justify-content-center px-3 py-2">
+                    <span class="badge bg-warning text-dark">
+                        <i class="bi bi-code-slash me-1"></i>Version dev 0.9.2
+                    </span>
+                </div>
             </li>
 
           </ul>

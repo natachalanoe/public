@@ -77,6 +77,8 @@ class MailHistoryModel {
      * @return int ID de l'historique créé
      */
     public function saveToHistory($interventionId, $templateId, $recipient, $subject, $body, $attachmentPath = null) {
+        // Si template_id est null (message personnalisé), utiliser NULL explicitement
+        // La colonne template_id doit accepter NULL dans la base de données
         $sql = "INSERT INTO " . $this->table . " 
                 (intervention_id, template_id, recipient_email, recipient_name, subject, body, attachment_path, status) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')";
@@ -84,7 +86,7 @@ class MailHistoryModel {
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             $interventionId,
-            $templateId,
+            $templateId, // Peut être null pour les messages personnalisés
             $recipient['email'],
             $recipient['name'],
             $subject,

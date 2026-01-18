@@ -82,6 +82,20 @@ $public_routes = ['auth/login', 'auth/logout', 'settings/getAllowedExtensions'];
 $current_route = $controller . '/' . $action;
 
 if (!in_array($current_route, $public_routes) && !isset($_SESSION['user'])) {
+    // Stocker l'URL de redirection dans la session pour rediriger après connexion
+    $redirectUrl = $controller;
+    if ($action && $action !== 'index') {
+        $redirectUrl .= '/' . $action;
+    }
+    if ($id) {
+        $redirectUrl .= '/' . $id;
+    }
+    // Ajouter les paramètres de requête s'il y en a
+    if (!empty($_SERVER['QUERY_STRING'])) {
+        $redirectUrl .= '?' . $_SERVER['QUERY_STRING'];
+    }
+    $_SESSION['redirect_after_login'] = $redirectUrl;
+    
     header('Location: ' . BASE_URL . 'auth/login');
     exit;
 }
@@ -396,8 +410,9 @@ try {
             $roomController = new RoomController();
             switch ($action) {
                 case 'add':
-                    if ($id) {
-                        $roomController->add($id);
+                    // Permettre room/add/0 si client_id est présent dans les paramètres GET
+                    if ($id || isset($_GET['client_id'])) {
+                        $roomController->add($id ?? 0);
                     } else {
                         header('Location: ' . BASE_URL . 'dashboard');
                     }
@@ -622,7 +637,14 @@ try {
             $interventionController = new InterventionController($db);
             switch ($action) {
                 case 'index':
-                    $interventionController->index();
+                    // Rediriger vers curatives par défaut
+                    header('Location: ' . BASE_URL . 'interventions/curatives');
+                    exit;
+                case 'curatives':
+                    $interventionController->curatives();
+                    break;
+                case 'preventives':
+                    $interventionController->preventives();
                     break;
                 case 'add':
                     $interventionController->create();
@@ -790,6 +812,33 @@ try {
                     } else {
                         header('Content-Type: application/json');
                         echo json_encode(['error' => 'ID manquant']);
+                        exit;
+                    }
+                    break;
+                case 'getEmailData':
+                    if ($id) {
+                        $interventionController->getEmailData($id);
+                    } else {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'error' => 'ID manquant']);
+                        exit;
+                    }
+                    break;
+                case 'sendEmail':
+                    if ($id) {
+                        $interventionController->sendEmail($id);
+                    } else {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'error' => 'ID manquant']);
+                        exit;
+                    }
+                    break;
+                case 'previewEmailTemplate':
+                    if ($id) {
+                        $interventionController->previewEmailTemplate($id);
+                    } else {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'error' => 'ID manquant']);
                         exit;
                     }
                     break;
@@ -1128,6 +1177,26 @@ try {
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'materiel');
+                    break;
+            }
+            break;
+            
+        case 'materiel_v2':
+            require_once __DIR__ . '/controllers/MaterielV2Controller.php';
+            $materielV2Controller = new MaterielV2Controller();
+            switch ($action) {
+                case 'index':
+                case '':
+                    $materielV2Controller->index();
+                    break;
+                case 'updateField':
+                    $materielV2Controller->updateField();
+                    break;
+                case 'getAttachments':
+                    $materielV2Controller->getAttachments();
+                    break;
+                default:
+                    header('Location: ' . BASE_URL . 'materiel_v2');
                     break;
             }
             break;

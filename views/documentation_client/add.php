@@ -351,27 +351,28 @@ class DocumentationUploader {
         this.form = document.getElementById('documentationForm');
         
         this.files = [];
-        this.maxSize = 50 * 1024 * 1024; // 50MB
-        this.allowedTypes = [
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'text/plain',
-            'image/jpeg',
-            'image/jpg',
-            'image/png',
-            'image/gif',
-            'application/zip',
-            'application/x-rar-compressed'
-        ];
+        // Limite dynamique du serveur PHP
+        const phpMaxFileSize = '<?php echo ini_get("upload_max_filesize"); ?>';
+        const phpPostMaxSize = '<?php echo ini_get("post_max_size"); ?>';
+        this.maxSize = Math.min(parsePhpSize(phpMaxFileSize), parsePhpSize(phpPostMaxSize));
+        this.allowedExtensions = [];
         
         this.init();
     }
     
-    init() {
+    async init() {
+        await this.loadAllowedExtensions();
         this.setupEventListeners();
+    }
+    
+    async loadAllowedExtensions() {
+        try {
+            const response = await fetch('<?php echo BASE_URL; ?>settings/getAllowedExtensions');
+            const data = await response.json();
+            this.allowedExtensions = data.extensions || [];
+        } catch (error) {
+            console.error('Erreur lors du chargement des extensions autorisées:', error);
+        }
     }
     
     setupEventListeners() {
@@ -431,11 +432,12 @@ class DocumentationUploader {
             // Vérifier la taille
             if (file.size > this.maxSize) {
                 validation.valid = false;
-                validation.errors.push('Fichier trop volumineux (max 50MB)');
+                validation.errors.push('Fichier trop volumineux (max ' + formatFileSize(this.maxSize) + ')');
             }
             
-            // Vérifier le type
-            if (!this.allowedTypes.includes(file.type)) {
+            // Vérifier l'extension
+            const extension = file.name.split('.').pop().toLowerCase();
+            if (!this.allowedExtensions.includes(extension)) {
                 validation.valid = false;
                 validation.errors.push('Type de fichier non autorisé');
             }

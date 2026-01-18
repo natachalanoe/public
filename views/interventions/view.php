@@ -26,6 +26,11 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'interventions';
 
+// Définir les breadcrumbs personnalisés pour la vue intervention
+if (isset($intervention) && !empty($intervention)) {
+    $GLOBALS['customBreadcrumbs'] = generateInterventionViewBreadcrumbs($intervention);
+}
+
 // Inclure le header qui contient le menu latéral
 
 include_once __DIR__ . '/../../includes/header.php';
@@ -41,7 +46,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <div class="ms-auto p-2 bd-highlight">
         <?php
         // Gérer le retour dynamique
-        $returnUrl = BASE_URL . 'interventions'; // URL par défaut
+        // Déterminer si l'intervention est préventive ou curative
+        $isPreventive = false;
+        if (isset($intervention['priority_id']) && isset($preventivePriorityId) && $intervention['priority_id'] == $preventivePriorityId) {
+            $isPreventive = true;
+        }
+        $defaultReturnUrl = $isPreventive ? BASE_URL . 'interventions/preventives' : BASE_URL . 'interventions/curatives';
+        $returnUrl = $defaultReturnUrl;
         $returnText = 'Retour';
         
         if (isset($_GET['return_to']) && isset($_GET['client_id'])) {
@@ -70,6 +81,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <a href="<?php echo BASE_URL; ?>interventions/generateBon/<?php echo $intervention['id']; ?>" class="btn btn-info me-2">
             <i class="bi bi-file-pdf me-1"></i> Générer le bon d'intervention
         </a>
+
+        <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#sendEmailModal">
+            <i class="bi bi-envelope me-1"></i> Envoyer un email
+        </button>
 
         <?php if (canModifyInterventions()): ?>
             <a href="<?php echo BASE_URL; ?>interventions/edit/<?php echo $intervention['id']; ?>" class="btn btn-warning me-2">
@@ -1932,6 +1947,26 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             
             ${contractSection}
+            
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-envelope me-2"></i>Notification par email
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="sendEmailOnClose" name="send_email" value="1" checked>
+                        <label class="form-check-label" for="sendEmailOnClose">
+                            <strong>Envoyer un email de notification au client</strong>
+                        </label>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Un email sera envoyé au contact client pour l'informer de la fermeture de l'intervention.
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
         
         contentDiv.innerHTML = html;
@@ -2020,14 +2055,329 @@ document.addEventListener('DOMContentLoaded', function() {
         ticketsInput.type = 'hidden';
         ticketsInput.name = 'tickets_used';
         ticketsInput.value = ticketsUsed;
-        
         form.appendChild(ticketsInput);
+        
+        // Ajouter la case à cocher pour l'envoi d'email
+        const sendEmailCheckbox = document.getElementById('sendEmailOnClose');
+        if (sendEmailCheckbox && sendEmailCheckbox.checked) {
+            const emailInput = document.createElement('input');
+            emailInput.type = 'hidden';
+            emailInput.name = 'send_email';
+            emailInput.value = '1';
+            form.appendChild(emailInput);
+        }
+        
         document.body.appendChild(form);
         form.submit();
     });
 });
 </script>
 <?php endif; ?>
+
+<!-- Modal d'envoi d'email -->
+<div class="modal fade" id="sendEmailModal" tabindex="-1" aria-labelledby="sendEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendEmailModalLabel">
+                    <i class="bi bi-envelope me-2"></i>Envoyer un email au client
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="sendEmailForm" action="<?php echo BASE_URL; ?>interventions/sendEmail/<?php echo $intervention['id']; ?>" method="post">
+                <div class="modal-body">
+                    <div id="emailPreviewContent">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Chargement...</span>
+                            </div>
+                            <p class="mt-2">Chargement des données...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i>Annuler
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="sendEmailBtn">
+                        <i class="bi bi-send me-1"></i>Envoyer l'email
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Charger les données du mail quand le modal s'ouvre
+document.addEventListener('DOMContentLoaded', function() {
+    const sendEmailModal = document.getElementById('sendEmailModal');
+    const emailPreviewContent = document.getElementById('emailPreviewContent');
+    const sendEmailForm = document.getElementById('sendEmailForm');
+    
+    if (sendEmailModal) {
+        sendEmailModal.addEventListener('shown.bs.modal', function() {
+            loadEmailPreview();
+        });
+    }
+    
+    function loadEmailPreview() {
+        const interventionId = <?php echo $intervention['id']; ?>;
+        
+        fetch('<?php echo BASE_URL; ?>interventions/getEmailData/' + interventionId)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    renderEmailPreview(data);
+                } else {
+                    emailPreviewContent.innerHTML = '<div class="alert alert-danger">' + (data.error || 'Erreur lors du chargement des données') + '</div>';
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                emailPreviewContent.innerHTML = '<div class="alert alert-danger">Erreur lors du chargement des données</div>';
+            });
+    }
+    
+    function renderEmailPreview(data) {
+        // Fonction pour échapper le HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        const testEmail = data.test_email || '';
+        const recipientEmail = data.recipient_email || '';
+        const interventionUrl = data.intervention_url || '';
+        const interventionData = data.intervention || {};
+        const observations = data.observations || [];
+        const templates = data.templates || [];
+        
+        let html = '<div class="mb-3">';
+        html += '<label class="form-label"><strong>Destinataire</strong></label>';
+        html += '<input type="email" class="form-control" value="' + escapeHtml(testEmail || recipientEmail) + '" readonly>';
+        if (testEmail) {
+            html += '<div class="form-text text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Email de test actif. L\'email sera envoyé à : ' + escapeHtml(testEmail) + ' (au lieu de ' + escapeHtml(recipientEmail) + ')</div>';
+        } else {
+            html += '<div class="form-text">Email du client : ' + escapeHtml(recipientEmail) + '</div>';
+        }
+        html += '</div>';
+        
+        // Sélection du template
+        html += '<div class="mb-3">';
+        html += '<label class="form-label"><strong>Template d\'email</strong></label>';
+        html += '<select class="form-select" id="templateSelect" name="template_id">';
+        html += '<option value="">-- Message personnalisé --</option>';
+        templates.forEach(function(template) {
+            html += '<option value="' + template.id + '">' + escapeHtml(template.name || 'Template ' + template.id) + '</option>';
+        });
+        html += '</select>';
+        html += '<div class="form-text">Choisissez un template ou laissez vide pour un message personnalisé</div>';
+        html += '</div>';
+        
+        // Message d'info pour le BI (sera affiché/masqué dynamiquement)
+        if (data.last_bon_intervention) {
+            html += '<div id="bonInterventionInfo" class="alert alert-info mb-2" style="display: none;">';
+            html += '<i class="bi bi-info-circle me-1"></i>';
+            html += '<strong>Note :</strong> Le dernier bon d\'intervention sera automatiquement joint si vous sélectionnez un template de type "bon_intervention".';
+            html += '</div>';
+        }
+        
+        // Zone de prévisualisation du template
+        html += '<div id="templatePreview" class="mb-3" style="display: none;">';
+        html += '<label class="form-label"><strong>Aperçu du template</strong></label>';
+        html += '<div class="card">';
+        html += '<div class="card-body">';
+        html += '<div id="templatePreviewContent"></div>';
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+        
+        // Zone de sélection des pièces jointes
+        html += '<div class="mb-3">';
+        html += '<label class="form-label"><strong>Pièces jointes</strong></label>';
+        
+        if (data.attachments && data.attachments.length > 0) {
+            html += '<div class="border rounded p-2" style="max-height: 200px; overflow-y: auto;">';
+            data.attachments.forEach(function(att) {
+                const displayName = escapeHtml(att.nom_personnalise || att.nom_fichier || 'Pièce jointe ' + att.id);
+                const isBon = att.type_liaison === 'bi';
+                html += '<div class="form-check mb-2">';
+                html += '<input class="form-check-input" type="checkbox" name="attachments[]" value="' + att.id + '" id="att_' + att.id + '">';
+                html += '<label class="form-check-label" for="att_' + att.id + '">';
+                html += displayName;
+                if (isBon) {
+                    html += ' <span class="badge bg-primary">BI</span>';
+                }
+                if (att.taille_fichier) {
+                    const sizeKB = (att.taille_fichier / 1024).toFixed(2);
+                    html += ' <small class="text-muted">(' + sizeKB + ' KB)</small>';
+                }
+                html += '</label>';
+                html += '</div>';
+            });
+            html += '</div>';
+        } else {
+            html += '<div class="text-muted">Aucune pièce jointe disponible pour cette intervention.</div>';
+        }
+        html += '</div>';
+        
+        // Zone de message personnalisé (masquée si template sélectionné)
+        html += '<div id="customMessageSection">';
+        html += '<div class="mb-3">';
+        html += '<label class="form-label"><strong>Sujet</strong></label>';
+        html += '<input type="text" class="form-control" id="customSubject" name="subject" value="">';
+        html += '</div>';
+        
+        html += '<div class="mb-3">';
+        html += '<label class="form-label"><strong>Message</strong></label>';
+        html += '<textarea class="form-control" id="customMessage" name="message" rows="10"></textarea>';
+        html += '</div>';
+        html += '</div>';
+        
+        emailPreviewContent.innerHTML = html;
+        
+        // Gérer le changement de template
+        const templateSelect = document.getElementById('templateSelect');
+        const templatePreview = document.getElementById('templatePreview');
+        const customMessageSection = document.getElementById('customMessageSection');
+        
+        if (templateSelect) {
+            templateSelect.addEventListener('change', function() {
+                const selectedTemplateId = this.value;
+                
+                if (selectedTemplateId) {
+                    // Trouver le template sélectionné
+                    const selectedTemplate = templates.find(t => t.id == selectedTemplateId);
+                    
+                    // Charger la prévisualisation avec variables remplacées
+                    templatePreview.style.display = 'block';
+                    customMessageSection.style.display = 'none';
+                    
+                    // Afficher un loader
+                    document.getElementById('templatePreviewContent').innerHTML = 
+                        '<div class="text-center"><div class="spinner-border spinner-border-sm" role="status"></div> Chargement de la prévisualisation...</div>';
+                    
+                    // Afficher un message si c'est un template bon_intervention et qu'un BI existe
+                    const bonInfoDiv = document.getElementById('bonInterventionInfo');
+                    if (selectedTemplate && selectedTemplate.template_type === 'bon_intervention' && data.last_bon_intervention) {
+                        if (bonInfoDiv) {
+                            bonInfoDiv.style.display = 'block';
+                        }
+                    } else {
+                        if (bonInfoDiv) {
+                            bonInfoDiv.style.display = 'none';
+                        }
+                    }
+                    
+                    // Appeler l'API pour prévisualiser le template
+                    const interventionId = <?php echo $intervention['id']; ?>;
+                    fetch('<?php echo BASE_URL; ?>interventions/previewEmailTemplate/' + interventionId + '?template_id=' + selectedTemplateId)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Afficher la prévisualisation avec variables remplacées
+                                let previewHtml = '<div class="mb-3">';
+                                previewHtml += '<strong>Sujet :</strong><br>';
+                                previewHtml += '<div class="alert alert-light border">' + data.subject + '</div>';
+                                previewHtml += '</div>';
+                                previewHtml += '<div class="mb-3">';
+                                previewHtml += '<strong>Corps de l\'email :</strong><br>';
+                                previewHtml += '<div class="alert alert-light border" style="max-height: 400px; overflow-y: auto;">' + data.body + '</div>';
+                                previewHtml += '</div>';
+                                previewHtml += '<div class="alert alert-info">';
+                                previewHtml += '<small><i class="bi bi-info-circle me-1"></i>Ceci est un aperçu avec les variables remplacées. L\'email final sera envoyé avec ce contenu.</small>';
+                                previewHtml += '</div>';
+                                document.getElementById('templatePreviewContent').innerHTML = previewHtml;
+                            } else {
+                                document.getElementById('templatePreviewContent').innerHTML = 
+                                    '<div class="alert alert-danger">Erreur lors de la prévisualisation : ' + (data.error || 'Erreur inconnue') + '</div>';
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Erreur:', error);
+                            document.getElementById('templatePreviewContent').innerHTML = 
+                                '<div class="alert alert-danger">Erreur lors du chargement de la prévisualisation</div>';
+                        });
+                } else {
+                    // Afficher le message personnalisé
+                    templatePreview.style.display = 'none';
+                    customMessageSection.style.display = 'block';
+                    
+                    // Masquer le message d'info sur le BI
+                    const bonInfoDiv = document.getElementById('bonInterventionInfo');
+                    if (bonInfoDiv) {
+                        bonInfoDiv.style.display = 'none';
+                    }
+                }
+            });
+        }
+    }
+    
+    // Gérer l'envoi du formulaire
+    if (sendEmailForm) {
+        sendEmailForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const templateSelect = document.getElementById('templateSelect');
+            const customSubject = document.getElementById('customSubject');
+            const customMessage = document.getElementById('customMessage');
+            
+            // Validation : soit un template, soit sujet + message personnalisé
+            if (!templateSelect || !templateSelect.value) {
+                if (!customSubject || !customSubject.value || !customMessage || !customMessage.value) {
+                    alert('Veuillez sélectionner un template ou remplir le sujet et le message');
+                    return;
+                }
+            }
+            
+            const sendBtn = document.getElementById('sendEmailBtn');
+            const originalText = sendBtn.innerHTML;
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Envoi...';
+            
+            const formData = new FormData(sendEmailForm);
+            
+            fetch(sendEmailForm.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Email envoyé avec succès !');
+                    const modal = bootstrap.Modal.getInstance(sendEmailModal);
+                    if (modal) {
+                        modal.hide();
+                    }
+                    // Recharger la page pour voir les messages
+                    window.location.reload();
+                } else {
+                    alert('Erreur lors de l\'envoi : ' + (data.error || 'Erreur inconnue'));
+                    sendBtn.disabled = false;
+                    sendBtn.innerHTML = originalText;
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors de l\'envoi de l\'email');
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = originalText;
+            });
+        });
+    }
+    
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(function() {
+            alert('Lien copié dans le presse-papiers !');
+        }, function(err) {
+            console.error('Erreur lors de la copie:', err);
+        });
+    }
+});
+</script>
 
 <script>
 // Fonction simple pour supprimer une intervention

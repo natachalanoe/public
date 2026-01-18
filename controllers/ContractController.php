@@ -1216,10 +1216,10 @@ class ContractController {
             $fileSize = $file['size'];
             $fileTmpPath = $file['tmp_name'];
 
-            // Vérifier la taille du fichier (max 10MB)
-            $maxFileSize = 10 * 1024 * 1024; // 10MB
+            // Vérifier la taille du fichier (limite du serveur)
+            $maxFileSize = getServerMaxUploadSize();
             if ($fileSize > $maxFileSize) {
-                throw new Exception("Le fichier est trop volumineux (max 10MB)");
+                throw new Exception("Le fichier est trop volumineux (max " . formatFileSize($maxFileSize) . ")");
             }
 
             // Vérifier l'extension
@@ -1315,10 +1315,10 @@ class ContractController {
                 $fileSize = $_FILES['attachments']['size'][$index];
                 $fileTmpPath = $tmpName;
 
-                // Vérifier la taille du fichier
-                $maxFileSize = 10 * 1024 * 1024; // 10MB
+                // Vérifier la taille du fichier (limite du serveur)
+                $maxFileSize = getServerMaxUploadSize();
                 if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 10MB)";
+                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
                     continue;
                 }
 
@@ -1685,10 +1685,10 @@ class ContractController {
                     $fileSize = $file['size'];
                     $fileTmpPath = $file['tmp_name'];
 
-                    // Vérifier la taille du fichier (max 10MB)
-                    $maxFileSize = 10 * 1024 * 1024; // 10MB
+                    // Vérifier la taille du fichier (limite du serveur)
+                    $maxFileSize = getServerMaxUploadSize();
                     if ($fileSize > $maxFileSize) {
-                        throw new Exception("Le fichier avenant est trop volumineux (max 10MB)");
+                        throw new Exception("Le fichier avenant est trop volumineux (max " . formatFileSize($maxFileSize) . ")");
                     }
 
                     // Vérifier l'extension

@@ -27,6 +27,11 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'contracts';
 
+// Définir les breadcrumbs personnalisés pour la vue contrat
+if (isset($contract) && !empty($contract)) {
+    $GLOBALS['customBreadcrumbs'] = generateContractViewBreadcrumbs($contract);
+}
+
 // Déterminer l'URL de retour dynamiquement
 $returnTo = $_GET['return_to'] ?? null;
 $clientId = $_GET['client_id'] ?? null;

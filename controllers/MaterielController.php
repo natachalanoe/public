@@ -107,6 +107,7 @@ class MaterielController {
         require_once VIEWS_PATH . '/materiel/index.php';
     }
 
+
     /**
      * Affiche les détails d'un matériel
      */
@@ -264,9 +265,9 @@ class MaterielController {
                 'libelle_pa_salle' => $_POST['libelle_pa_salle'] ?? null,
                 'numero_port_switch' => $_POST['numero_port_switch'] ?? null,
                 'vlan' => $_POST['vlan'] ?? null,
-                'date_fin_maintenance' => $_POST['date_fin_maintenance'] ?? null,
-                'date_fin_garantie' => $_POST['date_fin_garantie'] ?? null,
-                'date_derniere_inter' => $_POST['date_derniere_inter'] ?? null,
+                'date_fin_maintenance' => !empty($_POST['date_fin_maintenance']) ? $_POST['date_fin_maintenance'] : null,
+                'date_fin_garantie' => !empty($_POST['date_fin_garantie']) ? $_POST['date_fin_garantie'] : null,
+                'date_derniere_inter' => !empty($_POST['date_derniere_inter']) ? $_POST['date_derniere_inter'] : null,
                 'commentaire' => $_POST['commentaire'] ?? null
             ];
 
@@ -455,9 +456,9 @@ class MaterielController {
                 'libelle_pa_salle' => $_POST['libelle_pa_salle'] ?? null,
                 'numero_port_switch' => $_POST['numero_port_switch'] ?? null,
                 'vlan' => $_POST['vlan'] ?? null,
-                'date_fin_maintenance' => $_POST['date_fin_maintenance'] ?? null,
-                'date_fin_garantie' => $_POST['date_fin_garantie'] ?? null,
-                'date_derniere_inter' => $_POST['date_derniere_inter'] ?? null,
+                'date_fin_maintenance' => !empty($_POST['date_fin_maintenance']) ? $_POST['date_fin_maintenance'] : null,
+                'date_fin_garantie' => !empty($_POST['date_fin_garantie']) ? $_POST['date_fin_garantie'] : null,
+                'date_derniere_inter' => !empty($_POST['date_derniere_inter']) ? $_POST['date_derniere_inter'] : null,
                 'commentaire' => $_POST['commentaire'] ?? null
             ];
 
@@ -695,10 +696,10 @@ class MaterielController {
             $fileSize = $file['size'];
             $fileTmpPath = $file['tmp_name'];
 
-            // Vérifier la taille du fichier (max 10MB)
-            $maxFileSize = 10 * 1024 * 1024; // 10MB
+            // Vérifier la taille du fichier (limite du serveur)
+            $maxFileSize = getServerMaxUploadSize();
             if ($fileSize > $maxFileSize) {
-                throw new Exception("Le fichier est trop volumineux (max 10MB)");
+                throw new Exception("Le fichier est trop volumineux (max " . formatFileSize($maxFileSize) . ")");
             }
 
             // Vérifier l'extension
@@ -803,10 +804,10 @@ class MaterielController {
                 $fileSize = $_FILES['attachments']['size'][$index];
                 $fileTmpPath = $tmpName;
 
-                // Vérifier la taille du fichier
-                $maxFileSize = 10 * 1024 * 1024; // 10MB
+                // Vérifier la taille du fichier (limite du serveur)
+                $maxFileSize = getServerMaxUploadSize();
                 if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 10MB)";
+                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
                     continue;
                 }
 
@@ -1668,34 +1669,23 @@ class MaterielController {
                         $fileName = $_FILES['files']['name'][$i];
                         $fileTmpName = $_FILES['files']['tmp_name'][$i];
                         $fileSize = $_FILES['files']['size'][$i];
-                        $fileType = $_FILES['files']['type'][$i];
                         
-                        // Validation du fichier
-                        $allowedTypes = [
-                            'application/pdf',
-                            'application/msword',
-                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                            'application/vnd.ms-excel',
-                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                            'image/jpeg',
-                            'image/png',
-                            'image/gif',
-                            'application/zip',
-                            'application/x-rar-compressed'
-                        ];
-                        
-                        if (!in_array($fileType, $allowedTypes)) {
-                            $errors[] = "Type de fichier non autorisé pour $fileName";
+                        // Validation de la taille du fichier
+                        $maxFileSize = getServerMaxUploadSize();
+                        if ($fileSize > $maxFileSize) {
+                            $errors[] = "Fichier trop volumineux pour $fileName (max " . formatFileSize($maxFileSize) . ")";
                             continue;
                         }
                         
-                        if ($fileSize > 10 * 1024 * 1024) { // 10MB max
-                            $errors[] = "Fichier trop volumineux pour $fileName (max 10MB)";
+                        // Vérifier l'extension
+                        require_once INCLUDES_PATH . '/FileUploadValidator.php';
+                        $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                        if (!FileUploadValidator::isExtensionAllowed($extension, $this->db)) {
+                            $errors[] = "Le format du fichier '$fileName' n'est pas accepté";
                             continue;
                         }
                         
                         // Générer un nom de fichier unique en gardant le nom original
-                        $extension = pathinfo($fileName, PATHINFO_EXTENSION);
                         $cleanFileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $fileName);
                         
                         // Vérifier si le fichier existe déjà et ajouter un suffixe si nécessaire
@@ -1719,13 +1709,9 @@ class MaterielController {
                         
                         // Déplacer le fichier
                         if (move_uploaded_file($fileTmpName, $filePath)) {
-                            // Déterminer si la pièce jointe doit être masquée au client
-                            $masqueClient = 0; // Par défaut visible
-                            
-                            // Vérifier si un paramètre de visibilité a été fourni
-                            if (isset($_POST['masque_client'])) {
-                                $masqueClient = (int)$_POST['masque_client'];
-                            }
+                            // Récupérer les options pour ce fichier
+                            $description = $_POST['descriptions'][$i] ?? null;
+                            $masqueClient = isset($_POST['masque_client'][$i]) ? 1 : 0;
                             
                             // Préparer les données pour la base
                             $attachmentData = [
@@ -1733,7 +1719,7 @@ class MaterielController {
                                 'chemin_fichier' => 'uploads/materiel/' . $materielId . '/' . $uniqueName,
                                 'type_fichier' => $extension,
                                 'taille_fichier' => $fileSize,
-                                'commentaire' => null,
+                                'commentaire' => $description,
                                 'masque_client' => $masqueClient,
                                 'type_id' => null,
                                 'created_by' => $_SESSION['user']['id'] ?? null

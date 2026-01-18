@@ -107,7 +107,22 @@ function initFileValidation(formId, fileInputId, errorElementId, submitButtonId,
     }
 
     // Utiliser la taille maximale par défaut si non fournie
-    const maxSize = maxFileSize ? parsePhpSize(maxFileSize) : parsePhpSize('8M');
+    // Si maxFileSize n'est pas fourni, utiliser la limite du serveur si disponible
+    let maxSize;
+    if (maxFileSize) {
+        maxSize = parsePhpSize(maxFileSize);
+    } else if (typeof window.getServerMaxUploadSize === 'function') {
+        maxSize = window.getServerMaxUploadSize();
+    } else {
+        // Fallback: utiliser la limite PHP si disponible dans le DOM
+        const phpMaxFileSize = document.querySelector('meta[name="php-upload-max-filesize"]')?.content;
+        const phpPostMaxSize = document.querySelector('meta[name="php-post-max-size"]')?.content;
+        if (phpMaxFileSize && phpPostMaxSize) {
+            maxSize = Math.min(parsePhpSize(phpMaxFileSize), parsePhpSize(phpPostMaxSize));
+        } else {
+            maxSize = parsePhpSize('8M'); // Fallback ultime
+        }
+    }
 
     fileInput.addEventListener('change', function() {
         const file = this.files[0];
@@ -446,44 +461,64 @@ function updateSelectedContract(clientSelectId, siteSelectId, roomSelectId, cont
 
 /**
  * Met à jour le champ "Déplacement requis" en fonction du type d'intervention sélectionné
+ * Le champ est maintenant un select modifiable, mais est pré-rempli automatiquement
  * @param {string} typeSelectId - L'ID du select type d'intervention
- * @param {string} typeRequiresTravelInputId - L'ID du champ input affichant le déplacement requis
- * @param {string} typeRequiresTravelHiddenName - Le nom du champ hidden pour le déplacement requis
+ * @param {string} typeRequiresTravelSelectId - L'ID du select pour le déplacement requis
+ * @param {string} typeRequiresTravelHiddenName - Le nom du champ (maintenant inutilisé, gardé pour compatibilité)
  */
-function updateTypeRequiresTravel(typeSelectId, typeRequiresTravelInputId, typeRequiresTravelHiddenName) {
+function updateTypeRequiresTravel(typeSelectId, typeRequiresTravelSelectId, typeRequiresTravelHiddenName) {
     const typeSelect = document.getElementById(typeSelectId);
-    const typeRequiresTravelInput = document.getElementById(typeRequiresTravelInputId);
-    const typeRequiresTravelHidden = document.querySelector(`input[name="${typeRequiresTravelHiddenName}"]`);
+    const typeRequiresTravelSelect = document.getElementById(typeRequiresTravelSelectId);
     
-    if (!typeSelect || !typeRequiresTravelInput || !typeRequiresTravelHidden) {
+    if (!typeSelect || !typeRequiresTravelSelect) {
         console.error('Éléments manquants pour updateTypeRequiresTravel:', {
             typeSelect: !!typeSelect,
-            typeRequiresTravelInput: !!typeRequiresTravelInput,
-            typeRequiresTravelHidden: !!typeRequiresTravelHidden
+            typeSelectId: typeSelectId,
+            typeRequiresTravelSelect: !!typeRequiresTravelSelect,
+            typeRequiresTravelSelectId: typeRequiresTravelSelectId
         });
         return;
     }
     
     const typeId = typeSelect.value;
     if (!typeId) {
-        typeRequiresTravelInput.value = 'Non';
-        typeRequiresTravelHidden.value = '0';
+        typeRequiresTravelSelect.value = '0';
         return;
     }
 
-    fetch(`${BASE_URL}interventions/getTypeInfo/${typeId}`)
-        .then(response => response.json())
+    // Vérifier que BASE_URL est défini
+    if (!BASE_URL) {
+        console.error('BASE_URL n\'est pas défini');
+        return;
+    }
+
+    const url = `${BASE_URL}interventions/getTypeInfo/${typeId}`;
+    console.log('Appel API getTypeInfo:', url);
+    
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.error) {
-                console.error('Erreur:', data.error);
+                console.error('Erreur API:', data.error);
                 return;
             }
             
-            const requiresTravel = data.requires_travel == 1;
-            typeRequiresTravelInput.value = requiresTravel ? 'Oui' : 'Non';
-            typeRequiresTravelHidden.value = requiresTravel ? '1' : '0';
+            console.log('Données reçues du type:', data);
+            
+            // Pré-remplir le select avec la valeur du type, mais l'utilisateur peut toujours modifier
+            const requiresTravel = data.requires_travel == 1 || data.requires_travel === '1';
+            const value = requiresTravel ? '1' : '0';
+            typeRequiresTravelSelect.value = value;
+            console.log('Valeur du déplacement mise à jour:', value, '(requires_travel:', data.requires_travel, ')');
         })
-        .catch(error => console.error('Erreur lors de la récupération des informations du type:', error));
+        .catch(error => {
+            console.error('Erreur lors de la récupération des informations du type:', error);
+        });
 }
 
 /**

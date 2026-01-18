@@ -31,6 +31,11 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'clients';
 
+// Définir les breadcrumbs personnalisés pour la vue client
+if (isset($client) && !empty($client)) {
+    $GLOBALS['customBreadcrumbs'] = generateClientViewBreadcrumbs($client);
+}
+
 // Vérifier si l'utilisateur a les droits pour modifier un client
 $canModifyClient = canModifyClients();
 
@@ -151,9 +156,24 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     </div>
                 </div>
                 <?php if ($canModifyClient): ?>
-                    <div class="text-center mt-2">
+                    <div class="text-center mt-2 d-flex gap-2 justify-content-center">
                         <a href="<?php echo BASE_URL; ?>site/add/<?php echo $client['id']; ?>?return_to=view" class="btn btn-sm btn-custom-add">
                             <i class="bi bi-plus me-1"></i> Ajouter un site
+                        </a>
+                        <?php
+                        // Déterminer l'URL pour ajouter une salle
+                        $roomAddUrl = '';
+                        if (!empty($sites)) {
+                            // Toujours passer le client_id pour afficher la liste déroulante des sites
+                            // Cela permet de choisir le site même s'il n'y en a qu'un seul
+                            $roomAddUrl = BASE_URL . 'room/add/0?client_id=' . $client['id'] . '&return_to=view';
+                        } else {
+                            // Si aucun site, rediriger vers la page d'édition pour créer d'abord un site
+                            $roomAddUrl = BASE_URL . 'clients/edit/' . $client['id'] . '?active_tab=sites-tab#sites';
+                        }
+                        ?>
+                        <a href="<?php echo $roomAddUrl; ?>" class="btn btn-sm btn-custom-add">
+                            <i class="bi bi-plus me-1"></i> Ajouter une salle
                         </a>
                     </div>
                 <?php endif; ?>

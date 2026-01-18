@@ -41,8 +41,17 @@ class AuthController {
             exit;
         }
 
-        // Si l'utilisateur est déjà connecté SANS paramètres QR, redirection normale
+        // Si l'utilisateur est déjà connecté, vérifier s'il y a une redirection en attente
         if (isset($_SESSION['user'])) {
+            // Vérifier s'il y a une URL de redirection dans la session
+            if (isset($_SESSION['redirect_after_login']) && !empty($_SESSION['redirect_after_login'])) {
+                $redirectUrl = $_SESSION['redirect_after_login'];
+                unset($_SESSION['redirect_after_login']);
+                header('Location: ' . BASE_URL . $redirectUrl);
+                exit;
+            }
+            
+            // Sinon, redirection normale vers le tableau de bord
             if (isClient()) {
                 // Les clients vont vers le dashboard client
                 header('Location: ' . BASE_URL . 'dashboard');
@@ -76,6 +85,14 @@ class AuthController {
                     if (isset($_SESSION['qr_salle']) && isset($_SESSION['qr_type'])) {
                         // Rediriger vers le contrôleur QRCode pour gérer la redirection
                         header('Location: ' . BASE_URL . 'qrcode/redirect');
+                        exit;
+                    }
+                    
+                    // Vérifier s'il y a une URL de redirection dans la session
+                    if (isset($_SESSION['redirect_after_login']) && !empty($_SESSION['redirect_after_login'])) {
+                        $redirectUrl = $_SESSION['redirect_after_login'];
+                        unset($_SESSION['redirect_after_login']);
+                        header('Location: ' . BASE_URL . $redirectUrl);
                         exit;
                     }
                     

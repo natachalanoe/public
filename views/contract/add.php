@@ -50,6 +50,9 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'contracts';
 
+// Définir les breadcrumbs personnalisés pour l'ajout de contrat
+$GLOBALS['customBreadcrumbs'] = generateContractAddBreadcrumbs($client);
+
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';

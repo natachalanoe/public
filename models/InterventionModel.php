@@ -24,7 +24,8 @@ class InterventionModel {
                 its.name as status_name,
                 its.color as status_color,
                 it.name as type_name,
-                it.requires_travel as type_requires_travel,
+                it.requires_travel as type_requires_travel_default,
+                COALESCE(i.type_requires_travel, it.requires_travel) as type_requires_travel,
                 ip.name as priority_name,
                 ip.color as priority_color
                 FROM " . $this->table . " i
@@ -117,7 +118,8 @@ class InterventionModel {
                 its.name as status_name,
                 its.color as status_color,
                 it.name as type_name,
-                it.requires_travel as type_requires_travel,
+                it.requires_travel as type_requires_travel_default,
+                COALESCE(i.type_requires_travel, it.requires_travel) as type_requires_travel,
                 ip.name as priority_name,
                 ip.color as priority_color,
                 co.name as contract_name,
@@ -507,12 +509,12 @@ class InterventionModel {
                         reference, title, client_id, site_id, room_id, 
                         technician_id, status_id, priority_id, type_id, 
                         duration, description, demande_par, ref_client, contact_client, 
-                        contract_id, date_planif, heure_planif
+                        contract_id, date_planif, heure_planif, type_requires_travel
                     ) VALUES (
                         :reference, :title, :client_id, :site_id, :room_id, 
                         :technician_id, :status_id, :priority_id, :type_id, 
                         :duration, :description, :demande_par, :ref_client, :contact_client, 
-                        :contract_id, :date_planif, :heure_planif
+                        :contract_id, :date_planif, :heure_planif, :type_requires_travel
                     )";
             
             $stmt = $this->db->prepare($sql);
@@ -535,6 +537,9 @@ class InterventionModel {
             }
             if (!isset($data['contact_client'])) {
                 $data['contact_client'] = null;
+            }
+            if (!isset($data['type_requires_travel'])) {
+                $data['type_requires_travel'] = 0;
             }
             
             return $stmt->execute($data);
@@ -925,7 +930,8 @@ class InterventionModel {
                 its.name as status_name,
                 its.color as status_color,
                 it.name as type_name,
-                it.requires_travel as type_requires_travel,
+                it.requires_travel as type_requires_travel_default,
+                COALESCE(i.type_requires_travel, it.requires_travel) as type_requires_travel,
                 ip.name as priority_name,
                 ip.color as priority_color
                 FROM " . $this->table . " i
@@ -1065,7 +1071,8 @@ class InterventionModel {
                 its.name as status_name,
                 its.color as status_color,
                 it.name as type_name,
-                it.requires_travel as type_requires_travel,
+                it.requires_travel as type_requires_travel_default,
+                COALESCE(i.type_requires_travel, it.requires_travel) as type_requires_travel,
                 ip.name as priority_name,
                 ip.color as priority_color,
                 co.name as contract_name,

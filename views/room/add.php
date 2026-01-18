@@ -34,7 +34,15 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Ajouter une Salle</h4></div>
 
         <div class="ms-auto p-2 bd-highlight">
-            <a href="<?php echo BASE_URL; ?>clients/edit/<?php echo $site['client_id']; ?>?open_site_id=<?php echo $siteId; ?>#sites" class="btn btn-secondary me-2">
+            <?php
+            $returnTo = $_GET['return_to'] ?? 'edit';
+            if ($returnTo === 'view') {
+                $backUrl = BASE_URL . 'clients/view/' . $clientId . '?active_tab=sites-tab';
+            } else {
+                $backUrl = BASE_URL . 'clients/edit/' . $clientId . ($siteId ? '?open_site_id=' . $siteId . '#sites' : '#sites');
+            }
+            ?>
+            <a href="<?php echo $backUrl; ?>" class="btn btn-secondary me-2">
                 <i class="bi bi-arrow-left me-1"></i> Retour
             </a>
             <button type="submit" form="roomForm" class="btn btn-primary">
@@ -61,7 +69,48 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <h5 class="card-title mb-0">Informations de la Salle</h5>
         </div>
         <div class="card-body py-2">
-            <form id="roomForm" action="<?= BASE_URL ?>room/add/<?= $siteId ?>" method="POST">
+            <?php
+            // Construire l'URL du formulaire
+            $formAction = BASE_URL . 'room/add/';
+            if ($siteId) {
+                $formAction .= $siteId;
+            } else {
+                $formAction .= '0';
+            }
+            $queryParams = [];
+            if (isset($clientId) && !$siteId) {
+                $queryParams[] = 'client_id=' . $clientId;
+            }
+            if (isset($_GET['return_to'])) {
+                $queryParams[] = 'return_to=' . $_GET['return_to'];
+            }
+            if (!empty($queryParams)) {
+                $formAction .= '?' . implode('&', $queryParams);
+            }
+            ?>
+            <form id="roomForm" action="<?= $formAction ?>" method="POST">
+                <?php if (!empty($sites)): ?>
+                    <!-- Liste déroulante des sites quand on vient de la vue client -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="mb-3">
+                                <label for="site_id" class="form-label">Site <span class="text-danger">*</span></label>
+                                <select class="form-select" id="site_id" name="site_id" required>
+                                    <option value="">Sélectionner un site</option>
+                                    <?php foreach ($sites as $siteOption): ?>
+                                        <option value="<?= $siteOption['id'] ?>" <?= ($siteId && $siteOption['id'] == $siteId) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($siteOption['name']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                <?php elseif ($siteId): ?>
+                    <!-- Site pré-défini : champ caché (mode classique depuis la vue edit) -->
+                    <input type="hidden" name="site_id" value="<?= $siteId ?>">
+                <?php endif; ?>
+                
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">

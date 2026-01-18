@@ -433,18 +433,18 @@ class DocumentationClientController {
                 $fileSize = $_FILES['files']['size'][$index];
                 $fileTmpPath = $tmpName;
                 
-                // Vérifier la taille du fichier (50MB max)
-                $maxFileSize = 50 * 1024 * 1024;
+                // Vérifier la taille du fichier (limite du serveur)
+                $maxFileSize = getServerMaxUploadSize();
                 if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 50MB)";
+                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
                     continue;
                 }
                 
                 // Vérifier l'extension
+                require_once INCLUDES_PATH . '/FileUploadValidator.php';
                 $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-                $allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'gif', 'txt', 'zip', 'rar'];
                 
-                if (!in_array($fileExtension, $allowedExtensions)) {
+                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
                     $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
                     continue;
                 }

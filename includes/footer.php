@@ -4,7 +4,7 @@
                 <div
                   class="footer-container d-flex align-items-center justify-content-between py-4 flex-md-row flex-column">
                   <div class="mb-2 mb-md-0">
-                    Vidésonic©<?php echo getCurrentYear(); ?>
+                    Vidéosonic©<?php echo getCurrentYear(); ?>
                   </div>
                   
                 </div>
@@ -50,6 +50,9 @@
 
     <!-- DataTables JS -->
     <script src="<?php echo BASE_URL; ?>assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js"></script>
+    <!-- DataTables Buttons JS -->
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
 
     <!-- ApexCharts JS -->
     <script src="<?php echo BASE_URL; ?>assets/vendor/libs/apex-charts/apexcharts.js"></script>

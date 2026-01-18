@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       // Language configuration
       language: {
-        url: 'assets/json/locales/datatables-fr.json',
+        url: (window.BASE_URL || '') + 'assets/json/locales/datatables-fr.json',
         paginate: {
           next: '<i class="icon-base bx bx-chevron-right scaleX-n1-rtl icon-sm"></i>',
           previous: '<i class="icon-base bx bx-chevron-left scaleX-n1-rtl icon-sm"></i>'

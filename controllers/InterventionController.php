@@ -70,6 +70,28 @@ class InterventionController {
     }
 
     /**
+     * Retourne l'URL de la liste des interventions selon le type
+     * @param int|null $priorityId ID de la priorité pour déterminer si préventive ou curative
+     * @return string URL de la liste
+     */
+    private function getInterventionsListUrl($priorityId = null) {
+        // Si une priorité est fournie, vérifier si c'est préventive
+        if ($priorityId) {
+            $sql = "SELECT * FROM intervention_priorities WHERE id = ?";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$priorityId]);
+            $priority = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($priority && (stripos($priority['name'], 'préventif') !== false || stripos($priority['name'], 'preventive') !== false)) {
+                return BASE_URL . 'interventions/preventives';
+            }
+        }
+        
+        // Par défaut, retourner vers les curatives
+        return BASE_URL . 'interventions/curatives';
+    }
+
+    /**
      * Affiche la liste des interventions
      */
     public function index() {
@@ -178,6 +200,174 @@ class InterventionController {
     }
 
     /**
+     * Affiche la liste des interventions curatives
+     */
+    public function curatives() {
+        // Vérifier les permissions
+        $this->checkAccess();
+
+        // Récupérer les filtres
+        $filters = [
+            'client_id' => $_GET['client_id'] ?? null,
+            'site_id' => $_GET['site_id'] ?? null,
+            'room_id' => $_GET['room_id'] ?? null,
+            'status_id' => $_GET['status_id'] ?? null,
+            'priority_id' => $_GET['priority_id'] ?? null,
+            'technician_id' => $_GET['technician_id'] ?? null,
+            'search' => $_GET['search'] ?? null
+        ];
+        
+        // Récupérer les priorités pour identifier les préventives
+        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Identifier la priorité préventive
+        $preventivePriorityId = null;
+        foreach ($priorities as $priority) {
+            if (stripos($priority['name'], 'préventif') !== false || stripos($priority['name'], 'preventive') !== false) {
+                $preventivePriorityId = $priority['id'];
+                break;
+            }
+        }
+        
+        // Fixer le type d'intervention aux curatives (non-préventives)
+        $activeTab = 'non-preventive';
+        
+        // Récupérer les interventions curatives
+        $interventions = [];
+        if ($preventivePriorityId) {
+            $filters['exclude_priority_ids'] = [$preventivePriorityId];
+        }
+        $interventions = $this->interventionModel->getAll($filters);
+        
+        // Récupérer les données pour les filtres
+        $clients = $this->clientModel->getAllClientsWithStats();
+        $sites = !empty($filters['client_id']) ? $this->siteModel->getSitesByClientId($filters['client_id']) : [];
+        $rooms = !empty($filters['site_id']) ? $this->roomModel->getRoomsBySiteId($filters['site_id']) : [];
+        $technicians = $this->userModel->getTechnicians();
+        
+        // Récupérer les statuts
+        $statuses = $this->getAllStatuses();
+        
+        // Récupérer les statistiques globales (sans filtres)
+        $statsByTab = [];
+        
+        // Statistiques globales pour non-préventives (sans filtres)
+        if ($preventivePriorityId) {
+            $globalNonPreventiveFilters = ['exclude_priority_ids' => [$preventivePriorityId]];
+        } else {
+            $globalNonPreventiveFilters = [];
+        }
+        $statsByTab['non-preventive'] = $this->interventionModel->getStats($globalNonPreventiveFilters);
+        
+        // Statistiques globales pour préventives (sans filtres) - pour affichage dans le menu
+        if ($preventivePriorityId) {
+            $globalPreventiveFilters = ['priority_id' => $preventivePriorityId];
+            $statsByTab['preventive'] = $this->interventionModel->getStats($globalPreventiveFilters);
+        }
+        
+        // Récupérer les statistiques par statut pour les filtres rapides
+        $statsByStatus = [];
+        $nonPreventiveFilters = $filters;
+        if ($preventivePriorityId) {
+            $nonPreventiveFilters['exclude_priority_ids'] = [$preventivePriorityId];
+        }
+        $statsByStatus = $this->interventionModel->getStatsByStatus($nonPreventiveFilters);
+        
+        // Vérifier la permission de gestion des interventions
+        $canManageInterventions = $this->checkPermission('technicien', 'manage_interventions');
+        
+        // Charger la vue
+        require_once __DIR__ . '/../views/interventions/index.php';
+    }
+
+    /**
+     * Affiche la liste des interventions préventives
+     */
+    public function preventives() {
+        // Vérifier les permissions
+        $this->checkAccess();
+
+        // Récupérer les filtres
+        $filters = [
+            'client_id' => $_GET['client_id'] ?? null,
+            'site_id' => $_GET['site_id'] ?? null,
+            'room_id' => $_GET['room_id'] ?? null,
+            'status_id' => $_GET['status_id'] ?? null,
+            'priority_id' => $_GET['priority_id'] ?? null,
+            'technician_id' => $_GET['technician_id'] ?? null,
+            'search' => $_GET['search'] ?? null
+        ];
+        
+        // Récupérer les priorités pour identifier les préventives
+        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Identifier la priorité préventive
+        $preventivePriorityId = null;
+        foreach ($priorities as $priority) {
+            if (stripos($priority['name'], 'préventif') !== false || stripos($priority['name'], 'preventive') !== false) {
+                $preventivePriorityId = $priority['id'];
+                break;
+            }
+        }
+        
+        // Vérifier si les interventions préventives existent
+        if (!$preventivePriorityId) {
+            $_SESSION['error'] = "Aucune priorité préventive configurée.";
+            header('Location: ' . BASE_URL . 'interventions/curatives');
+            exit;
+        }
+        
+        // Fixer le type d'intervention aux préventives
+        $activeTab = 'preventive';
+        
+        // Récupérer les interventions préventives
+        $filters['priority_id'] = $preventivePriorityId;
+        $interventions = $this->interventionModel->getAll($filters);
+        
+        // Récupérer les données pour les filtres
+        $clients = $this->clientModel->getAllClientsWithStats();
+        $sites = !empty($filters['client_id']) ? $this->siteModel->getSitesByClientId($filters['client_id']) : [];
+        $rooms = !empty($filters['site_id']) ? $this->roomModel->getRoomsBySiteId($filters['site_id']) : [];
+        $technicians = $this->userModel->getTechnicians();
+        
+        // Récupérer les statuts
+        $statuses = $this->getAllStatuses();
+        
+        // Récupérer les statistiques globales (sans filtres)
+        $statsByTab = [];
+        
+        // Statistiques globales pour non-préventives (sans filtres) - pour affichage dans le menu
+        if ($preventivePriorityId) {
+            $globalNonPreventiveFilters = ['exclude_priority_ids' => [$preventivePriorityId]];
+        } else {
+            $globalNonPreventiveFilters = [];
+        }
+        $statsByTab['non-preventive'] = $this->interventionModel->getStats($globalNonPreventiveFilters);
+        
+        // Statistiques globales pour préventives (sans filtres)
+        $globalPreventiveFilters = ['priority_id' => $preventivePriorityId];
+        $statsByTab['preventive'] = $this->interventionModel->getStats($globalPreventiveFilters);
+        
+        // Récupérer les statistiques par statut pour les filtres rapides
+        $statsByStatus = [];
+        $preventiveFilters = $filters;
+        $preventiveFilters['priority_id'] = $preventivePriorityId;
+        $statsByStatus = $this->interventionModel->getStatsByStatus($preventiveFilters);
+        
+        // Vérifier la permission de gestion des interventions
+        $canManageInterventions = $this->checkPermission('technicien', 'manage_interventions');
+        
+        // Charger la vue
+        require_once __DIR__ . '/../views/interventions/index.php';
+    }
+
+    /**
      * Affiche les détails d'une intervention
      */
     public function view($id) {
@@ -189,7 +379,7 @@ class InterventionController {
         
         if (!$intervention) {
             // Rediriger vers la liste si l'intervention n'existe pas
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -231,6 +421,21 @@ class InterventionController {
         // Récupérer l'historique
         $history = $this->getHistory($id);
 
+        // Récupérer les priorités pour identifier les préventives
+        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Identifier la priorité préventive
+        $preventivePriorityId = null;
+        foreach ($priorities as $priority) {
+            if (stripos($priority['name'], 'préventif') !== false || stripos($priority['name'], 'preventive') !== false) {
+                $preventivePriorityId = $priority['id'];
+                break;
+            }
+        }
+
         // Charger la vue
         require_once __DIR__ . '/../views/interventions/view.php';
     }
@@ -247,7 +452,7 @@ class InterventionController {
         
         if (!$intervention) {
             // Rediriger vers la liste si l'intervention n'existe pas
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -407,7 +612,7 @@ class InterventionController {
         
         if (!$intervention) {
             // Rediriger vers la liste si l'intervention n'existe pas
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -447,7 +652,8 @@ class InterventionController {
             'ref_client' => $_POST['ref_client'] ?? $intervention['ref_client'],
             'contact_client' => $_POST['contact_client'] ?? $intervention['contact_client'],
             'date_planif' => !empty($_POST['date_planif']) ? $_POST['date_planif'] : $intervention['date_planif'] ?? null,
-            'heure_planif' => !empty($_POST['heure_planif']) ? $_POST['heure_planif'] : $intervention['heure_planif'] ?? null
+            'heure_planif' => !empty($_POST['heure_planif']) ? $_POST['heure_planif'] : $intervention['heure_planif'] ?? null,
+            'type_requires_travel' => isset($_POST['type_requires_travel']) ? (int)$_POST['type_requires_travel'] : ($intervention['type_requires_travel'] ?? 0)
         ];
 
         // Traiter la date et l'heure de création
@@ -510,7 +716,7 @@ class InterventionController {
                 custom_log("DEBUG - update() - Technicien ID: " . $data['technician_id'], "DEBUG");
                 custom_log("DEBUG - update() - Type ID: " . $data['type_id'], "DEBUG");
                 
-                $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id']);
+                $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id'], $data['type_requires_travel'] ?? null);
                 custom_log("DEBUG - update() - Tickets calculés: " . $ticketsUsed, "DEBUG");
             } else {
                 custom_log("DEBUG - update() - Pas de calcul de tickets (contrat sans tickets ou pas de contrat)", "DEBUG");
@@ -546,6 +752,33 @@ class InterventionController {
         $result = $this->interventionModel->update($id, $data);
 
         if ($result) {
+            // Vérifier si le technicien a changé et si on doit envoyer un email
+            $technicianChanged = false;
+            $oldTechnicianId = $intervention['technician_id'] ?? null;
+            $newTechnicianId = $data['technician_id'] ?? null;
+            
+            if ($oldTechnicianId != $newTechnicianId && !empty($newTechnicianId)) {
+                $technicianChanged = true;
+                
+                // Vérifier si l'utilisateur a demandé l'envoi d'un email
+                if (isset($_POST['notify_technician']) && $_POST['notify_technician'] == '1') {
+                    try {
+                        // Récupérer l'intervention mise à jour pour avoir toutes les données
+                        $updatedIntervention = $this->interventionModel->getById($id);
+                        if ($updatedIntervention) {
+                            $emailSent = $this->mailService->sendTechnicianAssigned($id, $newTechnicianId);
+                            if ($emailSent) {
+                                custom_log("Email de notification envoyé au technicien $newTechnicianId pour l'intervention $id", 'INFO');
+                            } else {
+                                custom_log("Échec de l'envoi de l'email de notification au technicien $newTechnicianId pour l'intervention $id", 'WARNING');
+                            }
+                        }
+                    } catch (Exception $e) {
+                        custom_log("Erreur lors de l'envoi de l'email de notification au technicien : " . $e->getMessage(), 'ERROR');
+                    }
+                }
+            }
+            
             // Vérifier si des modifications ont été apportées
             $hasChanges = false;
             foreach ($data as $key => $value) {
@@ -571,6 +804,9 @@ class InterventionController {
             if ($ticketManagementResult) {
                 $successMessage .= " La gestion des tickets a été effectuée automatiquement.";
             }
+            if ($technicianChanged && isset($_POST['notify_technician']) && $_POST['notify_technician'] == '1') {
+                $successMessage .= " Le technicien a été notifié par email.";
+            }
             $_SESSION['success'] = $successMessage;
         } else {
             // Si c'est une sauvegarde avant fermeture, retourner du JSON même en cas d'erreur
@@ -594,8 +830,8 @@ class InterventionController {
      * @param int $typeId ID du type d'intervention
      * @return int Nombre de tickets utilisés
      */
-    private function calculateTicketsUsed($duration, $technicianId, $typeId) {
-        custom_log("DEBUG - calculateTicketsUsed() - Paramètres: durée=$duration, technicien=$technicianId, type=$typeId", "DEBUG");
+    private function calculateTicketsUsed($duration, $technicianId, $typeId, $typeRequiresTravel = null) {
+        custom_log("DEBUG - calculateTicketsUsed() - Paramètres: durée=$duration, technicien=$technicianId, type=$typeId, type_requires_travel=" . ($typeRequiresTravel ?? 'null'), "DEBUG");
         
         // Récupérer le coefficient utilisateur
         $technician = $this->userModel->getUserById($technicianId);
@@ -603,11 +839,17 @@ class InterventionController {
         custom_log("DEBUG - calculateTicketsUsed() - Technicien: " . print_r($technician, true), "DEBUG");
         custom_log("DEBUG - calculateTicketsUsed() - Coef utilisateur: $coefUtilisateur", "DEBUG");
 
-        // Récupérer le type d'intervention pour savoir s'il y a déplacement
-        $type = $this->interventionModel->getTypeInfo($typeId);
-        $requiresTravel = $type['requires_travel'] ?? false;
-        custom_log("DEBUG - calculateTicketsUsed() - Type: " . print_r($type, true), "DEBUG");
-        custom_log("DEBUG - calculateTicketsUsed() - Déplacement requis: " . ($requiresTravel ? 'OUI' : 'NON'), "DEBUG");
+        // Utiliser la valeur stockée dans l'intervention si disponible, sinon celle du type
+        if ($typeRequiresTravel !== null) {
+            $requiresTravel = (bool)$typeRequiresTravel;
+            custom_log("DEBUG - calculateTicketsUsed() - Utilisation de la valeur stockée dans l'intervention: " . ($requiresTravel ? 'OUI' : 'NON'), "DEBUG");
+        } else {
+            // Récupérer le type d'intervention pour savoir s'il y a déplacement
+            $type = $this->interventionModel->getTypeInfo($typeId);
+            $requiresTravel = $type['requires_travel'] ?? false;
+            custom_log("DEBUG - calculateTicketsUsed() - Type: " . print_r($type, true), "DEBUG");
+            custom_log("DEBUG - calculateTicketsUsed() - Déplacement requis (depuis type): " . ($requiresTravel ? 'OUI' : 'NON'), "DEBUG");
+        }
 
         // Récupérer le coefficient d'intervention depuis les paramètres
         $stmt = $this->db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'coef_intervention'");
@@ -863,7 +1105,7 @@ class InterventionController {
         
         if (!$intervention) {
             // Rediriger vers la liste si l'intervention n'existe pas
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -942,7 +1184,7 @@ class InterventionController {
         
         if (!$intervention) {
             // Rediriger vers la liste si l'intervention n'existe pas
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -967,10 +1209,10 @@ class InterventionController {
         $fileSize = $file['size'];
         $fileError = $file['error'];
 
-        // Vérifier la taille du fichier (max 10MB)
-        $maxFileSize = 10 * 1024 * 1024; // 10MB en octets
+        // Vérifier la taille du fichier (limite du serveur)
+        $maxFileSize = getServerMaxUploadSize();
         if ($fileSize > $maxFileSize) {
-            $_SESSION['error'] = "Le fichier est trop volumineux. Taille maximale : 10MB.";
+            $_SESSION['error'] = "Le fichier est trop volumineux. Taille maximale : " . formatFileSize($maxFileSize) . ".";
             header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
             exit;
         }
@@ -1119,10 +1361,10 @@ class InterventionController {
                     ? trim($_POST['custom_names'][$index]) 
                     : null;
 
-                // Vérifier la taille du fichier
-                $maxFileSize = 10 * 1024 * 1024; // 10MB
+                // Vérifier la taille du fichier (limite du serveur)
+                $maxFileSize = getServerMaxUploadSize();
                 if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max 10MB)";
+                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
                     continue;
                 }
 
@@ -1236,7 +1478,7 @@ class InterventionController {
 
         if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
             $_SESSION['error'] = "La pièce jointe n'existe pas.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -1247,7 +1489,7 @@ class InterventionController {
         if (!$this->checkPermission('technicien', 'view_interventions') && 
             $_SESSION['user']['id'] !== $intervention['technician_id']) {
             $_SESSION['error'] = "Vous n'avez pas la permission de télécharger cette pièce jointe.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -1287,7 +1529,7 @@ class InterventionController {
 
         if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
             $_SESSION['error'] = "La pièce jointe n'existe pas.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -1344,7 +1586,7 @@ class InterventionController {
         
         if (!$comment) {
             $_SESSION['error'] = "Commentaire introuvable.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -1395,7 +1637,7 @@ class InterventionController {
         
         if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
             $_SESSION['error'] = "Pièce jointe introuvable.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -1588,20 +1830,35 @@ class InterventionController {
         header('Content-Type: application/json');
         
         try {
-            // Récupérer les contacts du client
+            // Valider l'ID du client
+            if (!is_numeric($clientId) || $clientId <= 0) {
+                http_response_code(400);
+                echo json_encode(['error' => 'ID client invalide']);
+                return;
+            }
+            
+            // Récupérer les contacts du client avec index optimisé
+            // L'index composite (client_id, status) optimise cette requête
             $sql = "SELECT id, first_name, last_name, email 
                     FROM contacts 
                     WHERE client_id = ? AND status = 1 
-                    ORDER BY last_name, first_name";
+                    ORDER BY last_name, first_name
+                    LIMIT 1000"; // Limite de sécurité pour éviter les résultats trop volumineux
             
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$clientId]);
             $contacts = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             echo json_encode($contacts);
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
+            // Log l'erreur pour le débogage
+            custom_log("Erreur getContacts pour client_id $clientId: " . $e->getMessage(), 'ERROR');
             http_response_code(500);
-            echo json_encode(['error' => $e->getMessage()]);
+            echo json_encode(['error' => 'Erreur lors de la récupération des contacts']);
+        } catch (Exception $e) {
+            custom_log("Erreur getContacts pour client_id $clientId: " . $e->getMessage(), 'ERROR');
+            http_response_code(500);
+            echo json_encode(['error' => 'Erreur lors de la récupération des contacts']);
         }
     }
 
@@ -2055,7 +2312,8 @@ class InterventionController {
             'contact_client' => !empty($_POST['contact_client']) ? $_POST['contact_client'] : null,
             'contract_id' => !empty($_POST['contract_id']) ? $_POST['contract_id'] : null,
             'date_planif' => !empty($_POST['date_planif']) ? $_POST['date_planif'] : null,
-            'heure_planif' => !empty($_POST['heure_planif']) ? $_POST['heure_planif'] : null
+            'heure_planif' => !empty($_POST['heure_planif']) ? $_POST['heure_planif'] : null,
+            'type_requires_travel' => isset($_POST['type_requires_travel']) ? (int)$_POST['type_requires_travel'] : 0
         ];
 
         // Traiter la date et l'heure de création
@@ -2148,7 +2406,7 @@ class InterventionController {
             // Calculer le nombre de tickets utilisés seulement si c'est un contrat à tickets
             $ticketsUsed = 0;
             if (!empty($data['contract_id']) && isContractTicketById($data['contract_id'])) {
-                $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id']);
+                $ticketsUsed = $this->calculateTicketsUsed($data['duration'], $data['technician_id'], $data['type_id'], $data['type_requires_travel'] ?? null);
             }
             $data['tickets_used'] = $ticketsUsed;
             
@@ -2160,11 +2418,11 @@ class InterventionController {
         $sql = "INSERT INTO interventions (
                     title, client_id, site_id, room_id, technician_id, status_id, 
                     priority_id, type_id, duration, description, demande_par, ref_client, contact_client, 
-                    contract_id, reference, date_planif, heure_planif, tickets_used, closed_at, created_at
+                    contract_id, reference, date_planif, heure_planif, tickets_used, closed_at, created_at, type_requires_travel
                 ) VALUES (
                     :title, :client_id, :site_id, :room_id, :technician_id, :status_id, 
                     :priority_id, :type_id, :duration, :description, :demande_par, :ref_client, :contact_client, 
-                    :contract_id, :reference, :date_planif, :heure_planif, :tickets_used, :closed_at, :created_at
+                    :contract_id, :reference, :date_planif, :heure_planif, :tickets_used, :closed_at, :created_at, :type_requires_travel
                 )";
         
         $stmt = $this->db->prepare($sql);
@@ -2187,6 +2445,7 @@ class InterventionController {
             ':date_planif' => $data['date_planif'],
             ':heure_planif' => $data['heure_planif'],
             ':tickets_used' => $data['tickets_used'] ?? null,
+            ':type_requires_travel' => $data['type_requires_travel'],
             ':closed_at' => $data['closed_at'] ?? null,
             ':created_at' => $data['created_at']
         ]);
@@ -2224,7 +2483,25 @@ class InterventionController {
                 custom_log("Erreur envoi email création intervention $interventionId : " . $e->getMessage(), 'ERROR');
             }
             
-            $_SESSION['success'] = "Intervention créée avec succès.";
+            // Vérifier si un technicien a été affecté et si on doit envoyer un email
+            if (!empty($data['technician_id']) && isset($_POST['notify_technician']) && $_POST['notify_technician'] == '1') {
+                try {
+                    $emailSent = $this->mailService->sendTechnicianAssigned($interventionId, $data['technician_id']);
+                    if ($emailSent) {
+                        custom_log("Email de notification envoyé au technicien {$data['technician_id']} pour l'intervention $interventionId", 'INFO');
+                    } else {
+                        custom_log("Échec de l'envoi de l'email de notification au technicien {$data['technician_id']} pour l'intervention $interventionId", 'WARNING');
+                    }
+                } catch (Exception $e) {
+                    custom_log("Erreur lors de l'envoi de l'email de notification au technicien : " . $e->getMessage(), 'ERROR');
+                }
+            }
+            
+            $successMessage = "Intervention créée avec succès.";
+            if (!empty($data['technician_id']) && isset($_POST['notify_technician']) && $_POST['notify_technician'] == '1') {
+                $successMessage .= " Le technicien a été notifié par email.";
+            }
+            $_SESSION['success'] = $successMessage;
             
             // Gérer le retour intelligent
             $returnTo = $_GET['return_to'] ?? 'view_intervention';
@@ -2273,7 +2550,7 @@ class InterventionController {
         
         if (!$comment) {
             $_SESSION['error'] = "Commentaire introuvable.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -2282,7 +2559,7 @@ class InterventionController {
         
         if (!$intervention) {
             $_SESSION['error'] = "Intervention introuvable.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -2371,7 +2648,7 @@ class InterventionController {
         
         if (!$intervention) {
             $_SESSION['error'] = "Intervention introuvable.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -2462,6 +2739,10 @@ class InterventionController {
         $technician = $this->userModel->getUserById($intervention['technician_id']);
         $type = $this->interventionModel->getTypeInfo($intervention['type_id']);
         
+        // Utiliser la valeur stockée dans l'intervention (le modèle utilise COALESCE pour retourner 
+        // la valeur de l'intervention si elle existe, sinon celle du type)
+        $requiresTravel = (bool)($intervention['type_requires_travel'] ?? false);
+        
         // Récupérer le coefficient d'intervention depuis les paramètres
         $stmt = $this->db->prepare("SELECT setting_value FROM settings WHERE setting_key = 'coef_intervention'");
         $stmt->execute();
@@ -2469,7 +2750,6 @@ class InterventionController {
 
         // Calculer les tickets selon la formule
         $coefUtilisateur = $technician['coef_utilisateur'] ?? 0;
-        $requiresTravel = $type['requires_travel'] ?? false;
         
         if ($requiresTravel) {
             // Avec déplacement : durée + coef_utilisateur + 1 + coef_intervention
@@ -2545,7 +2825,7 @@ class InterventionController {
         
         if (!$intervention) {
             $_SESSION['error'] = "Intervention introuvable.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -2599,7 +2879,8 @@ class InterventionController {
                 $ticketsUsed = $this->calculateTicketsUsed(
                     $intervention['duration'],
                     $intervention['technician_id'],
-                    $intervention['type_id']
+                    $intervention['type_id'],
+                    $intervention['type_requires_travel'] ?? null
                 );
                 
                 error_log("DEBUG - close() - Tickets calculés: " . $ticketsUsed);
@@ -2646,12 +2927,16 @@ class InterventionController {
                 ':description' => "Intervention fermée avec {$ticketsUsed} tickets utilisés"
             ]);
 
-            // Envoyer l'email de fermeture d'intervention
-            try {
-                $this->mailService->sendInterventionClosed($id);
-            } catch (Exception $e) {
-                // Log l'erreur mais ne pas faire échouer la fermeture
-                custom_log("Erreur envoi email fermeture intervention $id : " . $e->getMessage(), 'ERROR');
+            // Envoyer l'email de fermeture d'intervention si demandé
+            $sendEmail = isset($_POST['send_email']) && $_POST['send_email'] == '1';
+            if ($sendEmail) {
+                try {
+                    // Forcer l'envoi même si l'auto-envoi est désactivé (envoi manuel)
+                    $this->mailService->sendInterventionClosed($id, true);
+                } catch (Exception $e) {
+                    // Log l'erreur mais ne pas faire échouer la fermeture
+                    custom_log("Erreur envoi email fermeture intervention $id : " . $e->getMessage(), 'ERROR');
+                }
             }
 
             $_SESSION['success'] = "L'intervention a été fermée avec succès.";
@@ -2672,7 +2957,7 @@ class InterventionController {
         
         if (!$intervention) {
             // Rediriger vers la liste si l'intervention n'existe pas
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -2786,7 +3071,7 @@ class InterventionController {
         if (!$intervention) {
             error_log("DEBUG: Intervention non trouvée: " . $id);
             $_SESSION['error'] = "Intervention non trouvée.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
         
@@ -2926,7 +3211,7 @@ class InterventionController {
         // Vérifier les permissions - admin seulement
         if (!isset($_SESSION['user']) || !isAdmin()) {
             $_SESSION['error'] = "Seuls les administrateurs peuvent supprimer des interventions.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -2935,7 +3220,7 @@ class InterventionController {
         
         if (!$intervention) {
             $_SESSION['error'] = "Intervention introuvable.";
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -3034,7 +3319,7 @@ class InterventionController {
             $_SESSION['error'] = "Une erreur est survenue lors de la suppression de l'intervention.";
         }
 
-        header('Location: ' . BASE_URL . 'interventions');
+        header('Location: ' . $this->getInterventionsListUrl());
         exit;
     }
 
@@ -3140,7 +3425,7 @@ class InterventionController {
      */
     public function generateBon($interventionId) {
         if (!canModifyInterventions()) {
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -3150,7 +3435,7 @@ class InterventionController {
             
             if (!$intervention) {
                 $_SESSION['error'] = 'Intervention non trouvée';
-                header('Location: ' . BASE_URL . 'interventions');
+                header('Location: ' . $this->getInterventionsListUrl());
                 exit;
             }
 
@@ -3215,7 +3500,7 @@ class InterventionController {
      */
     public function generateBonPdf($interventionId) {
         if (!canModifyInterventions()) {
-            header('Location: ' . BASE_URL . 'interventions');
+            header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
 
@@ -3225,7 +3510,7 @@ class InterventionController {
             
             if (!$intervention) {
                 $_SESSION['error'] = 'Intervention non trouvée';
-                header('Location: ' . BASE_URL . 'interventions');
+                header('Location: ' . $this->getInterventionsListUrl());
                 exit;
             }
             
@@ -3596,5 +3881,275 @@ class InterventionController {
         } catch (Exception $e) {
             custom_log("Exception lors de l'historisation du changement de contrat pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
         }
+    }
+
+    /**
+     * Récupère les données pour l'envoi d'email (intervention + observations)
+     * @param int $id ID de l'intervention
+     */
+    public function getEmailData($id) {
+        header('Content-Type: application/json');
+        
+        try {
+            // Vérifier les permissions
+            $this->checkAccess();
+            
+            // Récupérer l'intervention
+            $intervention = $this->interventionModel->getById($id);
+            
+            if (!$intervention) {
+                echo json_encode(['success' => false, 'error' => 'Intervention introuvable']);
+                exit;
+            }
+            
+            // Récupérer les observations (commentaires avec is_observation = 1)
+            $sql = "SELECT c.*, 
+                    CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+                    DATE_FORMAT(c.created_at, '%d/%m/%Y %H:%i') as created_at
+                    FROM intervention_comments c
+                    LEFT JOIN users u ON c.created_by = u.id
+                    WHERE c.intervention_id = ? AND c.is_observation = 1
+                    ORDER BY c.created_at ASC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $observations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Récupérer l'email du destinataire (site_email ou contact_client)
+            $recipientEmail = !empty($intervention['site_email']) ? $intervention['site_email'] : 
+                            (!empty($intervention['contact_client']) ? $intervention['contact_client'] : '');
+            
+            // Récupérer l'email de test si configuré
+            $config = Config::getInstance();
+            $testEmail = $config->get('test_email', '');
+            
+            // URL publique de l'intervention pour le client
+            $interventionUrl = BASE_URL . 'interventions_client/view/' . $id;
+            
+            // Préparer les données de l'intervention pour l'affichage
+            $interventionData = [
+                'id' => $intervention['id'],
+                'reference' => $intervention['reference'] ?? '',
+                'title' => $intervention['title'] ?? '',
+                'client_name' => $intervention['client_name'] ?? '',
+                'site_name' => $intervention['site_name'] ?? '',
+                'status_name' => $intervention['status_name'] ?? ''
+            ];
+            
+            // Récupérer les templates disponibles (actifs)
+            require_once __DIR__ . '/../models/MailTemplateModel.php';
+            $mailTemplateModel = new MailTemplateModel($this->db);
+            $templates = $mailTemplateModel->getAll();
+            $activeTemplates = array_filter($templates, function($t) {
+                return $t['is_active'] == 1;
+            });
+            
+            // Récupérer les pièces jointes disponibles pour l'intervention
+            $attachments = $this->interventionModel->getPiecesJointes($id);
+            
+            // Récupérer le dernier bon d'intervention (type_liaison = 'bi', le plus récent)
+            $lastBonIntervention = null;
+            $sql = "SELECT pj.*, lpj.type_liaison
+                    FROM pieces_jointes pj
+                    INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                    WHERE lpj.type_liaison = 'bi'
+                    AND lpj.entite_id = ?
+                    ORDER BY pj.date_creation DESC
+                    LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $lastBonIntervention = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                'success' => true,
+                'intervention' => $interventionData,
+                'observations' => $observations,
+                'recipient_email' => $recipientEmail,
+                'test_email' => $testEmail,
+                'intervention_url' => $interventionUrl,
+                'templates' => array_values($activeTemplates),
+                'attachments' => $attachments,
+                'last_bon_intervention' => $lastBonIntervention
+            ]);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la récupération des données email pour intervention $id : " . $e->getMessage(), 'ERROR');
+            echo json_encode(['success' => false, 'error' => 'Erreur lors de la récupération des données']);
+        }
+        exit;
+    }
+
+    /**
+     * Envoie un email au client avec les données de l'intervention et des observations
+     * @param int $id ID de l'intervention
+     */
+    public function sendEmail($id) {
+        header('Content-Type: application/json');
+        
+        try {
+            // Vérifier les permissions
+            $this->checkAccess();
+            
+            // Récupérer l'intervention
+            $intervention = $this->interventionModel->getById($id);
+            
+            if (!$intervention) {
+                echo json_encode(['success' => false, 'error' => 'Intervention introuvable']);
+                exit;
+            }
+            
+            // Récupérer les données du formulaire
+            $templateId = $_POST['template_id'] ?? null;
+            $customSubject = $_POST['subject'] ?? '';
+            $customMessage = $_POST['message'] ?? '';
+            
+            // DEBUG: Logger tout le POST pour voir ce qui est reçu
+            custom_log("DEBUG sendEmail - POST reçu : " . json_encode($_POST), 'INFO');
+            
+            // Récupérer les observations
+            $sql = "SELECT c.*, 
+                    CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+                    DATE_FORMAT(c.created_at, '%d/%m/%Y %H:%i') as created_at
+                    FROM intervention_comments c
+                    LEFT JOIN users u ON c.created_by = u.id
+                    WHERE c.intervention_id = ? AND c.is_observation = 1
+                    ORDER BY c.created_at ASC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $observations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Récupérer les pièces jointes sélectionnées
+            $attachmentIds = [];
+            if (!empty($_POST['attachments']) && is_array($_POST['attachments'])) {
+                $attachmentIds = array_map('intval', $_POST['attachments']);
+                custom_log("Pièces jointes sélectionnées reçues : " . json_encode($attachmentIds), 'INFO');
+            } else {
+                custom_log("Aucune pièce jointe sélectionnée dans le formulaire", 'INFO');
+            }
+            
+            // Vérifier si un template est sélectionné
+            if (!empty($templateId)) {
+                // Utiliser le template
+                try {
+                    $success = $this->mailService->sendCustomEmail($id, $templateId, $observations, $attachmentIds);
+                    
+                    if ($success) {
+                        custom_log("Email envoyé avec succès pour l'intervention $id via template $templateId", 'INFO');
+                        echo json_encode(['success' => true, 'message' => 'Email envoyé avec succès']);
+                    } else {
+                        echo json_encode(['success' => false, 'error' => 'Échec de l\'envoi de l\'email']);
+                    }
+                } catch (Exception $e) {
+                    custom_log("Erreur lors de l'envoi de l'email pour intervention $id : " . $e->getMessage(), 'ERROR');
+                    echo json_encode(['success' => false, 'error' => 'Erreur lors de l\'envoi : ' . $e->getMessage()]);
+                }
+            } else {
+                // Utiliser le message personnalisé
+                if (empty($customSubject) || empty($customMessage)) {
+                    echo json_encode(['success' => false, 'error' => 'Le sujet et le message sont requis']);
+                    exit;
+                }
+                
+                // Préparer le corps de l'email (convertir les retours à la ligne en HTML)
+                $body = nl2br(htmlspecialchars($customMessage));
+                
+                // Envoyer l'email via MailService avec support des pièces jointes
+                try {
+                    $success = $this->mailService->sendCustomMessage($id, $customSubject, $body, $attachmentIds);
+                    
+                    if ($success) {
+                        custom_log("Email personnalisé envoyé avec succès pour l'intervention $id", 'INFO');
+                        echo json_encode(['success' => true, 'message' => 'Email envoyé avec succès']);
+                    } else {
+                        echo json_encode(['success' => false, 'error' => 'Échec de l\'envoi de l\'email']);
+                    }
+                } catch (Exception $e) {
+                    custom_log("Erreur lors de l'envoi de l'email personnalisé pour intervention $id : " . $e->getMessage(), 'ERROR');
+                    echo json_encode(['success' => false, 'error' => 'Erreur lors de l\'envoi : ' . $e->getMessage()]);
+                    exit;
+                }
+            }
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'envoi de l'email pour intervention $id : " . $e->getMessage(), 'ERROR');
+            echo json_encode(['success' => false, 'error' => 'Erreur : ' . $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
+     * Prévise le template avec les variables remplacées
+     * @param int $id ID de l'intervention
+     */
+    public function previewEmailTemplate($id) {
+        header('Content-Type: application/json');
+        
+        try {
+            // Vérifier les permissions
+            $this->checkAccess();
+            
+            // Récupérer l'intervention
+            $intervention = $this->interventionModel->getById($id);
+            
+            if (!$intervention) {
+                echo json_encode(['success' => false, 'error' => 'Intervention introuvable']);
+                exit;
+            }
+            
+            // Récupérer l'ID du template
+            $templateId = $_GET['template_id'] ?? null;
+            
+            if (empty($templateId)) {
+                echo json_encode(['success' => false, 'error' => 'Template ID manquant']);
+                exit;
+            }
+            
+            // Récupérer le template
+            require_once __DIR__ . '/../models/MailTemplateModel.php';
+            $mailTemplateModel = new MailTemplateModel($this->db);
+            $template = $mailTemplateModel->getById($templateId);
+            
+            if (!$template) {
+                echo json_encode(['success' => false, 'error' => 'Template introuvable']);
+                exit;
+            }
+            
+            // Récupérer les observations
+            $sql = "SELECT c.*, 
+                    CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+                    DATE_FORMAT(c.created_at, '%d/%m/%Y %H:%i') as created_at
+                    FROM intervention_comments c
+                    LEFT JOIN users u ON c.created_by = u.id
+                    WHERE c.intervention_id = ? AND c.is_observation = 1
+                    ORDER BY c.created_at ASC";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$id]);
+            $observations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // Préparer les données pour le remplacement (s'assurer que technician_name est défini)
+            if (!isset($intervention['technician_name'])) {
+                $intervention['technician_name'] = '';
+                if (!empty($intervention['technician_first_name']) && !empty($intervention['technician_last_name'])) {
+                    $intervention['technician_name'] = $intervention['technician_first_name'] . ' ' . $intervention['technician_last_name'];
+                }
+            }
+            
+            // Remplacer les variables dans le sujet et le corps via MailService
+            $previewSubject = $this->mailService->previewTemplate($template['subject'], $intervention, $observations);
+            $previewBody = $this->mailService->previewTemplate($template['body'], $intervention, $observations);
+            
+            echo json_encode([
+                'success' => true,
+                'subject' => $previewSubject,
+                'body' => $previewBody
+            ]);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la prévisualisation du template pour intervention $id : " . $e->getMessage(), 'ERROR');
+            echo json_encode(['success' => false, 'error' => 'Erreur lors de la prévisualisation']);
+        }
+        exit;
     }
 } 

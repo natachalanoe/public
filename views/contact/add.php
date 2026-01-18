@@ -25,6 +25,11 @@ setPageVariables(
 // Définir la page courante pour le menu
 $currentPage = 'clients';
 
+// Définir les breadcrumbs personnalisés pour l'ajout de contact
+if (isset($client) && !empty($client)) {
+    $GLOBALS['customBreadcrumbs'] = generateContactAddBreadcrumbs($client);
+}
+
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
@@ -34,7 +39,14 @@ include_once __DIR__ . '/../../includes/navbar.php';
 <div class="container-fluid flex-grow-1 container-p-y">
     <!-- En-tête avec actions -->
     <div class="d-flex bd-highlight mb-3">
-        <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Ajouter un contact</h4></div>
+        <div class="p-2 bd-highlight">
+            <h4 class="py-4 mb-6">Ajouter un contact</h4>
+            <?php if (isset($client) && !empty($client['name'])): ?>
+                <p class="text-muted mb-0">
+                    <strong>Client :</strong> <?php echo htmlspecialchars($client['name']); ?>
+                </p>
+            <?php endif; ?>
+        </div>
 
         <div class="ms-auto p-2 bd-highlight">
             <?php 

@@ -93,14 +93,63 @@ class MailService {
     }
 
     /**
-     * Envoie un email de fermeture d'intervention
+     * Envoie un email de notification au technicien lorsqu'il est affecté
      * @param int $interventionId ID de l'intervention
+     * @param int $technicianId ID du technicien à notifier
      * @return bool Succès de l'envoi
      */
-    public function sendInterventionClosed($interventionId) {
+    public function sendTechnicianAssigned($interventionId, $technicianId) {
         try {
-            // Vérifier si l'envoi automatique est activé
-            if ($this->config->get('email_auto_send_closing', '0') != '1') {
+            // Récupérer l'intervention
+            $intervention = $this->interventionModel->getById($interventionId);
+            if (!$intervention) {
+                throw new Exception("Intervention $interventionId introuvable");
+            }
+
+            // Vérifier que le technicien existe et a un email
+            require_once __DIR__ . '/../models/UserModel.php';
+            $userModel = new UserModel($this->db);
+            $technician = $userModel->getUserById($technicianId);
+            
+            if (!$technician || empty($technician['email'])) {
+                throw new Exception("Technicien $technicianId introuvable ou sans email");
+            }
+
+            // Récupérer le template
+            $template = $this->mailTemplateModel->getByType('technician_assigned');
+            if (!$template) {
+                throw new Exception("Template d'affectation de technicien introuvable");
+            }
+
+            // Préparer le destinataire (seulement le technicien)
+            $recipients = [[
+                'email' => $technician['email'],
+                'name' => ($technician['first_name'] ?? '') . ' ' . ($technician['last_name'] ?? '')
+            ]];
+
+            // Remplacer les variables dans le template
+            $subject = $this->replaceTemplateVariables($template['subject'], $intervention);
+            $body = $this->replaceTemplateVariables($template['body'], $intervention);
+
+            // Envoyer l'email
+            return $this->sendEmail($recipients, $subject, $body, 'technician_assigned', $interventionId);
+
+        } catch (Exception $e) {
+            custom_log("Erreur envoi email affectation technicien intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            return false;
+        }
+    }
+
+    /**
+     * Envoie un email de fermeture d'intervention
+     * @param int $interventionId ID de l'intervention
+     * @param bool $force Forcer l'envoi même si l'auto-envoi est désactivé (pour envoi manuel)
+     * @return bool Succès de l'envoi
+     */
+    public function sendInterventionClosed($interventionId, $force = false) {
+        try {
+            // Vérifier si l'envoi automatique est activé (sauf si forcé)
+            if (!$force && $this->config->get('email_auto_send_closing', '0') != '1') {
                 custom_log("Envoi automatique de fermeture désactivé pour l'intervention $interventionId", 'INFO');
                 return true;
             }
@@ -141,16 +190,19 @@ class MailService {
     private function prepareRecipients($intervention) {
         $recipients = [];
 
-        // Destinataire principal : contact_client de l'intervention
-        if (!empty($intervention['contact_client'])) {
+        // Destinataire principal : site_email en priorité, puis contact_client
+        $recipientEmail = !empty($intervention['site_email']) ? $intervention['site_email'] : 
+                         (!empty($intervention['contact_client']) ? $intervention['contact_client'] : '');
+        
+        if (!empty($recipientEmail)) {
             $recipients[] = [
-                'email' => $intervention['contact_client'],
+                'email' => $recipientEmail,
                 'name' => 'Contact client'
             ];
         }
 
         // TODO: Ajouter d'autres destinataires via la table mail_recipients
-        // Pour l'instant, on se contente du contact_client
+        // Pour l'instant, on se contente du site_email ou contact_client
 
         if (empty($recipients)) {
             throw new Exception("Aucun destinataire trouvé pour l'intervention " . $intervention['id']);
@@ -190,10 +242,10 @@ class MailService {
      * @param string $body Corps de l'email
      * @param string $templateType Type de template
      * @param int $interventionId ID de l'intervention
-     * @param string $attachmentPath Chemin vers la pièce jointe (optionnel)
+     * @param array $attachmentPaths Liste des chemins vers les pièces jointes (optionnel)
      * @return bool Succès de l'envoi
      */
-    private function sendEmail($recipients, $subject, $body, $templateType, $interventionId, $attachmentPath = null) {
+    private function sendEmail($recipients, $subject, $body, $templateType, $interventionId, $attachmentPaths = []) {
         try {
             // Rediriger vers l'email de test si configuré
             $finalRecipients = $this->redirectToTestEmail($recipients);
@@ -204,9 +256,17 @@ class MailService {
                 $subject = '[TEST] ' . $subject;
             }
             
+            // Logger les pièces jointes
+            if (!empty($attachmentPaths)) {
+                custom_log("Envoi email avec " . count($attachmentPaths) . " pièce(s) jointe(s) pour intervention $interventionId", 'INFO');
+                foreach ($attachmentPaths as $path) {
+                    custom_log("  - Pièce jointe : $path (existe: " . (file_exists($path) ? 'OUI' : 'NON') . ")", 'INFO');
+                }
+            }
+            
             // Envoyer à chaque destinataire
             foreach ($finalRecipients as $recipient) {
-                $this->sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPath);
+                $this->sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPaths);
             }
             
             return true;
@@ -224,19 +284,31 @@ class MailService {
      * @param string $body Corps
      * @param string $templateType Type de template
      * @param int $interventionId ID de l'intervention
-     * @param string $attachmentPath Chemin vers la pièce jointe
+     * @param array $attachmentPaths Liste des chemins vers les pièces jointes
      */
-    private function sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPath = null) {
+    private function sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPaths = []) {
         // Enregistrer dans l'historique avant envoi
         $templateId = $this->mailTemplateModel->getTemplateIdByType($templateType);
-        $historyId = $this->mailHistoryModel->saveToHistory($interventionId, $templateId, $recipient, $subject, $body, $attachmentPath);
+        // Si aucun template trouvé (message personnalisé), passer null explicitement
+        if ($templateId === false || $templateId === null) {
+            $templateId = null;
+        }
+        $attachmentPathStr = !empty($attachmentPaths) ? implode(', ', $attachmentPaths) : null;
+        $historyId = $this->mailHistoryModel->saveToHistory($interventionId, $templateId, $recipient, $subject, $body, $attachmentPathStr);
+        
+            custom_log("Envoi email à " . $recipient['email'] . " avec " . count($attachmentPaths) . " pièce(s) jointe(s)", 'INFO');
+            if (!empty($attachmentPaths)) {
+                foreach ($attachmentPaths as $idx => $path) {
+                    custom_log("  PJ " . ($idx + 1) . ": $path (existe: " . (file_exists($path) ? 'OUI' : 'NON') . ", taille: " . (file_exists($path) ? filesize($path) : 0) . " bytes)", 'INFO');
+                }
+            }
         
         try {
             // Vérifier si OAuth2 est activé
             if ($this->config->get('oauth2_enabled', '0') == '1') {
-                $success = $this->sendEmailOAuth2($recipient['email'], $recipient['name'], $subject, $body, $attachmentPath);
+                $success = $this->sendEmailOAuth2($recipient['email'], $recipient['name'], $subject, $body, $attachmentPaths);
             } else {
-                $success = $this->sendEmailBasic($recipient['email'], $recipient['name'], $subject, $body, $attachmentPath);
+                $success = $this->sendEmailBasic($recipient['email'], $recipient['name'], $subject, $body, $attachmentPaths);
             }
             
             if ($success) {
@@ -258,7 +330,7 @@ class MailService {
     /**
      * Envoie un email via OAuth2 (Exchange 365)
      */
-    private function sendEmailOAuth2($to, $toName, $subject, $body, $attachmentPath = null) {
+    private function sendEmailOAuth2($to, $toName, $subject, $body, $attachmentPaths = []) {
         try {
             // Vérifier si le token OAuth2 est valide
             $accessToken = $this->getValidOAuth2Token();
@@ -286,8 +358,16 @@ class MailService {
             }
 
             // EHLO
-            fwrite($socket, "EHLO " . $_SERVER['HTTP_HOST'] . "\r\n");
+            $hostname = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            fwrite($socket, "EHLO $hostname\r\n");
             $response = fgets($socket, 1024);
+            
+            // Lire toutes les lignes de la réponse EHLO
+            $ehloResponse = $response;
+            while (preg_match('/^250-/', $response)) {
+                $response = fgets($socket, 1024);
+                $ehloResponse .= $response;
+            }
 
             // STARTTLS
             fwrite($socket, "STARTTLS\r\n");
@@ -304,8 +384,15 @@ class MailService {
             }
 
             // EHLO après TLS
-            fwrite($socket, "EHLO " . $_SERVER['HTTP_HOST'] . "\r\n");
+            fwrite($socket, "EHLO $hostname\r\n");
             $response = fgets($socket, 1024);
+            
+            // Lire toutes les lignes de la nouvelle réponse EHLO
+            $ehloResponse = $response;
+            while (preg_match('/^250-/', $response)) {
+                $response = fgets($socket, 1024);
+                $ehloResponse .= $response;
+            }
 
             // AUTH XOAUTH2
             $authString = base64_encode("user=$fromAddress\1auth=Bearer $accessToken\1\1");
@@ -341,80 +428,473 @@ class MailService {
                 throw new Exception("Erreur DATA: " . trim($response));
             }
 
+            // Gérer les pièces jointes si présentes
+            $hasAttachments = !empty($attachmentPaths);
+            $boundary = null;
+            
+            if ($hasAttachments) {
+                $boundary = "----=_Part_" . md5(time() . rand());
+            }
+            
             // En-têtes de l'email
             $emailData = "From: $fromName <$fromAddress>\r\n";
             $emailData .= "To: $toName <$to>\r\n";
-            $emailData .= "Subject: $subject\r\n";
+            $emailData .= "Reply-To: $fromAddress\r\n";
+            $emailData .= "Subject: " . $this->encodeHeader($subject) . "\r\n";
             $emailData .= "MIME-Version: 1.0\r\n";
-            $emailData .= "Content-Type: text/html; charset=UTF-8\r\n";
+            
+            if ($hasAttachments) {
+                $emailData .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n";
+            } else {
+                $emailData .= "Content-Type: text/html; charset=UTF-8\r\n";
+            }
+            $emailData .= "X-Mailer: Avision Mail Service\r\n";
             $emailData .= "\r\n";
-            $emailData .= $body . "\r\n";
-            $emailData .= ".\r\n";
+            
+            if ($hasAttachments) {
+                // Corps du message
+                $emailData .= "--$boundary\r\n";
+                $emailData .= "Content-Type: text/html; charset=UTF-8\r\n";
+                $emailData .= "Content-Transfer-Encoding: 8bit\r\n";
+                $emailData .= "\r\n";
+            }
+            
+            // Ajouter le corps du message (convertir les \n en \r\n si nécessaire)
+            $body = str_replace(["\r\n", "\n"], "\r\n", $body);
+            $emailData .= $body;
+            
+            // Ajouter les pièces jointes
+            if ($hasAttachments) {
+                custom_log("Ajout de " . count($attachmentPaths) . " pièce(s) jointe(s) à l'email OAuth2", 'INFO');
+                foreach ($attachmentPaths as $index => $attachmentPath) {
+                    if (file_exists($attachmentPath)) {
+                        $emailData .= "\r\n--$boundary\r\n";
+                        $fileName = basename($attachmentPath);
+                        $fileContent = file_get_contents($attachmentPath);
+                        if ($fileContent === false) {
+                            custom_log("Erreur lors de la lecture du fichier OAuth2 : $attachmentPath", 'ERROR');
+                            continue;
+                        }
+                        $fileContentBase64 = chunk_split(base64_encode($fileContent));
+                        $mimeType = mime_content_type($attachmentPath) ?: 'application/octet-stream';
+                        
+                        // Encoder le nom de fichier pour les caractères spéciaux
+                        $encodedFileName = $this->encodeHeader($fileName);
+                        
+                        $emailData .= "Content-Type: $mimeType; name=\"$encodedFileName\"\r\n";
+                        $emailData .= "Content-Disposition: attachment; filename=\"$encodedFileName\"\r\n";
+                        $emailData .= "Content-Transfer-Encoding: base64\r\n";
+                        $emailData .= "\r\n";
+                        $emailData .= $fileContentBase64;
+                        custom_log("Pièce jointe " . ($index + 1) . " ajoutée à l'email OAuth2 : $fileName (" . strlen($fileContent) . " bytes)", 'INFO');
+                    } else {
+                        custom_log("Fichier introuvable pour pièce jointe OAuth2 : $attachmentPath", 'ERROR');
+                    }
+                }
+                $emailData .= "\r\n--$boundary--\r\n";
+            }
+            
+            // Appliquer le dot-stuffing SMTP au contenu DATA
+            // IMPORTANT: Ne pas appliquer le dot-stuffing au contenu base64 des pièces jointes
+            $emailDataLines = explode("\r\n", $emailData);
+            $finalEmailData = "";
+            $inBase64Content = false;
+            
+            foreach ($emailDataLines as $line) {
+                // Détecter si on est dans le contenu base64 d'une pièce jointe
+                if (strpos($line, 'Content-Transfer-Encoding: base64') !== false) {
+                    $inBase64Content = true;
+                } elseif ($hasAttachments && $boundary && strpos($line, '--' . $boundary) !== false) {
+                    // Nouvelle section = fin du contenu base64 précédent
+                    $inBase64Content = false;
+                }
+                
+                // Si la ligne commence par un point ET qu'on n'est pas dans le contenu base64
+                // (et que ce n'est pas un boundary), appliquer le dot-stuffing
+                if (substr($line, 0, 1) === '.' && 
+                    substr($line, 0, 2) !== '--' && 
+                    !$inBase64Content) {
+                    $finalEmailData .= '.' . $line . "\r\n";
+                } else {
+                    $finalEmailData .= $line . "\r\n";
+                }
+            }
+            // Terminer avec .\r\n pour indiquer la fin du DATA
+            $finalEmailData .= ".\r\n";
 
-            fwrite($socket, $emailData);
+            fwrite($socket, $finalEmailData);
+            
+            // Lire la réponse (peut être multi-lignes)
             $response = fgets($socket, 1024);
+            $fullResponse = $response;
+            
+            // Lire toutes les lignes de la réponse si nécessaire
+            while (preg_match('/^250-/', $response)) {
+                $response = fgets($socket, 1024);
+                $fullResponse .= $response;
+            }
 
-            if (!preg_match('/^250/', $response)) {
+            if (!preg_match('/^250/', $fullResponse)) {
                 fclose($socket);
-                throw new Exception("Erreur lors de l'envoi: " . trim($response));
+                throw new Exception("Erreur lors de l'envoi: " . trim($fullResponse));
             }
 
             // QUIT
             fwrite($socket, "QUIT\r\n");
             fclose($socket);
 
-            custom_log("Email OAuth2 envoyé avec succès à $to", 'INFO');
+            custom_log("Email OAuth2 envoyé avec succès à $to" . ($hasAttachments ? " avec " . count($attachmentPaths) . " pièce(s) jointe(s)" : ""), 'INFO');
             return true;
 
         } catch (Exception $e) {
             custom_log("Erreur OAuth2: " . $e->getMessage(), 'ERROR');
-            return false;
+            // Re-throw l'exception pour que les messages d'erreur détaillés soient disponibles
+            throw $e;
         }
     }
 
     /**
-     * Envoie un email via authentification basique (méthode originale)
+     * Envoie un email via authentification basique SMTP
      */
-    private function sendEmailBasic($to, $toName, $subject, $body, $attachmentPath = null) {
+    private function sendEmailBasic($to, $toName, $subject, $body, $attachmentPaths = []) {
         try {
             // Configuration SMTP
-            $smtpConfig = [
-                'host' => $this->config->get('mail_host'),
-                'port' => $this->config->get('mail_port', '587'),
-                'username' => $this->config->get('mail_username'),
-                'password' => $this->config->get('mail_password'),
-                'encryption' => $this->config->get('mail_encryption', 'tls'),
-                'from_address' => $this->config->get('mail_from_address'),
-                'from_name' => $this->config->get('mail_from_name'),
-            ];
+            $host = $this->config->get('mail_host');
+            $port = $this->config->get('mail_port', '587');
+            $username = $this->config->get('mail_username');
+            $password = $this->config->get('mail_password');
+            $encryption = $this->config->get('mail_encryption', 'tls');
+            $fromAddress = $this->config->get('mail_from_address');
+            $fromName = $this->config->get('mail_from_name', 'Support');
 
             // Vérifier la configuration SMTP
-            if (empty($smtpConfig['host']) || empty($smtpConfig['from_address'])) {
-                throw new Exception("Configuration SMTP incomplète");
+            if (empty($host) || empty($fromAddress)) {
+                throw new Exception("Configuration SMTP incomplète : serveur ou adresse d'expédition manquante");
             }
 
-            // Utiliser la fonction mail() de PHP pour l'instant
-            // TODO: Intégrer PHPMailer pour une meilleure gestion SMTP
-            $headers = [
-                'From: ' . $smtpConfig['from_name'] . ' <' . $smtpConfig['from_address'] . '>',
-                'Reply-To: ' . $smtpConfig['from_address'],
-                'Content-Type: text/html; charset=UTF-8',
-                'X-Mailer: PHP/' . phpversion()
-            ];
-
-            $success = mail($to, $subject, $body, implode("\r\n", $headers));
+            // Déterminer le protocole de connexion selon le chiffrement
+            $protocol = 'tcp';
+            $sslContext = null;
             
-            if ($success) {
-                custom_log("Email envoyé avec succès à $to", 'INFO');
-                return true;
-            } else {
-                throw new Exception("Échec de l'envoi via mail()");
+            if ($encryption === 'ssl') {
+                $protocol = 'ssl';
+                // Configurer le contexte SSL pour SSL direct
+                $sslContext = stream_context_create([
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true,
+                    ]
+                ]);
             }
+
+            // Créer la socket avec contexte SSL si nécessaire
+            $socket = @stream_socket_client(
+                "$protocol://$host:$port", 
+                $errno, 
+                $errstr, 
+                30,
+                STREAM_CLIENT_CONNECT,
+                $sslContext
+            );
+            
+            if (!$socket) {
+                $errorDetails = "Impossible de se connecter au serveur SMTP ($host:$port): $errstr (code: $errno)";
+                if ($encryption === 'ssl') {
+                    $errorDetails .= ". Vérifiez que le port $port supporte SSL direct ou essayez TLS avec le port 587.";
+                }
+                throw new Exception($errorDetails);
+            }
+
+            // Lire la réponse initiale (seulement pour TCP, pas pour SSL direct)
+            if ($protocol === 'tcp') {
+                $response = fgets($socket, 1024);
+                if (!preg_match('/^220/', $response)) {
+                    fclose($socket);
+                    throw new Exception("Réponse invalide du serveur SMTP: " . trim($response));
+                }
+            }
+
+            // EHLO
+            $hostname = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            fwrite($socket, "EHLO $hostname\r\n");
+            $response = fgets($socket, 1024);
+            
+            // Lire toutes les lignes de la réponse EHLO
+            $ehloResponse = $response;
+            while (preg_match('/^250-/', $response)) {
+                $response = fgets($socket, 1024);
+                $ehloResponse .= $response;
+            }
+
+            // Si TLS est demandé et non déjà activé (pas SSL direct)
+            if ($encryption === 'tls' && $protocol === 'tcp') {
+                // Vérifier si STARTTLS est supporté
+                if (preg_match('/STARTTLS/i', $ehloResponse)) {
+                    fwrite($socket, "STARTTLS\r\n");
+                    $response = fgets($socket, 1024);
+                    
+                    if (!preg_match('/^220/', $response)) {
+                        fclose($socket);
+                        throw new Exception("STARTTLS non supporté ou échec: " . trim($response));
+                    }
+
+                    // Configurer le contexte SSL pour permettre les certificats auto-signés (dev)
+                    $cryptoMethod = STREAM_CRYPTO_METHOD_TLS_CLIENT;
+                    
+                    // Essayer différentes méthodes de chiffrement TLS
+                    $tlsMethods = [
+                        STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT,
+                        STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT,
+                        STREAM_CRYPTO_METHOD_TLSv1_1_CLIENT,
+                        STREAM_CRYPTO_METHOD_TLSv1_0_CLIENT,
+                        STREAM_CRYPTO_METHOD_TLS_CLIENT,
+                    ];
+                    
+                    $tlsActivated = false;
+                    $lastError = '';
+                    
+                    foreach ($tlsMethods as $method) {
+                        // Configurer les options de contexte pour désactiver la vérification des certificats (dev)
+                        $context = stream_context_create([
+                            'ssl' => [
+                                'verify_peer' => false,
+                                'verify_peer_name' => false,
+                                'allow_self_signed' => true,
+                                'crypto_method' => $method
+                            ]
+                        ]);
+                        
+                        // Réessayer avec cette méthode
+                        @stream_context_set_option($socket, 'ssl', 'verify_peer', false);
+                        @stream_context_set_option($socket, 'ssl', 'verify_peer_name', false);
+                        @stream_context_set_option($socket, 'ssl', 'allow_self_signed', true);
+                        
+                        if (@stream_socket_enable_crypto($socket, true, $method)) {
+                            $tlsActivated = true;
+                            custom_log("TLS activé avec la méthode: " . $method, 'INFO');
+                            break;
+                        } else {
+                            $lastError = error_get_last()['message'] ?? 'Erreur inconnue';
+                        }
+                    }
+                    
+                    if (!$tlsActivated) {
+                        fclose($socket);
+                        throw new Exception("Impossible d'activer TLS. Dernière erreur: $lastError. Essayez SSL direct (port 465) ou désactivez le chiffrement.");
+                    }
+
+                    // Renvoyer EHLO après TLS
+                    fwrite($socket, "EHLO $hostname\r\n");
+                    $response = fgets($socket, 1024);
+                    
+                    // Lire toutes les lignes de la nouvelle réponse EHLO
+                    $ehloResponse = $response;
+                    while (preg_match('/^250-/', $response)) {
+                        $response = fgets($socket, 1024);
+                        $ehloResponse .= $response;
+                    }
+                } else {
+                    custom_log("Avertissement: STARTTLS demandé mais non supporté par le serveur", 'WARNING');
+                }
+            }
+
+            // Authentification si des identifiants sont fournis
+            if (!empty($username) && !empty($password)) {
+                // Vérifier si AUTH est supporté
+                if (!preg_match('/AUTH/i', $ehloResponse)) {
+                    fclose($socket);
+                    throw new Exception("Le serveur ne supporte pas l'authentification");
+                }
+
+                // Essayer l'authentification LOGIN
+                fwrite($socket, "AUTH LOGIN\r\n");
+                $response = fgets($socket, 1024);
+                
+                if (!preg_match('/^334/', $response)) {
+                    fclose($socket);
+                    throw new Exception("Authentification non supportée: " . trim($response));
+                }
+
+                // Envoyer le nom d'utilisateur (base64)
+                fwrite($socket, base64_encode($username) . "\r\n");
+                $response = fgets($socket, 1024);
+                
+                if (!preg_match('/^334/', $response)) {
+                    fclose($socket);
+                    throw new Exception("Erreur lors de l'envoi du nom d'utilisateur: " . trim($response));
+                }
+
+                // Envoyer le mot de passe (base64)
+                fwrite($socket, base64_encode($password) . "\r\n");
+                $response = fgets($socket, 1024);
+                
+                if (!preg_match('/^235/', $response)) {
+                    fclose($socket);
+                    throw new Exception("Échec de l'authentification: " . trim($response));
+                }
+            }
+
+            // MAIL FROM
+            fwrite($socket, "MAIL FROM:<$fromAddress>\r\n");
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^250/', $response)) {
+                fclose($socket);
+                throw new Exception("Erreur MAIL FROM: " . trim($response));
+            }
+
+            // RCPT TO
+            fwrite($socket, "RCPT TO:<$to>\r\n");
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^250/', $response)) {
+                fclose($socket);
+                throw new Exception("Erreur RCPT TO: " . trim($response));
+            }
+
+            // DATA
+            fwrite($socket, "DATA\r\n");
+            $response = fgets($socket, 1024);
+            if (!preg_match('/^354/', $response)) {
+                fclose($socket);
+                throw new Exception("Erreur DATA: " . trim($response));
+            }
+
+            // Gérer les pièces jointes si présentes
+            $hasAttachments = !empty($attachmentPaths);
+            $boundary = null;
+            
+            if ($hasAttachments) {
+                $boundary = "----=_Part_" . md5(time() . rand());
+            }
+            
+            // Préparer les en-têtes de l'email
+            $emailData = "From: $fromName <$fromAddress>\r\n";
+            $emailData .= "To: $toName <$to>\r\n";
+            $emailData .= "Reply-To: $fromAddress\r\n";
+            $emailData .= "Subject: " . $this->encodeHeader($subject) . "\r\n";
+            $emailData .= "MIME-Version: 1.0\r\n";
+            
+            if ($hasAttachments) {
+                $emailData .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n";
+            } else {
+                $emailData .= "Content-Type: text/html; charset=UTF-8\r\n";
+            }
+            $emailData .= "X-Mailer: Avision Mail Service\r\n";
+            $emailData .= "\r\n";
+            
+            if ($hasAttachments) {
+                // Corps du message
+                $emailData .= "--$boundary\r\n";
+                $emailData .= "Content-Type: text/html; charset=UTF-8\r\n";
+                $emailData .= "Content-Transfer-Encoding: 8bit\r\n";
+                $emailData .= "\r\n";
+            }
+            
+            // Ajouter le corps du message (convertir les \n en \r\n si nécessaire)
+            $body = str_replace(["\r\n", "\n"], "\r\n", $body);
+            $emailData .= $body;
+            
+            // Ajouter les pièces jointes
+            if ($hasAttachments) {
+                custom_log("Ajout de " . count($attachmentPaths) . " pièce(s) jointe(s) à l'email SMTP Basic", 'INFO');
+                foreach ($attachmentPaths as $index => $attachmentPath) {
+                    if (file_exists($attachmentPath)) {
+                        $emailData .= "\r\n--$boundary\r\n";
+                        $fileName = basename($attachmentPath);
+                        $fileContent = file_get_contents($attachmentPath);
+                        if ($fileContent === false) {
+                            custom_log("Erreur lors de la lecture du fichier SMTP Basic : $attachmentPath", 'ERROR');
+                            continue;
+                        }
+                        $fileContentBase64 = chunk_split(base64_encode($fileContent));
+                        $mimeType = mime_content_type($attachmentPath) ?: 'application/octet-stream';
+                        
+                        // Encoder le nom de fichier pour les caractères spéciaux
+                        $encodedFileName = $this->encodeHeader($fileName);
+                        
+                        $emailData .= "Content-Type: $mimeType; name=\"$encodedFileName\"\r\n";
+                        $emailData .= "Content-Disposition: attachment; filename=\"$encodedFileName\"\r\n";
+                        $emailData .= "Content-Transfer-Encoding: base64\r\n";
+                        $emailData .= "\r\n";
+                        $emailData .= $fileContentBase64;
+                        custom_log("Pièce jointe " . ($index + 1) . " ajoutée à l'email SMTP Basic : $fileName (" . strlen($fileContent) . " bytes)", 'INFO');
+                    } else {
+                        custom_log("Fichier introuvable pour pièce jointe SMTP Basic : $attachmentPath", 'ERROR');
+                    }
+                }
+                $emailData .= "\r\n--$boundary--\r\n";
+            }
+            
+            // Appliquer le dot-stuffing SMTP au contenu DATA
+            // IMPORTANT: Ne pas appliquer le dot-stuffing au contenu base64 des pièces jointes
+            $emailDataLines = explode("\r\n", $emailData);
+            $finalEmailData = "";
+            $inBase64Content = false;
+            
+            foreach ($emailDataLines as $line) {
+                // Détecter si on est dans le contenu base64 d'une pièce jointe
+                if (strpos($line, 'Content-Transfer-Encoding: base64') !== false) {
+                    $inBase64Content = true;
+                } elseif ($hasAttachments && $boundary && strpos($line, '--' . $boundary) !== false) {
+                    // Nouvelle section = fin du contenu base64 précédent
+                    $inBase64Content = false;
+                }
+                
+                // Si la ligne commence par un point ET qu'on n'est pas dans le contenu base64
+                // (et que ce n'est pas un boundary), appliquer le dot-stuffing
+                if (substr($line, 0, 1) === '.' && 
+                    substr($line, 0, 2) !== '--' && 
+                    !$inBase64Content) {
+                    $finalEmailData .= '.' . $line . "\r\n";
+                } else {
+                    $finalEmailData .= $line . "\r\n";
+                }
+            }
+            // Terminer avec .\r\n pour indiquer la fin du DATA
+            $finalEmailData .= ".\r\n";
+
+            fwrite($socket, $finalEmailData);
+            
+            // Lire la réponse (peut être multi-lignes)
+            $response = fgets($socket, 1024);
+            $fullResponse = $response;
+            
+            // Lire toutes les lignes de la réponse si nécessaire
+            while (preg_match('/^250-/', $response)) {
+                $response = fgets($socket, 1024);
+                $fullResponse .= $response;
+            }
+
+            if (!preg_match('/^250/', $fullResponse)) {
+                fclose($socket);
+                throw new Exception("Erreur lors de l'envoi: " . trim($fullResponse));
+            }
+
+            // QUIT
+            fwrite($socket, "QUIT\r\n");
+            fclose($socket);
+
+            custom_log("Email SMTP envoyé avec succès à $to" . ($hasAttachments ? " avec " . count($attachmentPaths) . " pièce(s) jointe(s)" : ""), 'INFO');
+            return true;
 
         } catch (Exception $e) {
-            custom_log("Erreur lors de l'envoi de l'email: " . $e->getMessage(), 'ERROR');
-            return false;
+            custom_log("Erreur lors de l'envoi de l'email SMTP: " . $e->getMessage(), 'ERROR');
+            // Re-throw l'exception pour que les messages d'erreur détaillés soient disponibles
+            throw $e;
         }
+    }
+
+    /**
+     * Encode un en-tête email selon RFC 2047 si nécessaire
+     * @param string $header L'en-tête à encoder
+     * @return string L'en-tête encodé
+     */
+    private function encodeHeader($header) {
+        // Si l'en-tête contient des caractères non-ASCII, l'encoder
+        if (preg_match('/[^\x00-\x7F]/', $header)) {
+            return '=?UTF-8?B?' . base64_encode($header) . '?=';
+        }
+        return $header;
     }
 
     /**
@@ -559,6 +1039,8 @@ class MailService {
             '{created_at}' => isset($intervention['created_at']) ? date('d/m/Y H:i', strtotime($intervention['created_at'])) : '',
             '{closed_at}' => isset($intervention['closed_at']) ? date('d/m/Y H:i', strtotime($intervention['closed_at'])) : '',
             '{intervention_date}' => isset($intervention['created_at']) ? date('d/m/Y', strtotime($intervention['created_at'])) : '',
+            '{intervention_planned_date}' => !empty($intervention['date_planif']) ? date('d/m/Y', strtotime($intervention['date_planif'])) : 'Non planifiée',
+            '{intervention_planned_time}' => !empty($intervention['heure_planif']) ? $intervention['heure_planif'] : '',
             
             // Format avec dièse #{variable} (pour compatibilité)
             '#{intervention_id}' => $intervention['id'] ?? '',
@@ -579,14 +1061,293 @@ class MailService {
             '#{created_at}' => isset($intervention['created_at']) ? date('d/m/Y H:i', strtotime($intervention['created_at'])) : '',
             '#{closed_at}' => isset($intervention['closed_at']) ? date('d/m/Y H:i', strtotime($intervention['closed_at'])) : '',
             '#{intervention_date}' => isset($intervention['created_at']) ? date('d/m/Y', strtotime($intervention['created_at'])) : '',
+            '#{intervention_planned_date}' => !empty($intervention['date_planif']) ? date('d/m/Y', strtotime($intervention['date_planif'])) : 'Non planifiée',
+            '#{intervention_planned_time}' => !empty($intervention['heure_planif']) ? $intervention['heure_planif'] : '',
         ];
         
         // Pour les templates de fermeture, ajouter les commentaires solution
         if (strpos($template, '{solution_comments}') !== false) {
             $solutionComments = $this->interventionModel->getSolutionComments($intervention['id']);
             $replacements['{solution_comments}'] = $this->formatSolutionComments($solutionComments);
+            $replacements['#{solution_comments}'] = $this->formatSolutionComments($solutionComments);
         }
         
         return str_replace(array_keys($replacements), array_values($replacements), $template);
+    }
+
+    /**
+     * Remplace les variables dans le template avec observations
+     * @param string $template Template HTML
+     * @param array $intervention Données de l'intervention
+     * @param array $observations Liste des observations
+     * @return string Template avec variables remplacées
+     */
+    private function replaceTemplateVariablesWithObservations($template, $intervention, $observations = []) {
+        // Utiliser la méthode de base pour remplacer les variables standard
+        $template = $this->replaceTemplateVariables($template, $intervention);
+        
+        // Ajouter les observations
+        $observationsHtml = $this->formatObservations($observations);
+        $template = str_replace(['{observations}', '#{observations}'], $observationsHtml, $template);
+        
+        return $template;
+    }
+
+    /**
+     * Envoie un email avec message personnalisé et pièces jointes
+     * @param int $interventionId ID de l'intervention
+     * @param string $subject Sujet de l'email
+     * @param string $body Corps de l'email (HTML)
+     * @param array $attachmentIds Liste des IDs des pièces jointes à joindre
+     * @return bool Succès de l'envoi
+     */
+    public function sendCustomMessage($interventionId, $subject, $body, $attachmentIds = []) {
+        try {
+            // Récupérer l'intervention
+            $interventionModel = new InterventionModel($this->db);
+            $intervention = $interventionModel->getById($interventionId);
+            
+            if (!$intervention) {
+                throw new Exception("Intervention introuvable");
+            }
+            
+            // Préparer les destinataires
+            $recipients = $this->prepareRecipients($intervention);
+            
+            // Préparer les pièces jointes
+            $attachmentPaths = [];
+            
+            // Ajouter les pièces jointes sélectionnées
+            if (!empty($attachmentIds)) {
+                custom_log("Traitement de " . count($attachmentIds) . " pièce(s) jointe(s) sélectionnée(s) pour message personnalisé", 'INFO');
+                foreach ($attachmentIds as $attachmentId) {
+                    $attachment = $this->getAttachmentById($interventionId, $attachmentId);
+                    if ($attachment) {
+                        // Construire le chemin complet
+                        $tentativePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
+                        $attachmentPath = realpath($tentativePath);
+                        if ($attachmentPath && file_exists($attachmentPath)) {
+                            $attachmentPaths[] = $attachmentPath;
+                            custom_log("Pièce jointe ajoutée : $attachmentPath (chemin DB: " . $attachment['chemin_fichier'] . ")", 'INFO');
+                        } else {
+                            custom_log("Pièce jointe introuvable. ID: $attachmentId, Tentative: $tentativePath, Réel: " . ($attachmentPath ?: 'null'), 'WARNING');
+                            // Essayer sans realpath
+                            if (file_exists($tentativePath)) {
+                                $attachmentPaths[] = $tentativePath;
+                                custom_log("Pièce jointe trouvée sans realpath : $tentativePath", 'INFO');
+                            }
+                        }
+                    } else {
+                        custom_log("Pièce jointe ID $attachmentId introuvable en base pour intervention $interventionId", 'WARNING');
+                    }
+                }
+            }
+            
+            custom_log("Nombre total de pièces jointes à envoyer pour message personnalisé : " . count($attachmentPaths), 'INFO');
+            if (empty($attachmentPaths)) {
+                custom_log("Aucune pièce jointe ne sera envoyée avec le message personnalisé", 'INFO');
+            }
+
+            // Envoyer l'email (type 'custom' pour message personnalisé)
+            return $this->sendEmail($recipients, $subject, $body, 'custom', $interventionId, $attachmentPaths);
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'envoi du message personnalisé pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Formate les observations pour l'email
+     * @param array $observations Liste des observations
+     * @return string HTML formaté des observations
+     */
+    private function formatObservations($observations) {
+        if (empty($observations)) {
+            return '<p><em>Aucune observation pour cette intervention.</em></p>';
+        }
+        
+        $html = '<h3>Observations :</h3><ul>';
+        foreach ($observations as $index => $obs) {
+            $html .= '<li>';
+            $html .= '<strong>Observation ' . ($index + 1) . '</strong><br>';
+            if (!empty($obs['created_by_name'])) {
+                $html .= '<small>Par ' . h($obs['created_by_name']);
+                if (!empty($obs['created_at'])) {
+                    $html .= ' le ' . h($obs['created_at']);
+                }
+                $html .= '</small><br>';
+            }
+            $html .= nl2br(h($obs['comment'] ?? ''));
+            $html .= '</li>';
+        }
+        $html .= '</ul>';
+        
+        return $html;
+    }
+
+    /**
+     * Envoie un email avec un template personnalisé (pour envoi manuel)
+     * @param int $interventionId ID de l'intervention
+     * @param int $templateId ID du template à utiliser
+     * @param array $observations Liste des observations (optionnel)
+     * @param array $attachmentIds Liste des IDs des pièces jointes à joindre (optionnel)
+     * @param bool $autoAttachBon Si true et template bon_intervention, joindre automatiquement le dernier BI
+     * @return bool Succès de l'envoi
+     */
+    public function sendCustomEmail($interventionId, $templateId, $observations = [], $attachmentIds = [], $autoAttachBon = true) {
+        try {
+            // Récupérer l'intervention
+            $intervention = $this->interventionModel->getById($interventionId);
+            if (!$intervention) {
+                throw new Exception("Intervention $interventionId introuvable");
+            }
+
+            // Récupérer le template
+            $template = $this->mailTemplateModel->getById($templateId);
+            if (!$template) {
+                throw new Exception("Template introuvable");
+            }
+
+            // Préparer les destinataires
+            $recipients = $this->prepareRecipients($intervention);
+
+            // Remplacer les variables dans le template (avec observations si fournies)
+            if (!empty($observations)) {
+                $subject = $this->replaceTemplateVariablesWithObservations($template['subject'], $intervention, $observations);
+                $body = $this->replaceTemplateVariablesWithObservations($template['body'], $intervention, $observations);
+            } else {
+                $subject = $this->replaceTemplateVariables($template['subject'], $intervention);
+                $body = $this->replaceTemplateVariables($template['body'], $intervention);
+            }
+
+            // Utiliser le type de template ou 'custom' par défaut
+            $templateType = $template['template_type'] ?? 'custom';
+
+            // Préparer les pièces jointes
+            $attachmentPaths = [];
+            
+            // Si le template est de type "bon_intervention" et autoAttachBon est true, joindre le dernier BI
+            if ($templateType === 'bon_intervention' && $autoAttachBon) {
+                $lastBon = $this->getLastBonIntervention($interventionId);
+                if ($lastBon) {
+                    // Construire le chemin complet : MailService est dans public/classes/, donc __DIR__/../../ = racine
+                    $tentativePath = __DIR__ . '/../../' . $lastBon['chemin_fichier'];
+                    $bonPath = realpath($tentativePath);
+                    if ($bonPath && file_exists($bonPath)) {
+                        $attachmentPaths[] = $bonPath;
+                        custom_log("Bon d'intervention ajouté automatiquement : $bonPath (chemin DB: " . $lastBon['chemin_fichier'] . ")", 'INFO');
+                    } else {
+                        custom_log("Bon d'intervention introuvable. Tentative: $tentativePath, Réel: " . ($bonPath ?: 'null'), 'WARNING');
+                        // Essayer sans realpath
+                        if (file_exists($tentativePath)) {
+                            $attachmentPaths[] = $tentativePath;
+                            custom_log("Bon d'intervention trouvé sans realpath : $tentativePath", 'INFO');
+                        }
+                    }
+                } else {
+                    custom_log("Aucun bon d'intervention trouvé pour l'intervention $interventionId", 'INFO');
+                }
+            }
+            
+            // Ajouter les pièces jointes sélectionnées
+            if (!empty($attachmentIds)) {
+                custom_log("Traitement de " . count($attachmentIds) . " pièce(s) jointe(s) sélectionnée(s)", 'INFO');
+                foreach ($attachmentIds as $attachmentId) {
+                    $attachment = $this->getAttachmentById($interventionId, $attachmentId);
+                    if ($attachment) {
+                        // Construire le chemin complet
+                        $tentativePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
+                        $attachmentPath = realpath($tentativePath);
+                        if ($attachmentPath && file_exists($attachmentPath)) {
+                            $attachmentPaths[] = $attachmentPath;
+                            custom_log("Pièce jointe ajoutée : $attachmentPath (chemin DB: " . $attachment['chemin_fichier'] . ")", 'INFO');
+                        } else {
+                            custom_log("Pièce jointe introuvable. ID: $attachmentId, Tentative: $tentativePath, Réel: " . ($attachmentPath ?: 'null'), 'WARNING');
+                            // Essayer sans realpath
+                            if (file_exists($tentativePath)) {
+                                $attachmentPaths[] = $tentativePath;
+                                custom_log("Pièce jointe trouvée sans realpath : $tentativePath", 'INFO');
+                            }
+                        }
+                    } else {
+                        custom_log("Pièce jointe ID $attachmentId introuvable en base pour intervention $interventionId", 'WARNING');
+                    }
+                }
+            }
+            
+            custom_log("Nombre total de pièces jointes à envoyer : " . count($attachmentPaths), 'INFO');
+            if (empty($attachmentPaths)) {
+                custom_log("ATTENTION: Aucune pièce jointe ne sera envoyée", 'WARNING');
+            }
+
+            // Envoyer l'email
+            return $this->sendEmail($recipients, $subject, $body, $templateType, $interventionId, $attachmentPaths);
+
+        } catch (Exception $e) {
+            custom_log("Erreur envoi email personnalisé intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Récupère le dernier bon d'intervention pour une intervention
+     * @param int $interventionId ID de l'intervention
+     * @return array|null Le dernier bon d'intervention ou null
+     */
+    private function getLastBonIntervention($interventionId) {
+        try {
+            $sql = "SELECT pj.*, lpj.type_liaison
+                    FROM pieces_jointes pj
+                    INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                    WHERE lpj.type_liaison = 'bi'
+                    AND lpj.entite_id = ?
+                    ORDER BY pj.date_creation DESC
+                    LIMIT 1";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$interventionId]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la récupération du dernier BI pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            return null;
+        }
+    }
+
+    /**
+     * Récupère une pièce jointe par son ID pour une intervention
+     * @param int $interventionId ID de l'intervention
+     * @param int $attachmentId ID de la pièce jointe
+     * @return array|null La pièce jointe ou null
+     */
+    private function getAttachmentById($interventionId, $attachmentId) {
+        try {
+            $sql = "SELECT pj.*, lpj.type_liaison
+                    FROM pieces_jointes pj
+                    INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                    WHERE pj.id = ?
+                    AND lpj.entite_id = ?
+                    AND (lpj.type_liaison = 'intervention' OR lpj.type_liaison = 'bi')";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$attachmentId, $interventionId]);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la récupération de la pièce jointe $attachmentId pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            return null;
+        }
+    }
+
+    /**
+     * Prévise un template avec les variables remplacées (méthode publique pour prévisualisation)
+     * @param string $template Template HTML avec variables
+     * @param array $intervention Données de l'intervention
+     * @param array $observations Liste des observations (optionnel)
+     * @return string Template avec variables remplacées
+     */
+    public function previewTemplate($template, $intervention, $observations = []) {
+        if (!empty($observations)) {
+            return $this->replaceTemplateVariablesWithObservations($template, $intervention, $observations);
+        } else {
+            return $this->replaceTemplateVariables($template, $intervention);
+        }
     }
 }

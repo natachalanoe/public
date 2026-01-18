@@ -281,20 +281,27 @@ document.getElementById('site_id').addEventListener('change', function() {
 });
 
 // File validation script (same as add.php, adapted for edit form ID)
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Charger les extensions autorisées avant d'initialiser le formulaire
+    await loadAllowedExtensions();
+    
     const documentForm = document.getElementById('editDocumentForm'); // Changed ID
     const documentFileInput = document.getElementById('document_file');
     const documentFileError = document.getElementById('documentFileError');
     const submitDocumentButton = document.getElementById('submitEditDocument'); // Changed ID
 
-    const allowedTypes = [
-        'image/jpeg', 'image/png', 'image/gif', 'application/pdf',
-        'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/zip', 'application/x-zip', 'application/x-zip-compressed', 'application/octet-stream',
-        'application/x-rar-compressed', 'application/vnd.rar', 'application/x-7z-compressed',
-        'text/plain', 'text/csv', 'application/csv'
-    ];
+    let allowedExtensions = [];
+    
+    // Charger les extensions autorisées depuis la base de données
+    async function loadAllowedExtensions() {
+        try {
+            const response = await fetch('<?php echo BASE_URL; ?>settings/getAllowedExtensions');
+            const data = await response.json();
+            allowedExtensions = data.extensions || [];
+        } catch (error) {
+            console.error('Erreur lors du chargement des extensions autorisées:', error);
+        }
+    }
 
     const phpMaxFileSize = '<?php echo ini_get("upload_max_filesize"); ?>';
 
@@ -326,23 +333,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (submitDocumentButton) { submitDocumentButton.disabled = false; }
 
             if (file) {
-                let isFileTypeValid = false;
-                if (file.type && allowedTypes.includes(file.type)) {
-                    isFileTypeValid = true;
-                } else if (!file.type) {
-                    const extension = file.name.split('.').pop().toLowerCase();
-                    const extToMime = {
-                        'csv': ['text/csv', 'application/csv'],
-                        'zip': ['application/zip', 'application/x-zip', 'application/x-zip-compressed', 'application/octet-stream'],
-                        'rar': ['application/x-rar-compressed', 'application/vnd.rar', 'application/octet-stream'],
-                        '7z':  ['application/x-7z-compressed', 'application/octet-stream']
-                    };
-                    if (extToMime[extension]) {
-                        for (const mime of extToMime[extension]) {
-                            if (allowedTypes.includes(mime)) { isFileTypeValid = true; break; }
-                        }
-                    }
-                }
+                const extension = file.name.split('.').pop().toLowerCase();
+                const isFileTypeValid = allowedExtensions.includes(extension);
 
                 if (!isFileTypeValid) {
                     documentFileError.textContent = 'Ce format n\'est pas accepté, rapprochez-vous de l\'administrateur du site, ou utilisez un format compressé.';
@@ -370,23 +362,9 @@ document.addEventListener('DOMContentLoaded', function() {
             // If no file is selected, it's fine (means user isn't changing the attachment).
             const file = documentFileInput ? documentFileInput.files[0] : null;
             if (file) { // Only validate if a new file is chosen
-                let isInvalid = false;
-                let typeAllowedByExtensionOrMime = allowedTypes.includes(file.type);
-                if (!file.type && !typeAllowedByExtensionOrMime) {
-                    const extension = file.name.split('.').pop().toLowerCase();
-                    const extToMime = {
-                        'csv': ['text/csv', 'application/csv'],
-                        'zip': ['application/zip', 'application/x-zip', 'application/x-zip-compressed', 'application/octet-stream'],
-                        'rar': ['application/x-rar-compressed', 'application/vnd.rar', 'application/octet-stream'],
-                        '7z':  ['application/x-7z-compressed', 'application/octet-stream']
-                    };
-                    if (extToMime[extension]) {
-                        for (const mime of extToMime[extension]) {
-                            if (allowedTypes.includes(mime)) { typeAllowedByExtensionOrMime = true; break; }
-                        }
-                    }
-                }
-                if (!typeAllowedByExtensionOrMime) {
+                const extension = file.name.split('.').pop().toLowerCase();
+                const typeAllowedByExtension = allowedExtensions.includes(extension);
+                if (!typeAllowedByExtension) {
                     documentFileError.textContent = 'Type de fichier non autorisé. Veuillez sélectionner un fichier valide.';
                     documentFileError.style.display = 'block';
                     documentFileInput.classList.add('is-invalid');

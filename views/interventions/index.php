@@ -14,11 +14,18 @@ if (!isset($_SESSION['user'])) {
 // Définir le type d'utilisateur pour le menu
 $userType = $_SESSION['user']['user_type'] ?? null;
 
+// Déterminer le type d'intervention depuis l'URL
+$currentUrl = $_SERVER['REQUEST_URI'] ?? '';
+$isPreventivePage = strpos($currentUrl, '/interventions/preventives') !== false;
+$pageTitle = $isPreventivePage ? 'Interventions Préventives' : 'Interventions Curatives';
+
 setPageVariables(
-    'Interventions',
+    $pageTitle,
     'interventions'
 );
 
+// Définir les breadcrumbs personnalisés pour les pages interventions curatives/préventives
+$GLOBALS['customBreadcrumbs'] = generateInterventionsListBreadcrumbs($isPreventivePage);
 
 // Inclure le header qui contient le menu latéral
 
@@ -30,7 +37,15 @@ include_once __DIR__ . '/../../includes/navbar.php';
 <div class="container-fluid flex-grow-1 container-p-y">
 
 <div class="d-flex bd-highlight mb-3">
-    <div class="p-2 bd-highlight"><h4 class="py-4 mb-6">Gestion des Interventions</h4></div>
+    <div class="p-2 bd-highlight">
+        <h4 class="py-4 mb-6">
+            <?php if ($isPreventivePage): ?>
+                <i class="bi bi-shield-check me-2"></i>Interventions Préventives
+            <?php else: ?>
+                <i class="bi bi-tools me-2"></i>Interventions Curatives
+            <?php endif; ?>
+        </h4>
+    </div>
 
     <div class="ms-auto p-2 bd-highlight">
         <?php if (canModifyInterventions()): ?>
@@ -38,79 +53,6 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <i class="bi bi-plus me-1 me-1"></i> Ajouter une intervention
             </a>
         <?php endif; ?>
-    </div>
-</div>
-
-<!-- Onglets de navigation -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-body p-0">
-                <ul class="nav nav-tabs nav-tabs-custom" id="interventionTabs" role="tablist">
-                    <!-- Onglet Non-Préventives -->
-                    <?php 
-                    $nonPreventiveUrl = BASE_URL . 'interventions?tab=non-preventive';
-                    if (isset($_GET['technician_id']) && !empty($_GET['technician_id'])) {
-                        $nonPreventiveUrl .= '&technician_id=' . $_GET['technician_id'];
-                    }
-                    if (isset($_GET['status_id']) && !empty($_GET['status_id'])) {
-                        $nonPreventiveUrl .= '&status_id=' . $_GET['status_id'];
-                    }
-                    ?>
-                    <li class="nav-item" role="presentation">
-                        <a class="nav-link <?php echo ($activeTab === 'non-preventive') ? 'active' : ''; ?>" 
-                           href="<?php echo $nonPreventiveUrl; ?>" 
-                           role="tab">
-                            <i class="bi bi-tools me-2"></i>
-                            Interventions Curatives
-                            <span class="badge bg-secondary ms-2"><?php echo $statsByTab['non-preventive']['total'] ?? 0; ?></span>
-                        </a>
-                    </li>
-                    
-                    <!-- Onglet Préventives -->
-                    <?php if (isset($preventivePriorityId) && $preventivePriorityId): ?>
-                        <?php 
-                        $preventiveUrl = BASE_URL . 'interventions?tab=preventive';
-                        if (isset($_GET['technician_id']) && !empty($_GET['technician_id'])) {
-                            $preventiveUrl .= '&technician_id=' . $_GET['technician_id'];
-                        }
-                        if (isset($_GET['status_id']) && !empty($_GET['status_id'])) {
-                            $preventiveUrl .= '&status_id=' . $_GET['status_id'];
-                        }
-                        ?>
-                        <li class="nav-item" role="presentation">
-                            <a class="nav-link <?php echo ($activeTab === 'preventive') ? 'active' : ''; ?>" 
-                               href="<?php echo $preventiveUrl; ?>" 
-                               role="tab">
-                                <i class="bi bi-shield-check me-2"></i>
-                                Interventions Préventives
-                                <span class="badge bg-success ms-2"><?php echo $statsByTab['preventive']['total'] ?? 0; ?></span>
-                            </a>
-                        </li>
-                    <?php endif; ?>
-                    
-                    <!-- Onglet Toutes -->
-                    <?php 
-                    $allUrl = BASE_URL . 'interventions?tab=all';
-                    if (isset($_GET['technician_id']) && !empty($_GET['technician_id'])) {
-                        $allUrl .= '&technician_id=' . $_GET['technician_id'];
-                    }
-                    if (isset($_GET['status_id']) && !empty($_GET['status_id'])) {
-                        $allUrl .= '&status_id=' . $_GET['status_id'];
-                    }
-                    ?>
-                    <li class="nav-item" role="presentation">
-                        <a class="nav-link <?php echo ($activeTab === 'all') ? 'active' : ''; ?>" 
-                           href="<?php echo $allUrl; ?>" 
-                           role="tab">
-                            <i class="bi bi-collection me-2"></i>
-                            Toutes les Interventions
-                            <span class="badge bg-primary ms-2"><?php echo $statsByTab['all']['total'] ?? 0; ?></span>
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -139,7 +81,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <!-- Mes interventions (pour les techniciens) -->
                             <?php if ($userType === 'technicien' || $userType === 'admin'): ?>
                                 <?php 
-                                $myInterventionsUrl = BASE_URL . 'interventions?tab=' . $activeTab . '&technician_id=' . $_SESSION['user']['id'];
+                                $currentRoute = $isPreventivePage ? 'interventions/preventives' : 'interventions/curatives';
+                                $myInterventionsUrl = BASE_URL . $currentRoute . '?technician_id=' . $_SESSION['user']['id'];
                                 if (isset($_GET['status_id'])) {
                                     $myInterventionsUrl .= '&status_id=' . $_GET['status_id'];
                                 }
@@ -165,11 +108,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <div class="d-flex flex-wrap gap-2">
                         <!-- Tous les statuts -->
                         <?php 
-                        $allUrl = BASE_URL . 'interventions?tab=' . $activeTab;
+                        $currentRoute = $isPreventivePage ? 'interventions/preventives' : 'interventions/curatives';
+                        $allUrl = BASE_URL . $currentRoute;
                         
                         // Si un technicien est sélectionné, l'ajouter à l'URL
                         if (isset($_GET['technician_id']) && !empty($_GET['technician_id'])) {
-                            $allUrl .= '&technician_id=' . $_GET['technician_id'];
+                            $allUrl .= '?technician_id=' . $_GET['technician_id'];
                         }
                         ?>
                         <a href="<?php echo $allUrl; ?>" class="btn btn-outline-secondary btn-sm status-filter-btn <?php echo (!isset($_GET['status_id'])) ? 'active' : ''; ?>">
@@ -180,7 +124,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <!-- Filtres par statut -->
                         <?php foreach ($statsByStatus as $statusStat): ?>
                             <?php 
-                            $statusUrl = BASE_URL . 'interventions?tab=' . $activeTab . '&status_id=' . $statusStat['id'];
+                            $statusUrl = BASE_URL . $currentRoute . '?status_id=' . $statusStat['id'];
                             
                             // Si un technicien est sélectionné, l'ajouter à l'URL
                             if (isset($_GET['technician_id']) && !empty($_GET['technician_id'])) {
@@ -201,10 +145,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     <div class="vr mx-2"></div>
                     
                     <!-- Filtres par priorité -->
+                    <?php if (!$isPreventivePage): ?>
                     <div class="d-flex flex-wrap gap-2">
                         <!-- Toutes les priorités -->
                         <?php 
-                        $allPriorityUrl = BASE_URL . 'interventions?tab=' . $activeTab;
+                        $currentRoute = 'interventions/curatives';
+                        $allPriorityUrl = BASE_URL . $currentRoute;
                         
                         // Conserver les filtres existants
                         $params = [];
@@ -215,7 +161,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             $params[] = 'status_id=' . $_GET['status_id'];
                         }
                         if (!empty($params)) {
-                            $allPriorityUrl .= '&' . implode('&', $params);
+                            $allPriorityUrl .= '?' . implode('&', $params);
                         }
                         ?>
                         <a href="<?php echo $allPriorityUrl; ?>" class="btn btn-outline-secondary btn-sm priority-filter-btn <?php echo (!isset($_GET['priority_id'])) ? 'active' : ''; ?>">
@@ -225,12 +171,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         <!-- Filtres par priorité (sauf Préventif) -->
                         <?php foreach ($priorities as $priority): ?>
                             <?php 
-                            // Exclure la priorité Préventif car elle est gérée par les onglets
+                            // Exclure la priorité Préventif car elle est gérée par les sous-menus
                             if (stripos($priority['name'], 'préventif') !== false || stripos($priority['name'], 'preventive') !== false) {
                                 continue;
                             }
                             
-                            $priorityUrl = BASE_URL . 'interventions?tab=' . $activeTab . '&priority_id=' . $priority['id'];
+                            $priorityUrl = BASE_URL . $currentRoute . '?priority_id=' . $priority['id'];
                             
                             // Conserver les autres filtres
                             if (isset($_GET['technician_id']) && !empty($_GET['technician_id'])) {
@@ -248,6 +194,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             </a>
                         <?php endforeach; ?>
                     </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -313,61 +260,11 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 </div>
 
-<!-- Styles personnalisés pour les onglets -->
-<style>
-.nav-tabs-custom {
-    border-bottom: 2px solid #e9ecef;
-}
 
-.nav-tabs-custom .nav-link {
-    border: none;
-    border-bottom: 3px solid transparent;
-    color: #6c757d;
-    font-weight: 500;
-    padding: 1rem 1.5rem;
-    transition: all 0.3s ease;
-}
-
-.nav-tabs-custom .nav-link:hover {
-    border-color: #dee2e6;
-    color: #495057;
-    background-color: #f8f9fa;
-}
-
-.nav-tabs-custom .nav-link.active {
-    border-bottom-color: #0d6efd;
-    color: #0d6efd;
-    background-color: #fff;
-    font-weight: 600;
-}
-
-.nav-tabs-custom .nav-link .badge {
-    font-size: 0.75rem;
-    font-weight: 500;
-}
-
-/* Animation subtile pour les onglets */
-.nav-tabs-custom .nav-link {
-    position: relative;
-    overflow: hidden;
-}
-
-.nav-tabs-custom .nav-link::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    width: 0;
-    height: 3px;
-    background-color: #0d6efd;
-    transition: all 0.3s ease;
-    transform: translateX(-50%);
-}
-
-.nav-tabs-custom .nav-link.active::after {
-    width: 100%;
-}
-</style>
+<!-- Définir BASE_URL pour JavaScript -->
+<script>
+  window.BASE_URL = '<?php echo BASE_URL; ?>';
+</script>
 
 <!-- DataTable Persistence -->
 <script src="<?php echo BASE_URL; ?>assets/js/datatable-persistence.js"></script>
@@ -378,11 +275,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
 <script>
 function filterByTechnician(technicianId) {
     // Construire l'URL avec le filtre technicien
-    let url = '<?php echo BASE_URL; ?>interventions';
+    let url = '<?php echo BASE_URL; ?><?php echo $isPreventivePage ? 'interventions/preventives' : 'interventions/curatives'; ?>';
     let params = [];
-    
-    // Conserver l'onglet actif
-    params.push('tab=<?php echo $activeTab; ?>');
     
     if (technicianId) {
         params.push('technician_id=' + technicianId);

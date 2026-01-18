@@ -3,6 +3,28 @@
 * File include item demo only specific css only
 ******************************************************************************/
 
+/*
+* Taille de police de base et police Inter
+******************************************************************************/
+:root,
+html {
+  --bs-root-font-size: 14px !important;
+  font-size: 14px !important;
+  --bs-font-sans-serif: "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
+  --bs-body-font-family: "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
+}
+
+body {
+  --bs-body-font-size: 0.9rem !important;
+  font-size: 0.9rem !important;
+  font-family: "Inter", -apple-system, blinkmacsystemfont, "Segoe UI", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif !important;
+}
+
+/* Sidebar - Taille de police à 0.9rem */
+.menu-vertical .menu-item .menu-link {
+  font-size: 0.9rem !important;
+}
+
 .menu .app-brand.demo {
   height: 64px;
   margin-top: 12px;
@@ -21,20 +43,275 @@
 /* ! For .layout-navbar-fixed added fix padding top to .layout-page */
 /* Detached navbar */
 .layout-navbar-fixed .layout-wrapper:not(.layout-horizontal):not(.layout-without-menu) .layout-page {
-  padding-top: 74px !important;
+  padding-top: 52px !important;
 }
 /* Default navbar */
 .layout-navbar-fixed .layout-wrapper:not(.layout-without-menu) .layout-page {
-  padding-top: 64px !important;
+  padding-top: 48px !important;
 }
 .docs-page .layout-navbar-fixed.layout-wrapper:not(.layout-without-menu) .layout-page,
 .docs-page .layout-menu-fixed.layout-wrapper:not(.layout-without-menu) .layout-page {
-  padding-top: 62px !important;
+  padding-top: 48px !important;
 }
 
 /* Navbar page z-index issue solution */
 .content-wrapper .navbar {
   z-index: auto;
+}
+
+/*
+* Navbar compacte - Réduction de la hauteur et des espacements
+******************************************************************************/
+
+/* Réduction de la hauteur et du padding vertical de la navbar */
+#layout-navbar,
+#layout-navbar.layout-navbar,
+#layout-navbar.navbar-detached,
+.layout-navbar,
+.layout-navbar.navbar-detached {
+  --bs-navbar-padding-y: 0.25rem !important;
+  block-size: auto !important;
+  min-height: auto !important;
+  height: auto !important;
+  max-height: 3rem !important;
+  padding-block: 0.25rem !important;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+/* Réduction du padding interne pour navbar-detached */
+#layout-navbar.navbar-detached,
+.layout-navbar.navbar-detached {
+  padding-inline: 1rem !important;
+}
+
+/* Réduction de la hauteur de la navbar interne */
+#layout-navbar .navbar,
+.layout-navbar .navbar {
+  --bs-navbar-padding-y: 0.25rem !important;
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+  min-height: auto !important;
+  height: auto !important;
+}
+
+/* Réduction de la taille des icônes dans la navbar */
+#layout-navbar .icon-md,
+#layout-navbar .icon-md::before,
+.layout-navbar .icon-md,
+.layout-navbar .icon-md::before {
+  font-size: 1.1rem !important;
+  block-size: 1.1rem !important;
+  inline-size: 1.1rem !important;
+}
+
+/* Réduction des espacements entre les éléments de la navbar */
+#layout-navbar .navbar-nav .nav-item,
+.layout-navbar .navbar-nav .nav-item {
+  margin-right: 0.25rem !important;
+}
+
+#layout-navbar .me-2,
+.layout-navbar .me-2 {
+  margin-right: 0.25rem !important;
+}
+
+#layout-navbar .me-3,
+.layout-navbar .me-3 {
+  margin-right: 0.5rem !important;
+}
+
+#layout-navbar .me-4,
+.layout-navbar .me-4 {
+  margin-right: 0.75rem !important;
+}
+
+#layout-navbar .me-xl-0,
+.layout-navbar .me-xl-0 {
+  margin-right: 0 !important;
+}
+
+/* Réduction du padding des liens de navigation */
+#layout-navbar .nav-link,
+.layout-navbar .nav-link {
+  padding-top: 0.2rem !important;
+  padding-bottom: 0.2rem !important;
+  --bs-nav-link-padding-y: 0.2rem !important;
+}
+
+/* Réduction de la taille du badge dans la navbar */
+#layout-navbar .badge,
+.layout-navbar .badge {
+  font-size: 0.7rem !important;
+  padding: 0.2rem 0.4rem !important;
+  line-height: 1.2 !important;
+}
+
+/* Réduction de la taille du texte dans la navbar */
+#layout-navbar .nav-link,
+#layout-navbar .navbar-nav,
+.layout-navbar .nav-link,
+.layout-navbar .navbar-nav {
+  font-size: 0.9rem !important;
+}
+
+/* Réduction des espacements dans les conteneurs flex de la navbar */
+#layout-navbar .navbar-nav-right,
+#layout-navbar .d-flex,
+.layout-navbar .navbar-nav-right,
+.layout-navbar .d-flex {
+  gap: 0.25rem !important;
+}
+
+/* Réduction de la hauteur des éléments alignés */
+#layout-navbar .align-items-center,
+.layout-navbar .align-items-center {
+  align-items: center !important;
+  min-height: auto !important;
+}
+
+/* Force la réduction de la hauteur avec line-height */
+#layout-navbar .navbar-nav,
+#layout-navbar .nav-link,
+#layout-navbar .nav-item,
+.layout-navbar .navbar-nav,
+.layout-navbar .nav-link,
+.layout-navbar .nav-item {
+  line-height: 1.3 !important;
+}
+
+/* Réduction supplémentaire pour les conteneurs */
+#layout-navbar.container-fluid,
+.layout-navbar.container-fluid {
+  padding-top: 0.25rem !important;
+  padding-bottom: 0.25rem !important;
+}
+
+/* Force la hauteur minimale pour les éléments de la navbar */
+#layout-navbar .navbar-expand-xl,
+.layout-navbar.navbar-expand-xl {
+  min-height: 2.5rem !important;
+  max-height: 3rem !important;
+}
+
+/*
+* Breadcrumbs dans la navbar
+******************************************************************************/
+
+/* Styles pour les breadcrumbs dans la navbar */
+#layout-navbar .breadcrumb,
+.layout-navbar .breadcrumb {
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+  font-size: 0.85rem !important;
+  background: transparent !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+#layout-navbar .breadcrumb-item,
+.layout-navbar .breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+#layout-navbar .breadcrumb-item a,
+.layout-navbar .breadcrumb-item a {
+  color: var(--bs-body-color) !important;
+  text-decoration: none;
+  transition: color 0.2s;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 200px;
+  display: inline-block;
+}
+
+#layout-navbar .breadcrumb-item a:hover,
+.layout-navbar .breadcrumb-item a:hover {
+  color: var(--bs-primary) !important;
+}
+
+#layout-navbar .breadcrumb-item.active,
+.layout-navbar .breadcrumb-item.active {
+  color: var(--bs-heading-color) !important;
+  font-weight: 500;
+}
+
+#layout-navbar .breadcrumb-item + .breadcrumb-item::before,
+.layout-navbar .breadcrumb-item + .breadcrumb-item::before {
+  padding-left: 0.4rem !important;
+  padding-right: 0.4rem !important;
+  color: var(--bs-secondary-color) !important;
+  font-size: 0.75rem !important;
+}
+
+/* Masquer la scrollbar des breadcrumbs */
+#layout-navbar .breadcrumb::-webkit-scrollbar,
+.layout-navbar .breadcrumb::-webkit-scrollbar {
+  display: none;
+}
+
+/* Élargir la div des breadcrumbs */
+#layout-navbar .navbar-nav-right,
+.layout-navbar .navbar-nav-right {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+/* S'assurer que le conteneur navbar-collapse affiche tous ses enfants */
+#layout-navbar #navbar-collapse,
+.layout-navbar #navbar-collapse {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+
+/* Breadcrumb prend 50% de la navbar */
+#layout-navbar nav[aria-label="breadcrumb"],
+#layout-navbar .breadcrumb-nav,
+.layout-navbar nav[aria-label="breadcrumb"],
+.layout-navbar .breadcrumb-nav {
+  flex-grow: 2 !important;
+  flex-shrink: 1 !important;
+  flex-basis: 90% !important;
+  min-width: 0 !important;
+  max-width: 90% !important;
+  overflow: hidden !important;
+  margin-left: 1rem !important;
+  margin-right: 1rem !important;
+}
+
+#layout-navbar .breadcrumb,
+.layout-navbar .breadcrumb {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Réduire l'espace pris par les autres éléments de la navbar */
+#layout-navbar #navbar-collapse > .navbar-nav:first-child,
+.layout-navbar #navbar-collapse > .navbar-nav:first-child {
+  /* Pas de flex-shrink pour permettre l'affichage */
+}
+
+#layout-navbar #navbar-collapse > .navbar-nav-right:last-child,
+.layout-navbar #navbar-collapse > .navbar-nav-right:last-child {
+  /* Pas de flex-shrink pour permettre l'affichage */
+  margin-left: auto !important;
+}
+
+/* Responsive : masquer les breadcrumbs sur mobile */
+@media (max-width: 1199.98px) {
+  #layout-navbar .breadcrumb,
+  .layout-navbar .breadcrumb {
+    display: none !important;
+  }
 }
 
 /*

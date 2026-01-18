@@ -199,19 +199,18 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <div class="card-body">
                     <?php
-                    // Fonction pour formater la taille en format lisible
-                    function formatBytes($size, $precision = 2) {
-                        $units = array('B', 'KB', 'MB', 'GB', 'TB');
-                        for ($i = 0; $size > 1024 && $i < count($units) - 1; $i++) {
-                            $size /= 1024;
-                        }
-                        return round($size, $precision) . ' ' . $units[$i];
-                    }
+                    global $db;
+                    // Récupérer la limite effective d'upload (en octets, puis formatée)
+                    $max_upload_bytes = getServerMaxUploadSize();
+                    $max_upload = formatFileSize($max_upload_bytes);
                     
-                    // Récupérer les limites d'upload
-                    $upload_max_filesize = ini_get('upload_max_filesize');
-                    $post_max_size = ini_get('post_max_size');
-                    $max_upload = min($upload_max_filesize, $post_max_size);
+                    // Calculer la taille du répertoire d'upload
+                    $uploadDirSize = 0;
+                    $uploadDirFormatted = '0 B';
+                    if (defined('UPLOADS_PATH') && is_dir(UPLOADS_PATH)) {
+                        $uploadDirSize = getDirectorySize(UPLOADS_PATH);
+                        $uploadDirFormatted = formatFileSize($uploadDirSize);
+                    }
                     ?>
                     <div class="row">
                         <div class="col-md-2">
@@ -232,13 +231,23 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 <p class="h5"><?= $db->getAttribute(PDO::ATTR_SERVER_VERSION) ?></p>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <div class="text-center">
+                                <h6 class="text-muted">Taille répertoire upload</h6>
+                                <p class="h5"><?= h($uploadDirFormatted) ?></p>
+                                <small class="text-muted">
+                                    <i class="bi bi-folder2 me-1"></i>
+                                    <?= h(basename(UPLOADS_PATH)) ?>
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
                             <div class="text-center">
                                 <h6 class="text-muted">Espace disque</h6>
                                 <p class="h5"><?= round(disk_free_space('.') / 1024 / 1024 / 1024, 1) ?> GB</p>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <div class="text-center">
                                 <h6 class="text-muted">Mémoire utilisée</h6>
                                 <p class="h5"><?= round(memory_get_usage(true) / 1024 / 1024, 1) ?> MB</p>

@@ -63,14 +63,28 @@
                 </div>
               </div>
 
+              <!-- Breadcrumbs -->
+              <?php
+              $breadcrumbs = generateBreadcrumbs();
+              if (!empty($breadcrumbs)):
+              ?>
+              <nav aria-label="breadcrumb" class="d-none d-xl-flex align-items-center me-3 ms-3 breadcrumb-nav">
+                <ol class="breadcrumb mb-0" style="overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none;">
+                  <?php foreach ($breadcrumbs as $index => $crumb): ?>
+                    <?php if (isset($crumb['active']) && $crumb['active']): ?>
+                      <li class="breadcrumb-item active" aria-current="page"><?php echo $crumb['label']; ?></li>
+                    <?php else: ?>
+                      <li class="breadcrumb-item">
+                        <a href="<?php echo h($crumb['url']); ?>"><?php echo $crumb['label']; ?></a>
+                      </li>
+                    <?php endif; ?>
+                  <?php endforeach; ?>
+                </ol>
+              </nav>
+              <?php endif; ?>
               
               <div class="navbar-nav-right d-flex align-items-center justify-content-end">
                 <ul class="navbar-nav ms-lg-auto">
-                  <li class="nav-item me-3">
-                    <span class="badge bg-warning text-dark">
-                      <i class="bi bi-code-slash me-1"></i>Version en cours de développement 0.9.1
-                    </span>
-                  </li>
                   <li class="nav-item">
                     <a class="nav-link" href="javascript:void(0)"><i class="navbar-icon bi bi-person"></i> <?php echo ($_SESSION['user']['first_name'] ?? '') . ' ' . ($_SESSION['user']['last_name'] ?? ''); ?></a>
                   </li>
