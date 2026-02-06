@@ -30,7 +30,7 @@ if (!isset($currentPageName)) $currentPageName = 'index';
   data-skin="default"
   data-assets-path="assets/"
   data-template="vertical-menu-template-starter"
-  data-bs-theme="light">
+  data-bs-theme="semi-dark">
   <head>
     <meta charset="utf-8" />
     <meta
@@ -187,16 +187,16 @@ if (!isset($currentPageName)) $currentPageName = 'index';
 
     <script>
     (function() {
+      // Thème fixe : sidebar foncée, reste clair (semi-dark)
       try {
+        // Forcer le thème semi-dark
+        document.documentElement.setAttribute('data-bs-theme', 'semi-dark');
+        document.documentElement.setAttribute('data-semidark-menu', 'true');
+        
+        // Nettoyer le localStorage des anciens thèmes
         var templateName = document.documentElement.getAttribute('data-template') || 'vertical-menu-template-starter';
-        var theme = localStorage.getItem('theme-' + templateName);
-        if (theme) {
-          if (theme === 'system') {
-            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-          }
-          // Le thème semi-dark est maintenant un vrai thème Bootstrap
-          document.documentElement.setAttribute('data-bs-theme', theme);
-        }
+        localStorage.removeItem('theme-' + templateName);
+        localStorage.removeItem('semi-dark-' + templateName);
       } catch(e) {}
     })();
     </script>

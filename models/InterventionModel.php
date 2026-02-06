@@ -1,14 +1,14 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
+
 /**
  * Modèle pour la gestion des interventions
  */
-class InterventionModel {
-    private $db;
-    private $table = 'interventions';
-
+class InterventionModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'interventions';
     }
 
     /**
@@ -426,7 +426,7 @@ class InterventionModel {
      * @return array|null Les informations du type d'intervention ou null si non trouvé
      */
     public function getTypeInfo($typeId) {
-        $sql = "SELECT * FROM intervention_types WHERE id = ?";
+        $sql = "SELECT id, name, requires_travel, created_at FROM intervention_types WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$typeId]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -437,7 +437,7 @@ class InterventionModel {
      * @return array Liste des types d'intervention
      */
     public function getAllTypes() {
-        $sql = "SELECT * FROM intervention_types ORDER BY name";
+        $sql = "SELECT id, name, requires_travel, created_at FROM intervention_types ORDER BY name";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -768,12 +768,12 @@ class InterventionModel {
     public function updateAttachmentName($pieceJointeId, $newName) {
         try {
             $query = "UPDATE pieces_jointes 
-                     SET nom_fichier = :nom_fichier 
+                     SET nom_personnalise = :nom_personnalise 
                      WHERE id = :piece_jointe_id";
 
             $stmt = $this->db->prepare($query);
             return $stmt->execute([
-                ':nom_fichier' => $newName,
+                ':nom_personnalise' => $newName,
                 ':piece_jointe_id' => $pieceJointeId
             ]);
         } catch (Exception $e) {

@@ -49,19 +49,56 @@
     <!-- Vendors JS -->
 
     <!-- DataTables JS -->
-    <script src="<?php echo BASE_URL; ?>assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js"></script>
-    <!-- DataTables Buttons JS -->
-    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
-    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/vendor/libs/datatables-bs5/datatables-bootstrap5.js" onerror="console.error('ERREUR: datatables-bootstrap5.js n\'a pas pu être chargé');"></script>
+    <!-- NOTE:
+         Le bundle local datatables-bootstrap5.js inclut déjà DataTables + dépendances (JSZip/pdfmake, etc.).
+         Charger Buttons depuis un CDN peut créer des incompatibilités de version et/ou renvoyer du HTML (proxy/403),
+         ce qui provoque "Unexpected token '<'" et "e.ext.features.register is not a function".
+    -->
 
     <!-- ApexCharts JS -->
     <script src="<?php echo BASE_URL; ?>assets/vendor/libs/apex-charts/apexcharts.js"></script>
 
     <!-- Main JS -->
+    
+    <!-- Configuration et variables globales -->
+    <!-- Core JavaScript - Phase 1: Fondations -->
+    <script>
+        // Initialiser AppConfig avec les valeurs PHP AVANT de charger les autres scripts
+        window.AppConfig = window.AppConfig || {};
+        window.AppConfig.BASE_URL = '<?= BASE_URL ?>';
+        window.AppConfig.CSRF_TOKEN = '<?= csrf_token() ?>';
+        window.BASE_URL = '<?= BASE_URL ?>';
+        window.CSRF_TOKEN = '<?= csrf_token() ?>';
+        window.PHP_MAX_FILE_SIZE = '<?php echo ini_get("upload_max_filesize"); ?>';
+        
+        // Debug: Afficher BASE_URL dans la console
+        console.log('DEBUG: BASE_URL =', window.BASE_URL);
+        console.log('DEBUG: AppConfig.BASE_URL =', window.AppConfig.BASE_URL);
+        
+        // Détecter les erreurs de chargement de scripts
+        window.addEventListener('error', function(e) {
+            if (e.target && e.target.tagName === 'SCRIPT') {
+                console.error('ERREUR: Script non chargé:', e.target.src);
+                console.error('ERREUR: Message:', e.message);
+                console.error('ERREUR: Ligne:', e.lineno, 'Colonne:', e.colno);
+            }
+        }, true);
+    </script>
+    <script src="<?php echo BASE_URL; ?>assets/js/core/config.js" onerror="console.error('ERREUR: config.js n\'a pas pu être chargé');"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/core/utils.js" onerror="console.error('ERREUR: utils.js n\'a pas pu être chargé');"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/core/ApiClient.js" onerror="console.error('ERREUR: ApiClient.js n\'a pas pu être chargé');"></script>
+    
+    <!-- Components JavaScript - Phase 2: Composants réutilisables -->
+    <script src="<?php echo BASE_URL; ?>assets/js/components/DragDropUploader.js" onerror="console.error('ERREUR: DragDropUploader.js n\'a pas pu être chargé');"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/components/DataTableManager.js" onerror="console.error('ERREUR: DataTableManager.js n\'a pas pu être chargé');"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/components/ModalManager.js" onerror="console.error('ERREUR: ModalManager.js n\'a pas pu être chargé');"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/components/LocationManager.js" onerror="console.error('ERREUR: LocationManager.js n\'a pas pu être chargé');"></script>
 
-    <script src="<?php echo BASE_URL; ?>assets/js/main.js"></script>
+    <script src="<?php echo BASE_URL; ?>assets/js/main.js" onerror="console.error('ERREUR: main.js n\'a pas pu être chargé');"></script>
 
     <!-- Page JS -->
+    <!-- Les scripts spécifiques aux pages sont chargés directement dans les vues -->
     
     <!-- Theme Debug Script -->
     <!-- <script src="<?php echo BASE_URL; ?>test-theme.js"></script> -->

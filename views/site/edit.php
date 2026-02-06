@@ -51,6 +51,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </div>
         <div class="card-body">
             <form id="siteForm" action="<?= BASE_URL ?>site/edit/<?= $site['id'] ?>" method="POST">
+                <?= csrf_field() ?>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">

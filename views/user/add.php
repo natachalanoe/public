@@ -75,6 +75,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
             <?php endif; ?>
 
             <form method="POST" class="needs-validation" novalidate>
+                <?= csrf_field() ?>
                 <div class="row">
                     <!-- Colonne 1 : Informations de base -->
                     <div class="col-md-4">

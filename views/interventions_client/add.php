@@ -77,6 +77,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </div>
         <div class="card-body py-2">
             <form action="<?php echo BASE_URL; ?>interventions_client/store" method="post" id="interventionForm">
+                <?= csrf_field() ?>
                 <div class="row g-3">
                     <!-- Colonne 1 : Site, Salle -->
                     <div class="col-md-4">
@@ -210,9 +211,60 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Charger les salles quand le site change
     siteSelect.addEventListener('change', function() {
-        loadRooms(this.value, 'room_id', null, function() {
-            updateSelectedContract('client_id', 'site_id', 'room_id', 'contract_id');
-        });
+        const siteId = this.value;
+        const roomSelect = document.getElementById('room_id');
+        
+        // Réinitialiser la liste des salles
+        roomSelect.innerHTML = '<option value="">Sélectionner une salle</option>';
+        
+        if (!siteId) {
+            return;
+        }
+        
+        // Utiliser l'endpoint client qui respecte les localisations
+        fetch(BASE_URL + 'interventions_client/get_rooms?site_id=' + siteId, {
+            credentials: 'include'
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erreur HTTP: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Vérifier si la réponse contient une erreur
+                if (data.error) {
+                    console.error('Erreur serveur:', data.error);
+                    roomSelect.innerHTML = '<option value="">' + data.error + '</option>';
+                    return;
+                }
+                
+                // L'endpoint client retourne directement un tableau
+                if (Array.isArray(data)) {
+                    if (data.length === 0) {
+                        roomSelect.innerHTML = '<option value="">Aucune salle disponible</option>';
+                    } else {
+                        data.forEach(room => {
+                            const option = document.createElement('option');
+                            option.value = room.id;
+                            option.textContent = room.name;
+                            roomSelect.appendChild(option);
+                        });
+                    }
+                } else {
+                    console.error('Format de réponse inattendu:', data);
+                    roomSelect.innerHTML = '<option value="">Format de réponse invalide</option>';
+                }
+                
+                // Appeler le callback pour mettre à jour le contrat
+                if (typeof updateSelectedContract === 'function') {
+                    updateSelectedContract('client_id', 'site_id', 'room_id', 'contract_id');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur lors du chargement des salles:', error);
+                roomSelect.innerHTML = '<option value="">Erreur lors du chargement</option>';
+            });
     });
     
     // Charger le contrat quand la salle change

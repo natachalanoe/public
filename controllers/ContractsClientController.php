@@ -1,8 +1,11 @@
 <?php
 require_once __DIR__ . '/../models/ContractsClientModel.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
 
 class ContractsClientController {
+    use AccessControlTrait;
     private $db;
     private $model;
 
@@ -15,18 +18,12 @@ class ContractsClientController {
     /**
      * Vérifie si l'utilisateur est connecté et a les permissions client
      */
+    /**
+     * Vérifie si l'utilisateur est connecté et a les permissions client
+     * Utilise AccessControlTrait::checkClientPermission()
+     */
     private function checkAccess() {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
-        }
-
-        // Vérifier que l'utilisateur a la permission de voir les contrats
-        if (!hasPermission('client_view_contracts')) {
-            $_SESSION['error'] = "Vous n'avez pas les permissions pour accéder aux contrats.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
+        $this->checkClientPermission('client_view_contracts');
     }
 
     /**
@@ -121,5 +118,77 @@ class ContractsClientController {
 
         header('Content-Type: application/json');
         echo json_encode($rooms);
+    }
+
+    /**
+     * Télécharge une pièce jointe (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
+    public function download($attachmentId) {
+        $this->checkClientPermission('client_view_contracts');
+        
+        try {
+            $userLocations = getUserLocations();
+            
+            // Vérifier que la pièce jointe appartient à un contrat accessible
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentData = $attachmentService->getAttachmentById($attachmentId);
+            
+            if (!$attachmentData || $attachmentData['type_liaison'] !== AttachmentService::TYPE_CONTRACT) {
+                throw new Exception('Pièce jointe non trouvée.');
+            }
+            
+            // Vérifier l'accès au contrat
+            $contract = $this->model->getByIdWithAccess($attachmentData['entite_id'], $userLocations);
+            if (!$contract) {
+                throw new Exception('Vous n\'êtes pas autorisé à accéder à cette pièce jointe.');
+            }
+            
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService->download($attachmentId, true);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors du téléchargement de la pièce jointe (client contrat) : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors du téléchargement : " . $e->getMessage();
+            $contractId = $attachmentData['entite_id'] ?? 0;
+            header('Location: ' . BASE_URL . 'contracts_client/view/' . $contractId);
+            exit;
+        }
+    }
+
+    /**
+     * Aperçu d'une pièce jointe (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
+    public function preview($attachmentId) {
+        $this->checkClientPermission('client_view_contracts');
+        
+        try {
+            $userLocations = getUserLocations();
+            
+            // Vérifier que la pièce jointe appartient à un contrat accessible
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentData = $attachmentService->getAttachmentById($attachmentId);
+            
+            if (!$attachmentData || $attachmentData['type_liaison'] !== AttachmentService::TYPE_CONTRACT) {
+                throw new Exception('Pièce jointe non trouvée.');
+            }
+            
+            // Vérifier l'accès au contrat
+            $contract = $this->model->getByIdWithAccess($attachmentData['entite_id'], $userLocations);
+            if (!$contract) {
+                throw new Exception('Vous n\'êtes pas autorisé à accéder à cette pièce jointe.');
+            }
+            
+            // Utiliser AttachmentService pour gérer l'aperçu
+            $attachmentService->preview($attachmentId);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'aperçu de la pièce jointe (client contrat) : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors de l'aperçu : " . $e->getMessage();
+            $contractId = $attachmentData['entite_id'] ?? 0;
+            header('Location: ' . BASE_URL . 'contracts_client/view/' . $contractId);
+            exit;
+        }
     }
 } 

@@ -383,9 +383,10 @@ function saveContactSelection(type, id) {
     
     fetch('<?php echo BASE_URL; ?>contactClient/setPrimaryContact', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>',
+                'Content-Type': 'application/json',
+            },
         body: JSON.stringify({
             type: type,
             id: id,

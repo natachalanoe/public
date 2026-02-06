@@ -273,6 +273,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                     <div class="modal-dialog">
                                         <div class="modal-content">
                                             <form action="<?= BASE_URL ?>interventions_client/editComment/<?= $comment['id'] ?>" method="post">
+                                                <?= csrf_field() ?>
                                                 <div class="modal-header">
                                                     <h5 class="modal-title">Modifier le commentaire</h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -350,7 +351,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     title="Apercu">
                                                                                                     <i class="<?php echo getIcon('preview', 'bi bi-eye'); ?>"></i>
                                             </button>
-                                            <a href="<?= BASE_URL . 'uploads/interventions/' . $intervention['id'] . '/' . $filename ?>" 
+                                            <a href="<?= BASE_URL ?>interventions_client/download/<?= $attachment['id'] ?>" 
                                                class="btn btn-sm btn-outline-success btn-action" 
                                                title="Telecharger" target="_blank">
                                                 <i class="<?php echo getIcon('download', 'bi bi-download'); ?>"></i>
@@ -409,20 +410,20 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                     $extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
                                                     if ($extension === 'pdf'): 
                                                     ?>
-                                                        <iframe src="<?= BASE_URL . 'uploads/interventions/' . $intervention['id'] . '/' . $filename ?>" 
+                                                        <iframe src="<?= BASE_URL ?>interventions_client/preview/<?= $attachment['id'] ?>" 
                                                                 width="100%" 
                                                                 height="600px" 
                                                                 frameborder="0">
                                                         </iframe>
                                                     <?php elseif (in_array($extension, ['jpg', 'jpeg', 'png', 'gif'])): ?>
-                                                        <img src="<?= BASE_URL . 'uploads/interventions/' . $intervention['id'] . '/' . $filename ?>" 
+                                                        <img src="<?= BASE_URL ?>interventions_client/preview/<?= $attachment['id'] ?>" 
                                                              class="img-fluid" 
                                                              alt="<?= h($filename) ?>">
                                                     <?php else: ?>
                                                         <div class="alert alert-info">
                                                             <i class="bi bi-info-circle me-1"></i> 
                                                             Ce type de fichier ne peut pas etre previsualise. 
-                                                            <a href="<?= BASE_URL . 'uploads/interventions/' . $intervention['id'] . '/' . $filename ?>" 
+                                                            <a href="<?= BASE_URL ?>interventions_client/download/<?= $attachment['id'] ?>" 
                                                                class="alert-link" 
                                                                target="_blank">
                                                                 Telecharger le fichier
@@ -432,7 +433,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                                 </div>
                                             </div>
                                             <div class="modal-footer">
-                                                <a href="<?= BASE_URL . 'uploads/interventions/' . $intervention['id'] . '/' . $filename ?>" 
+                                                <a href="<?= BASE_URL ?>interventions_client/download/<?= $attachment['id'] ?>" 
                                                    class="btn btn-primary" 
                                                    target="_blank">
                                                     <i class="bi bi-download me-1"></i> Telecharger
@@ -454,6 +455,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <div class="modal-dialog">
                 <div class="modal-content">
                     <form action="<?= BASE_URL ?>interventions_client/addComment/<?= $intervention['id'] ?>" method="post">
+                        <?= csrf_field() ?>
                         <div class="modal-header">
                             <h5 class="modal-title">Ajouter un commentaire</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -478,6 +480,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <form action="<?= BASE_URL ?>interventions_client/addMultipleAttachments/<?= $intervention['id']; ?>" method="post" enctype="multipart/form-data" id="dragDropForm">
+                        <?= csrf_field() ?>
                         <div class="modal-header">
                             <h5 class="modal-title" id="addAttachmentModalLabel">
                                 <i class="bi bi-cloud-upload me-2 me-1"></i>
@@ -514,6 +517,12 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                 </div>
                                 
                             </div>
+                            
+                            <!-- Liste des fichiers avec options individuelles -->
+                            <div id="filesOptions" style="display: none;">
+                                <h6 class="mt-3 mb-2">Options par fichier :</h6>
+                                <div id="filesOptionsList"></div>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
@@ -538,280 +547,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 </div>
 
-<script>
-// Initialiser BASE_URL pour JavaScript
-initBaseUrl('<?= BASE_URL ?>');
+<!-- JavaScript extrait vers public/assets/js/pages/interventions_client.js -->
+<!-- La classe DragDropUploader est maintenant dans public/assets/js/components/DragDropUploader.js -->
+<!-- Le code d'initialisation est dans public/assets/js/pages/interventions_client.js -->
+<!-- Code JavaScript supprimé - Utilise maintenant DragDropUploader.js et interventions_client.js -->
 
-// Classe Drag & Drop Uploader pour la modale
-class DragDropUploader {
-    constructor() {
-        this.dropZone = document.getElementById('dropZone');
-        this.fileInput = document.getElementById('fileInput');
-        this.fileList = document.getElementById('fileList');
-        this.stats = document.getElementById('stats');
-        this.validCount = document.getElementById('validCount');
-        this.invalidCount = document.getElementById('invalidCount');
-        this.progressFill = document.getElementById('progressFill');
-        this.uploadValidBtn = document.getElementById('uploadValidBtn');
-        this.clearAllBtn = document.getElementById('clearAllBtn');
-        this.dragDropForm = document.getElementById('dragDropForm');
-        
-        this.files = [];
-        this.allowedExtensions = [];
-        this.maxSize = parsePhpSize('<?php echo ini_get("upload_max_filesize"); ?>');
-        
-        this.init();
-    }
-    
-    async init() {
-        await this.loadAllowedExtensions();
-        this.setupEventListeners();
-    }
-    
-    async loadAllowedExtensions() {
-        try {
-            const response = await fetch('<?php echo BASE_URL; ?>settings/getAllowedExtensions');
-            const data = await response.json();
-            this.allowedExtensions = data.extensions || [];
-        } catch (error) {
-            console.error('Erreur lors du chargement des extensions autorisées:', error);
-        }
-    }
-    
-    setupEventListeners() {
-        // Drag & Drop events
-        this.dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            this.dropZone.classList.add('dragover');
-        });
-        
-        this.dropZone.addEventListener('dragleave', (e) => {
-            e.preventDefault();
-            this.dropZone.classList.remove('dragover');
-        });
-        
-        this.dropZone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            this.dropZone.classList.remove('dragover');
-            const files = Array.from(e.dataTransfer.files);
-            this.handleFiles(files);
-        });
-        
-        // Click to select files (seulement sur la zone de drop, pas sur les éléments enfants)
-        this.dropZone.addEventListener('click', (e) => {
-            // Ne déclencher que si on clique directement sur la zone de drop ou le message
-            if (e.target === this.dropZone || e.target.classList.contains('drop-message') || e.target.closest('.drop-message')) {
-                this.fileInput.click();
-            }
-        });
-        
-        this.fileInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            this.handleFiles(files);
-        });
-        
-        // Action buttons
-        this.uploadValidBtn.addEventListener('click', () => {
-            this.uploadValidFiles();
-        });
-        
-        this.clearAllBtn.addEventListener('click', () => {
-            this.clearAllFiles();
-        });
-        
-        // Form submission
-        this.dragDropForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.uploadValidFiles();
-        });
-    }
-    
-    handleFiles(newFiles) {
-        const validatedFiles = this.validateFiles(newFiles);
-        this.files = [...this.files, ...validatedFiles];
-        this.displayFiles();
-        this.updateStats();
-    }
-    
-    validateFiles(files) {
-        return files.map(file => {
-            const extension = file.name.split('.').pop().toLowerCase();
-            const isValid = this.allowedExtensions.includes(extension);
-            const isSizeValid = file.size <= this.maxSize;
-            
-            let error = null;
-            if (!isSizeValid) {
-                error = `Le fichier est trop volumineux (${this.formatFileSize(file.size)}). Taille maximale autorisée : ${this.formatFileSize(this.maxSize)}.`;
-            } else if (!isValid) {
-                error = 'Ce format n\'est pas accepté, rapprochez-vous de l\'administrateur du site, ou utilisez un format compressé.';
-            }
-            
-            return {
-                file,
-                isValid: isValid && isSizeValid,
-                extension,
-                error
-            };
-        });
-    }
-    
-    displayFiles() {
-        this.fileList.innerHTML = '';
-        
-        this.files.forEach((fileData, index) => {
-            const fileItem = document.createElement('div');
-            fileItem.className = `file-item ${fileData.isValid ? 'valid' : 'invalid'}`;
-            
-            // Si le fichier est valide, ajouter le champ de nom personnalisé
-            const customNameField = fileData.isValid ? `
-                <div class="custom-name-field">
-                    <input type="text" 
-                           placeholder="Nom personnalisé (optionnel)" 
-                           value="${fileData.customName || ''}"
-                           maxlength="255"
-                           data-file-index="${index}">
-                </div>
-            ` : '';
-            
-            fileItem.innerHTML = `
-                <div class="file-info">
-                    <span class="file-name">${fileData.file.name}</span>
-                    <span class="file-size">${this.formatFileSize(fileData.file.size)}</span>
-                    ${fileData.error ? `<span class="error-message">${fileData.error}</span>` : ''}
-                </div>
-                ${customNameField}
-                <button type="button" class="remove-file" onclick="uploader.removeFile(${index})" onmousedown="event.stopPropagation()">×</button>
-            `;
-            
-            // Empêcher la propagation des événements sur tout l'élément de fichier
-            fileItem.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-            
-            // Ajouter un event listener pour sauvegarder le nom personnalisé
-            if (fileData.isValid) {
-                const input = fileItem.querySelector('input[data-file-index]');
-                input.addEventListener('input', (e) => {
-                    fileData.customName = e.target.value;
-                });
-                // Empêcher la propagation du clic pour éviter l'ouverture du sélecteur
-                input.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
-            }
-            
-            this.fileList.appendChild(fileItem);
-        });
-        
-    }
-    
-    removeFile(index) {
-        this.files.splice(index, 1);
-        this.displayFiles();
-        this.updateStats();
-    }
-    
-    
-    updateStats() {
-        const validFiles = this.files.filter(f => f.isValid);
-        const invalidFiles = this.files.filter(f => !f.isValid);
-        
-        this.validCount.textContent = validFiles.length;
-        this.invalidCount.textContent = invalidFiles.length;
-        
-        if (this.files.length > 0) {
-            this.stats.style.display = 'block';
-            this.uploadValidBtn.style.display = 'inline-block';
-            this.clearAllBtn.style.display = 'inline-block';
-            
-            const progress = (validFiles.length / this.files.length) * 100;
-            this.progressFill.style.width = `${progress}%`;
-        } else {
-            this.stats.style.display = 'none';
-            this.uploadValidBtn.style.display = 'none';
-            this.clearAllBtn.style.display = 'none';
-        }
-    }
-    
-    clearAllFiles() {
-        this.files = [];
-        this.displayFiles();
-        this.updateStats();
-        this.fileInput.value = '';
-    }
-    
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-    
-    async uploadValidFiles() {
-        const validFiles = this.files.filter(f => f.isValid);
-        
-        if (validFiles.length === 0) {
-            alert('Aucun fichier valide à uploader');
-            return;
-        }
-        
-        // Préparer les données du formulaire
-        const formData = new FormData();
-        
-        // Ajouter les fichiers et leurs noms personnalisés
-        validFiles.forEach((fileData, index) => {
-            formData.append(`attachments[${index}]`, fileData.file);
-            if (fileData.customName && fileData.customName.trim()) {
-                formData.append(`custom_names[${index}]`, fileData.customName.trim());
-            }
-        });
-        
-        // Désactiver le bouton pendant l'upload
-        this.uploadValidBtn.disabled = true;
-        this.uploadValidBtn.innerHTML = '<i class="bi bi-arrow-clockwise spin me-1 me-1"></i>Upload en cours...';
-        
-        try {
-            const response = await fetch(this.dragDropForm.action, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                alert(`${validFiles.length} fichier(s) uploadé(s) avec succès !`);
-                // Fermer la modale et recharger la page
-                const modal = bootstrap.Modal.getInstance(document.getElementById('addAttachmentModal'));
-                modal.hide();
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
-            } else {
-                alert(`Erreur lors de l'upload : ${result.error || 'Erreur inconnue'}`);
-            }
-        } catch (error) {
-            console.error('Erreur lors de l\'upload:', error);
-            alert('Erreur lors de l\'upload des fichiers');
-        } finally {
-            this.uploadValidBtn.disabled = false;
-            this.uploadValidBtn.innerHTML = '<i class="bi bi-upload me-1 me-1"></i> Uploader les fichiers valides';
-        }
-    }
-}
-
-// Initialiser l'uploader quand la modale est ouverte
-document.addEventListener('DOMContentLoaded', function() {
-    let uploader;
-    
-    // Initialiser l'uploader quand la modale s'ouvre
-    document.getElementById('addAttachmentModal').addEventListener('shown.bs.modal', function() {
-        if (!uploader) {
-            uploader = new DragDropUploader();
-        }
-    });
-});
-</script>
+<!-- JavaScript spécifique à la page interventions_client -->
+<script src="<?php echo BASE_URL; ?>assets/js/pages/interventions_client.js" onerror="console.error('ERREUR: interventions_client.js n\'a pas pu être chargé. Vérifiez que le fichier existe et est accessible.');"></script>
 
 <style>
 .drop-zone {

@@ -25,6 +25,7 @@
     <div class="card">
         <div class="card-body">
             <form action="<?= BASE_URL ?>settings/contractTypes/update/<?= $contractType['id'] ?>" method="POST" id="contractTypeForm">
+                <?= csrf_field() ?>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3">

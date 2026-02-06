@@ -1,115 +1,12 @@
 <?php
-require_once __DIR__ . '/../../includes/functions.php';
-require_once __DIR__ . '/../../includes/FileUploadValidator.php';
-
-// Vérifier si l'utilisateur est connecté et est admin
-if (!isset($_SESSION['user']) || !isAdmin()) {
-    header('Location: ' . BASE_URL . 'auth/login');
-    exit;
-}
-
-// Récupérer la connexion à la base de données si elle n'est pas disponible
-if (!isset($db)) {
-    global $db;
-}
-
-// Traitement des actions POST (AVANT d'inclure les headers)
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
-            case 'add':
-                $extension = strtolower(trim($_POST['extension'] ?? ''));
-                $mimeType = trim($_POST['mime_type'] ?? '');
-                $description = trim($_POST['description'] ?? '');
-                
-                // Validation
-                if (empty($extension)) {
-                    $_SESSION['error'] = "Extension vide";
-                } elseif (!preg_match('/^[a-z0-9]+$/', $extension)) {
-                    $_SESSION['error'] = "Format d'extension invalide";
-                } elseif (FileUploadValidator::isExtensionBlacklisted($extension)) {
-                    $_SESSION['error'] = "Extension interdite pour des raisons de sécurité";
-                } else {
-                    // Vérifier si l'extension existe déjà
-                    $stmt = $db->prepare("SELECT id FROM settings_allowed_extensions WHERE extension = ?");
-                    $stmt->execute([$extension]);
-                    if ($stmt->fetch()) {
-                        $_SESSION['error'] = "Extension déjà présente";
-                    } else {
-                        // Ajouter l'extension
-                        try {
-                            $stmt = $db->prepare("INSERT INTO settings_allowed_extensions (extension, mime_type, description) VALUES (?, ?, ?)");
-                            $stmt->execute([$extension, $mimeType, $description]);
-                            $_SESSION['success'] = "Extension $extension ajoutée avec succès";
-                        } catch (Exception $e) {
-                            $_SESSION['error'] = "Erreur lors de l'ajout de l'extension : " . $e->getMessage();
-                        }
-                    }
-                }
-                break;
-            case 'toggle':
-                $extensionId = $_POST['extension_id'] ?? null;
-                $isActive = $_POST['is_active'] ?? 0;
-                
-                if ($extensionId) {
-                    try {
-                        $stmt = $db->prepare("UPDATE settings_allowed_extensions SET is_active = ? WHERE id = ?");
-                        $stmt->execute([$isActive, $extensionId]);
-                        echo json_encode(['success' => true]);
-                    } catch (Exception $e) {
-                        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-                    }
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'ID manquant']);
-                }
-                exit;
-            case 'delete':
-                $extensionId = $_POST['extension_id'] ?? null;
-                
-                if ($extensionId) {
-                    try {
-                        // Récupérer l'extension avant suppression pour le message
-                        $stmt = $db->prepare("SELECT extension FROM settings_allowed_extensions WHERE id = ?");
-                        $stmt->execute([$extensionId]);
-                        $extension = $stmt->fetch();
-                        
-                        if ($extension) {
-                            // Supprimer l'extension
-                            $stmt = $db->prepare("DELETE FROM settings_allowed_extensions WHERE id = ?");
-                            $stmt->execute([$extensionId]);
-                            
-                            echo json_encode(['success' => true]);
-                        } else {
-                            echo json_encode(['success' => false, 'message' => 'Extension non trouvée']);
-                        }
-                    } catch (Exception $e) {
-                        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-                    }
-                } else {
-                    echo json_encode(['success' => false, 'message' => 'ID manquant']);
-                }
-                exit;
-        }
-        
-        // Rediriger pour éviter la soumission multiple du formulaire
-        header('Location: ' . BASE_URL . 'settings/fileExtensions');
-        exit;
-    }
-}
-
-setPageVariables('Extensions de fichiers autorisées', 'settings');
-
-// Définir la page courante pour le menu
-$currentPage = 'settings';
+// Les données sont récupérées par le contrôleur SettingsController
+// Variables disponibles : $allowedExtensions, $blacklistedExtensions
+// Les variables de page sont déjà définies par le contrôleur
 
 // Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
 include_once __DIR__ . '/../../includes/navbar.php';
-
-// Récupérer les données
-$allowedExtensions = FileUploadValidator::getAllExtensions($db);
-$blacklistedExtensions = FileUploadValidator::getBlacklistedExtensions();
 ?>
 
 <div class="container-fluid flex-grow-1 container-p-y">
@@ -216,6 +113,7 @@ $blacklistedExtensions = FileUploadValidator::getBlacklistedExtensions();
                     <div class="mb-4">
                         <h6>Ajouter une extension :</h6>
                         <form method="POST">
+                       <?= csrf_field() ?>
                             <input type="hidden" name="action" value="add">
                             <div class="row">
                                 <div class="col-md-3">
@@ -269,6 +167,7 @@ function toggleExtension(extensionId, isActive) {
     fetch('<?= BASE_URL ?>settings/fileExtensions', {
         method: 'POST',
         headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>',
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: 'action=toggle&extension_id=' + extensionId + '&is_active=' + isActive
@@ -295,6 +194,7 @@ function deleteExtension(extensionId, extensionName) {
     fetch('<?= BASE_URL ?>settings/fileExtensions', {
         method: 'POST',
         headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>',
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: 'action=delete&extension_id=' + extensionId

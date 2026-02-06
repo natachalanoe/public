@@ -143,6 +143,7 @@ $selectedSiteId = $_GET['site_id'] ?? '';
                                     
                                     <?php if ($selectedClientId): ?>
                                         <form action="<?= BASE_URL ?>materiel_bulk/validate_import" method="POST" enctype="multipart/form-data">
+                                            <?= csrf_field() ?>
                                             <input type="hidden" name="client_id" value="<?= $selectedClientId ?>">
                                             <?php if ($selectedSiteId): ?>
                                                 <input type="hidden" name="site_id" value="<?= $selectedSiteId ?>">

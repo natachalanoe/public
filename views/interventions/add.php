@@ -130,6 +130,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             </div>
         <div class="card-body py-2">
             <form action="<?php echo BASE_URL; ?>interventions/store<?php echo isset($_GET['return_to']) ? '?return_to=' . $_GET['return_to'] : ''; ?>" method="post" id="interventionForm">
+                <?= csrf_field() ?>
                 <div class="row g-3">
                     <!-- Colonne 1 : Client, Site, Salle -->
                     <div class="col-md-3">
@@ -830,6 +831,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Envoyer la requête AJAX
         fetch(`${BASE_URL}interventions/quickCreateClient`, {
             method: 'POST',
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>'
+            },
             body: formData
         })
         .then(response => response.json())
@@ -923,6 +927,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Envoyer la requête AJAX
         fetch(`${BASE_URL}interventions/quickCreateSite`, {
             method: 'POST',
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>'
+            },
             body: formData
         })
         .then(response => response.json())
@@ -1016,6 +1023,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Envoyer la requête AJAX
         fetch(`${BASE_URL}interventions/quickCreateRoom`, {
             method: 'POST',
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>'
+            },
             body: formData
         })
         .then(response => response.json())
@@ -1115,6 +1125,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Envoyer la requête AJAX
         fetch(`${BASE_URL}interventions/quickCreateContact`, {
             method: 'POST',
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>'
+            },
             body: formData
         })
         .then(response => response.json())

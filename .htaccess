@@ -1,6 +1,10 @@
 RewriteEngine On
 
-# Rediriger toutes les requêtes vers index.php
+# Exclure explicitement les fichiers statiques (assets, uploads, etc.)
+RewriteCond %{REQUEST_URI} ^/(assets|uploads)/ [NC]
+RewriteRule ^ - [L]
+
+# Rediriger toutes les autres requêtes vers index.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]

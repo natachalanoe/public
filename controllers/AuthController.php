@@ -47,7 +47,10 @@ class AuthController {
             if (isset($_SESSION['redirect_after_login']) && !empty($_SESSION['redirect_after_login'])) {
                 $redirectUrl = $_SESSION['redirect_after_login'];
                 unset($_SESSION['redirect_after_login']);
-                header('Location: ' . BASE_URL . $redirectUrl);
+                // S'assurer que BASE_URL se termine par un slash et que redirectUrl ne commence pas par un slash
+                $baseUrl = rtrim(BASE_URL, '/') . '/';
+                $redirectUrl = ltrim($redirectUrl, '/');
+                header('Location: ' . $baseUrl . $redirectUrl);
                 exit;
             }
             
@@ -81,6 +84,12 @@ class AuthController {
                     // L'authentification a réussi, les données sont déjà stockées dans la session
                     $_SESSION['last_activity'] = time();
                     
+                    // Debug: logger ce qui est dans la session
+                    custom_log("Login réussi - Session ID: " . session_id(), 'DEBUG');
+                    custom_log("Login réussi - redirect_after_login: " . ($_SESSION['redirect_after_login'] ?? 'NON DÉFINI'), 'DEBUG');
+                    custom_log("Login réussi - qr_salle: " . ($_SESSION['qr_salle'] ?? 'NON DÉFINI'), 'DEBUG');
+                    custom_log("Login réussi - Toutes les clés de session: " . implode(', ', array_keys($_SESSION)), 'DEBUG');
+                    
                     // Vérifier s'il y a des paramètres QR dans la session
                     if (isset($_SESSION['qr_salle']) && isset($_SESSION['qr_type'])) {
                         // Rediriger vers le contrôleur QRCode pour gérer la redirection
@@ -89,12 +98,21 @@ class AuthController {
                     }
                     
                     // Vérifier s'il y a une URL de redirection dans la session
-                    if (isset($_SESSION['redirect_after_login']) && !empty($_SESSION['redirect_after_login'])) {
-                        $redirectUrl = $_SESSION['redirect_after_login'];
+                    // Vérifier d'abord si la clé existe, puis si elle n'est pas vide
+                    $redirectAfterLogin = $_SESSION['redirect_after_login'] ?? null;
+                    if ($redirectAfterLogin && trim($redirectAfterLogin) !== '') {
+                        $redirectUrl = trim($redirectAfterLogin);
                         unset($_SESSION['redirect_after_login']);
-                        header('Location: ' . BASE_URL . $redirectUrl);
+                        // S'assurer que BASE_URL se termine par un slash et que redirectUrl ne commence pas par un slash
+                        $baseUrl = rtrim(BASE_URL, '/') . '/';
+                        $redirectUrl = ltrim($redirectUrl, '/');
+                        $finalUrl = $baseUrl . $redirectUrl;
+                        custom_log("Redirection après login vers: " . $finalUrl, 'DEBUG');
+                        header('Location: ' . $finalUrl);
                         exit;
                     }
+                    
+                    custom_log("Aucune redirection trouvée (redirect_after_login: " . var_export($redirectAfterLogin, true) . "), redirection vers dashboard", 'DEBUG');
                     
                     // Redirection normale vers le tableau de bord approprié selon le type d'utilisateur
                     if (isClient()) {

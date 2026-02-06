@@ -68,6 +68,7 @@ $coef_intervention = $config->get('coef_intervention', '0.4');
                 </div>
                 <div class="card-body">
                     <form method="POST" action="<?= BASE_URL ?>settings/saveConfiguration">
+                        <?= csrf_field() ?>
                         <!-- Section Paramètres d'intervention -->
                         <div class="mb-4">
                             <h6 class="text-primary mb-3">

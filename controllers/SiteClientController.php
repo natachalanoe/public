@@ -2,8 +2,10 @@
 require_once __DIR__ . '/../models/SiteModel.php';
 require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../models/ClientModel.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class SiteClientController {
+    use AccessControlTrait;
     private $db;
     private $siteModel;
     private $roomModel;
@@ -17,28 +19,12 @@ class SiteClientController {
         $this->clientModel = new ClientModel($this->db);
     }
 
-    /**
-     * Vérifie si l'utilisateur est connecté et a les permissions client
-     */
-    private function checkAccess() {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
-        }
-
-        // Vérifier que l'utilisateur est un client
-        if (!isClient()) {
-            $_SESSION['error'] = "Vous n'avez pas les permissions pour accéder à cette page.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-    }
 
     /**
      * Affiche la liste des sites et salles du client
      */
     public function index() {
-        $this->checkAccess();
+        $this->checkClientAccess();
 
         // Récupérer les localisations autorisées de l'utilisateur
         $userLocations = getUserLocationsFormatted();
@@ -86,7 +72,7 @@ class SiteClientController {
      * Affiche les détails d'un site spécifique
      */
     public function view($siteId) {
-        $this->checkAccess();
+        $this->checkClientAccess();
 
         // Récupérer les localisations autorisées de l'utilisateur
         $userLocations = getUserLocationsFormatted();

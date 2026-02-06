@@ -1,6 +1,9 @@
 <?php
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class MaterielController {
+    use AccessControlTrait;
     private $db;
     private $materielModel;
     private $clientModel;
@@ -30,9 +33,6 @@ class MaterielController {
     /**
      * Vérifie si l'utilisateur a le droit d'accéder au matériel
      */
-    private function checkAccess() {
-        checkStaffAccess();
-    }
 
     /**
      * Affiche la liste du matériel
@@ -667,6 +667,10 @@ class MaterielController {
     /**
      * Ajoute une pièce jointe à un matériel
      */
+    /**
+     * Ajoute une pièce jointe à un matériel
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function addAttachment($materielId) {
         // Vérifier si l'utilisateur est connecté
         if (!isset($_SESSION['user'])) {
@@ -691,63 +695,29 @@ class MaterielController {
                 throw new Exception("Erreur lors de l'upload du fichier");
             }
 
-            $file = $_FILES['attachment'];
-            $originalFileName = $file['name'];
-            $fileSize = $file['size'];
-            $fileTmpPath = $file['tmp_name'];
-
-            // Vérifier la taille du fichier (limite du serveur)
-            $maxFileSize = getServerMaxUploadSize();
-            if ($fileSize > $maxFileSize) {
-                throw new Exception("Le fichier est trop volumineux (max " . formatFileSize($maxFileSize) . ")");
-            }
-
-            // Vérifier l'extension
-            require_once INCLUDES_PATH . '/FileUploadValidator.php';
-            $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-            if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
-                throw new Exception("Ce format n'est pas accepté, rapprochez-vous de l'administrateur du site, ou utilisez un format compressé.");
-            }
-
-            // Créer le répertoire de destination
-            $uploadDir = __DIR__ . '/../../uploads/materiel/' . $materielId;
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-
-            // Générer un nom de fichier unique en gardant le nom original
-            $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalFileName);
+            // Utiliser AttachmentService pour gérer l'upload
+            $attachmentService = new AttachmentService($this->db);
             
-            // Vérifier si le fichier existe déjà et ajouter un suffixe si nécessaire
-            $baseName = $fileName;
-            $counter = 0;
-            
-            do {
-                $finalFileName = $counter === 0 ? $baseName : 
-                                pathinfo($baseName, PATHINFO_FILENAME) . '_' . $counter . '.' . $fileExtension;
-                $filePath = $uploadDir . '/' . $finalFileName;
-                $counter++;
-            } while (file_exists($filePath));
+            // Préparer les options
+            $options = [
+                'descriptions' => [$_POST['description'] ?? null],
+                'masque_client' => [isset($_POST['masque_client']) ? 1 : 0]
+            ];
 
-            // Déplacer le fichier
-            if (move_uploaded_file($fileTmpPath, $filePath)) {
-                // Préparer les données pour la base
-                $data = [
-                    'nom_fichier' => $originalFileName,
-                    'chemin_fichier' => 'uploads/materiel/' . $materielId . '/' . $finalFileName,
-                    'type_fichier' => $fileExtension,
-                    'taille_fichier' => $fileSize,
-                    'commentaire' => $_POST['description'] ?? null,
-                    'masque_client' => isset($_POST['masque_client']) ? 1 : 0,
-                    'created_by' => $_SESSION['user']['id']
-                ];
+            // Upload du fichier
+            $result = $attachmentService->upload(
+                AttachmentService::TYPE_MATERIEL,
+                $materielId,
+                $_FILES['attachment'],
+                $options,
+                $_SESSION['user']['id']
+            );
 
-                // Ajouter la pièce jointe
-                $pieceJointeId = $this->materielModel->addPieceJointe($materielId, $data);
-                
+            if ($result['success']) {
                 $_SESSION['success'] = "Pièce jointe ajoutée avec succès";
             } else {
-                throw new Exception("Erreur lors du déplacement du fichier");
+                $errorMessage = !empty($result['errors']) ? implode(', ', $result['errors']) : "Erreur lors de l'ajout de la pièce jointe";
+                throw new Exception($errorMessage);
             }
 
         } catch (Exception $e) {
@@ -761,6 +731,7 @@ class MaterielController {
 
     /**
      * Ajoute plusieurs pièces jointes à un matériel (Drag & Drop)
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function addMultipleAttachments($materielId) {
         // Vérifier si l'utilisateur est connecté
@@ -788,95 +759,38 @@ class MaterielController {
                 throw new Exception("Aucun fichier à uploader");
             }
 
-            require_once INCLUDES_PATH . '/FileUploadValidator.php';
+            // Utiliser AttachmentService pour gérer l'upload
+            $attachmentService = new AttachmentService($this->db);
             
-            $uploadedFiles = [];
-            $errors = [];
-            
-            // Traiter chaque fichier
-            foreach ($_FILES['attachments']['tmp_name'] as $index => $tmpName) {
-                if ($_FILES['attachments']['error'][$index] !== UPLOAD_ERR_OK) {
-                    $errors[] = "Erreur lors de l'upload du fichier " . ($index + 1);
-                    continue;
-                }
+            // Préparer les options
+            $options = [
+                'descriptions' => $_POST['file_description'] ?? [],
+                'masque_client' => $_POST['file_masque_client'] ?? []
+            ];
 
-                $originalFileName = $_FILES['attachments']['name'][$index];
-                $fileSize = $_FILES['attachments']['size'][$index];
-                $fileTmpPath = $tmpName;
-
-                // Vérifier la taille du fichier (limite du serveur)
-                $maxFileSize = getServerMaxUploadSize();
-                if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
-                    continue;
-                }
-
-                // Vérifier l'extension
-                $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
-                    $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
-                    continue;
-                }
-
-                // Créer le répertoire de destination
-                $uploadDir = __DIR__ . '/../../uploads/materiel/' . $materielId;
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-
-                // Générer un nom de fichier unique en gardant le nom original
-                $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalFileName);
-                
-                // Vérifier si le fichier existe déjà et ajouter un suffixe si nécessaire
-                $baseName = $fileName;
-                $counter = 0;
-                
-                do {
-                    $finalFileName = $counter === 0 ? $baseName : 
-                                    pathinfo($baseName, PATHINFO_FILENAME) . '_' . $counter . '.' . $fileExtension;
-                    $filePath = $uploadDir . '/' . $finalFileName;
-                    $counter++;
-                } while (file_exists($filePath));
-
-                // Déplacer le fichier
-                if (move_uploaded_file($fileTmpPath, $filePath)) {
-                    // Récupérer les options pour ce fichier
-                    $description = $_POST['file_description'][$index] ?? null;
-                    $masqueClient = isset($_POST['file_masque_client'][$index]) ? 1 : 0;
-
-                    // Préparer les données pour la base
-                    $data = [
-                        'nom_fichier' => $originalFileName,
-                        'chemin_fichier' => 'uploads/materiel/' . $materielId . '/' . $finalFileName,
-                        'type_fichier' => $fileExtension,
-                        'taille_fichier' => $fileSize,
-                        'commentaire' => $description,
-                        'masque_client' => $masqueClient,
-                        'created_by' => $_SESSION['user']['id']
-                    ];
-
-                    // Ajouter la pièce jointe
-                    $pieceJointeId = $this->materielModel->addPieceJointe($materielId, $data);
-                    $uploadedFiles[] = $originalFileName;
-                } else {
-                    $errors[] = "Erreur lors du déplacement du fichier '$originalFileName'";
-                }
-            }
+            // Upload des fichiers
+            $result = $attachmentService->upload(
+                AttachmentService::TYPE_MATERIEL,
+                $materielId,
+                $_FILES['attachments'],
+                $options,
+                $_SESSION['user']['id']
+            );
 
             // Retourner le résultat
             header('Content-Type: application/json');
-            if (empty($errors) && !empty($uploadedFiles)) {
+            if ($result['success']) {
                 echo json_encode([
                     'success' => true,
-                    'message' => count($uploadedFiles) . ' fichier(s) uploadé(s) avec succès',
-                    'uploaded_files' => $uploadedFiles
+                    'message' => count($result['uploaded_files']) . ' fichier(s) uploadé(s) avec succès',
+                    'uploaded_files' => $result['uploaded_files']
                 ]);
             } else {
-                $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Aucun fichier uploadé';
+                $errorMessage = !empty($result['errors']) ? implode(', ', $result['errors']) : 'Aucun fichier uploadé';
                 echo json_encode([
                     'success' => false,
                     'error' => $errorMessage,
-                    'uploaded_files' => $uploadedFiles
+                    'uploaded_files' => $result['uploaded_files']
                 ]);
             }
 
@@ -890,6 +804,7 @@ class MaterielController {
 
     /**
      * Supprime une pièce jointe d'un matériel
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function deleteAttachment($materielId, $pieceJointeId) {
         // Vérifier si l'utilisateur est connecté
@@ -899,29 +814,9 @@ class MaterielController {
         }
 
         try {
-            // Récupérer les informations de la pièce jointe
-            $attachments = $this->materielModel->getPiecesJointes($materielId);
-            $pieceJointe = null;
-            
-            foreach ($attachments as $piece) {
-                if ($piece['id'] == $pieceJointeId) {
-                    $pieceJointe = $piece;
-                    break;
-                }
-            }
-
-            if (!$pieceJointe) {
-                throw new Exception("Pièce jointe non trouvée");
-            }
-
-            // Supprimer le fichier physique
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-            if (file_exists($filePath)) {
-                unlink($filePath);
-            }
-
-            // Supprimer de la base de données
-            $this->materielModel->deletePieceJointe($pieceJointeId, $materielId);
+            // Utiliser AttachmentService pour gérer la suppression
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->delete($pieceJointeId, AttachmentService::TYPE_MATERIEL, $materielId);
             
             $_SESSION['success'] = "Pièce jointe supprimée avec succès";
 
@@ -936,6 +831,7 @@ class MaterielController {
 
     /**
      * Télécharge une pièce jointe
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function download($pieceJointeId) {
         // Vérifier si l'utilisateur est connecté
@@ -945,38 +841,9 @@ class MaterielController {
         }
 
         try {
-            // Récupérer les informations de la pièce jointe
-            $query = "SELECT pj.*, lpj.entite_id as materiel_id 
-                     FROM pieces_jointes pj
-                     INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
-                     WHERE lpj.type_liaison = 'materiel' AND pj.id = :piece_jointe_id";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([':piece_jointe_id' => $pieceJointeId]);
-            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            if (!$pieceJointe) {
-                throw new Exception("Pièce jointe non trouvée");
-            }
-
-            // Construire le chemin du fichier
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-
-            if (!file_exists($filePath)) {
-                throw new Exception("Le fichier n'existe pas");
-            }
-
-            // Définir les en-têtes pour le téléchargement
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
-            header('Content-Length: ' . filesize($filePath));
-            header('Cache-Control: no-cache, must-revalidate');
-            header('Pragma: no-cache');
-            header('Expires: 0');
-
-            // Lire et envoyer le fichier
-            readfile($filePath);
-            exit;
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->download($pieceJointeId, true);
 
         } catch (Exception $e) {
             custom_log("Erreur lors du téléchargement : " . $e->getMessage(), 'ERROR');
@@ -989,6 +856,10 @@ class MaterielController {
     /**
      * Affiche l'aperçu d'une pièce jointe
      */
+    /**
+     * Affiche l'aperçu d'une pièce jointe
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function preview($attachmentId) {
         // Vérifier si l'utilisateur est connecté
         if (!isset($_SESSION['user'])) {
@@ -997,51 +868,9 @@ class MaterielController {
         }
 
         try {
-            custom_log("Tentative d'aperçu pour l'ID: " . $attachmentId, 'DEBUG');
-            
-            // Récupérer les informations de la pièce jointe directement
-            $query = "SELECT * FROM pieces_jointes WHERE id = :piece_jointe_id";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([':piece_jointe_id' => $attachmentId]);
-            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
-
-            custom_log("Pièce jointe trouvée: " . json_encode($pieceJointe), 'DEBUG');
-
-            if (!$pieceJointe) {
-                throw new Exception("Pièce jointe non trouvée");
-            }
-
-            // Construire le chemin du fichier
-            $filePath = ROOT_PATH . '/' . $pieceJointe['chemin_fichier'];
-            custom_log("Chemin du fichier: " . $filePath, 'DEBUG');
-
-            if (!file_exists($filePath)) {
-                custom_log("Le fichier n'existe pas: " . $filePath, 'ERROR');
-                throw new Exception("Le fichier n'existe pas");
-            }
-
-            custom_log("Fichier trouvé, taille: " . filesize($filePath), 'DEBUG');
-
-            // Définir les en-têtes pour l'aperçu
-            $mimeType = mime_content_type($filePath);
-            custom_log("Type MIME: " . $mimeType, 'DEBUG');
-            
-            header('Content-Type: ' . $mimeType);
-            header('Content-Disposition: inline; filename="' . $pieceJointe['nom_fichier'] . '"');
-            header('Content-Length: ' . filesize($filePath));
-            // Headers plus permissifs pour la prévisualisation
-            header('Cache-Control: public, max-age=3600');
-            header('X-Content-Type-Options: nosniff');
-
-            // Nettoyer les buffers de sortie avant d'envoyer le fichier
-            if (ob_get_level()) {
-                ob_end_clean();
-            }
-
-            // Lire et envoyer le fichier
-            readfile($filePath);
-            exit;
+            // Utiliser AttachmentService pour gérer l'aperçu
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->preview($attachmentId);
 
         } catch (Exception $e) {
             custom_log("Erreur lors de l'aperçu : " . $e->getMessage(), 'ERROR');
@@ -1065,6 +894,7 @@ class MaterielController {
 
     /**
      * Bascule la visibilité d'une pièce jointe (AJAX)
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function toggleAttachmentVisibility() {
         // Vérifier si l'utilisateur est connecté
@@ -1087,32 +917,29 @@ class MaterielController {
                 throw new Exception("Paramètre de visibilité manquant");
             }
 
-            // Récupérer les informations de la pièce jointe
-            $query = "SELECT pj.*, lpj.entite_id as materiel_id 
-                     FROM pieces_jointes pj 
-                     INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id 
-                     WHERE lpj.type_liaison = 'materiel' AND pj.id = :attachment_id";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([':attachment_id' => $attachmentId]);
-            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
+            // Récupérer les informations de la pièce jointe pour obtenir materiel_id
+            $attachmentService = new AttachmentService($this->db);
+            $pieceJointe = $attachmentService->getAttachmentById($attachmentId);
 
             if (!$pieceJointe) {
                 throw new Exception("Pièce jointe non trouvée");
             }
 
-            // Mettre à jour la visibilité
-            $sql = "UPDATE pieces_jointes SET masque_client = :masque_client WHERE id = :piece_jointe_id";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                ':masque_client' => (int)$masqueClient,
-                ':piece_jointe_id' => $attachmentId
-            ]);
+            // Utiliser AttachmentService pour basculer la visibilité
+            $attachmentService->toggleVisibility($attachmentId, (int)$masqueClient);
+            
+            // Récupérer materiel_id depuis la liaison
+            $query = "SELECT entite_id as materiel_id 
+                     FROM liaisons_pieces_jointes 
+                     WHERE piece_jointe_id = :attachment_id AND type_liaison = 'materiel'";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':attachment_id' => $attachmentId]);
+            $liaison = $stmt->fetch(PDO::FETCH_ASSOC);
             
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => true,
-                'materiel_id' => $pieceJointe['materiel_id'],
+                'materiel_id' => $liaison['materiel_id'] ?? null,
                 'message' => 'Visibilité mise à jour avec succès'
             ]);
 
@@ -1129,6 +956,7 @@ class MaterielController {
 
     /**
      * Bascule la visibilité d'une pièce jointe (lien direct)
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function toggleAttachmentVisibilityDirect($materielId, $pieceJointeId) {
         // Vérifier si l'utilisateur est connecté
@@ -1138,16 +966,9 @@ class MaterielController {
         }
 
         try {
-            // Récupérer les informations de la pièce jointe
-            $attachments = $this->materielModel->getPiecesJointes($materielId);
-            $pieceJointe = null;
-            
-            foreach ($attachments as $piece) {
-                if ($piece['id'] == $pieceJointeId) {
-                    $pieceJointe = $piece;
-                    break;
-                }
-            }
+            // Utiliser AttachmentService pour récupérer et basculer la visibilité
+            $attachmentService = new AttachmentService($this->db);
+            $pieceJointe = $attachmentService->getAttachmentById($pieceJointeId);
 
             if (!$pieceJointe) {
                 throw new Exception("Pièce jointe non trouvée");
@@ -1156,13 +977,8 @@ class MaterielController {
             // Inverser la visibilité
             $newVisibility = $pieceJointe['masque_client'] == 1 ? 0 : 1;
             
-            // Mettre à jour la visibilité
-            $sql = "UPDATE pieces_jointes SET masque_client = :masque_client WHERE id = :piece_jointe_id";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                ':masque_client' => $newVisibility,
-                ':piece_jointe_id' => $pieceJointeId
-            ]);
+            // Utiliser AttachmentService pour basculer la visibilité
+            $attachmentService->toggleVisibility($pieceJointeId, $newVisibility);
             
             $_SESSION['success'] = $newVisibility == 1 ? 
                 "Pièce jointe masquée aux clients" : 
@@ -1639,6 +1455,10 @@ class MaterielController {
     /**
      * Upload rapide de pièces jointes via AJAX
      */
+    /**
+     * Upload de pièces jointes pour le matériel (AJAX)
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function uploadAttachment() {
         $this->checkAccess();
         
@@ -1656,107 +1476,45 @@ class MaterielController {
             if (!$materiel) {
                 throw new Exception('Matériel non trouvé');
             }
-            
-            $uploadedFiles = [];
-            $errors = [];
-            
-            // Traiter chaque fichier uploadé
-            if (isset($_FILES['files']) && is_array($_FILES['files']['name'])) {
-                $fileCount = count($_FILES['files']['name']);
-                
-                for ($i = 0; $i < $fileCount; $i++) {
-                    if ($_FILES['files']['error'][$i] === UPLOAD_ERR_OK) {
-                        $fileName = $_FILES['files']['name'][$i];
-                        $fileTmpName = $_FILES['files']['tmp_name'][$i];
-                        $fileSize = $_FILES['files']['size'][$i];
-                        
-                        // Validation de la taille du fichier
-                        $maxFileSize = getServerMaxUploadSize();
-                        if ($fileSize > $maxFileSize) {
-                            $errors[] = "Fichier trop volumineux pour $fileName (max " . formatFileSize($maxFileSize) . ")";
-                            continue;
-                        }
-                        
-                        // Vérifier l'extension
-                        require_once INCLUDES_PATH . '/FileUploadValidator.php';
-                        $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-                        if (!FileUploadValidator::isExtensionAllowed($extension, $this->db)) {
-                            $errors[] = "Le format du fichier '$fileName' n'est pas accepté";
-                            continue;
-                        }
-                        
-                        // Générer un nom de fichier unique en gardant le nom original
-                        $cleanFileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $fileName);
-                        
-                        // Vérifier si le fichier existe déjà et ajouter un suffixe si nécessaire
-                        $baseName = $cleanFileName;
-                        $counter = 0;
-                        $uploadDir = ROOT_PATH . '/uploads/materiel/' . $materielId . '/';
-                        if (!is_dir($uploadDir)) {
-                            mkdir($uploadDir, 0755, true);
-                        }
-                        
-                        do {
-                            $uniqueName = $counter === 0 ? $baseName : 
-                                        pathinfo($baseName, PATHINFO_FILENAME) . '_' . $counter . '.' . $extension;
-                            $filePath = $uploadDir . $uniqueName;
-                            $counter++;
-                        } while (file_exists($filePath));
-                        
-                        // Le répertoire a déjà été créé plus haut
-                        
-                        $filePath = $uploadDir . $uniqueName;
-                        
-                        // Déplacer le fichier
-                        if (move_uploaded_file($fileTmpName, $filePath)) {
-                            // Récupérer les options pour ce fichier
-                            $description = $_POST['descriptions'][$i] ?? null;
-                            $masqueClient = isset($_POST['masque_client'][$i]) ? 1 : 0;
-                            
-                            // Préparer les données pour la base
-                            $attachmentData = [
-                                'nom_fichier' => $fileName,
-                                'chemin_fichier' => 'uploads/materiel/' . $materielId . '/' . $uniqueName,
-                                'type_fichier' => $extension,
-                                'taille_fichier' => $fileSize,
-                                'commentaire' => $description,
-                                'masque_client' => $masqueClient,
-                                'type_id' => null,
-                                'created_by' => $_SESSION['user']['id'] ?? null
-                            ];
-                            
-                            // Ajouter la pièce jointe
-                            $attachmentId = $this->materielModel->addPieceJointe($materielId, $attachmentData);
-                            
-                            if ($attachmentId) {
-                                $uploadedFiles[] = $fileName;
-                            } else {
-                                $errors[] = "Erreur lors de l'ajout en base pour $fileName";
-                                // Supprimer le fichier uploadé
-                                unlink($filePath);
-                            }
-                        } else {
-                            $errors[] = "Erreur lors du déplacement de $fileName";
-                        }
-                    } else {
-                        $errors[] = "Erreur d'upload pour le fichier " . ($_FILES['files']['name'][$i] ?? 'inconnu');
-                    }
-                }
+
+            // Vérifier qu'il y a des fichiers
+            if (!isset($_FILES['files']) || empty($_FILES['files']['name'][0])) {
+                throw new Exception("Aucun fichier à uploader");
             }
+
+            // Utiliser AttachmentService pour gérer l'upload
+            $attachmentService = new AttachmentService($this->db);
             
+            // Préparer les options
+            $options = [
+                'descriptions' => $_POST['descriptions'] ?? [],
+                'masque_client' => $_POST['masque_client'] ?? []
+            ];
+
+            // Upload des fichiers
+            $result = $attachmentService->upload(
+                AttachmentService::TYPE_MATERIEL,
+                $materielId,
+                $_FILES['files'],
+                $options,
+                $_SESSION['user']['id'] ?? null
+            );
+
+            // Retourner le résultat
             $response = [
-                'success' => empty($errors),
-                'uploaded_files' => $uploadedFiles,
-                'errors' => $errors
+                'success' => $result['success'],
+                'uploaded_files' => $result['uploaded_files'],
+                'errors' => $result['errors']
             ];
             
-            if (!empty($errors)) {
-                $response['error'] = implode(', ', $errors);
+            if (!$result['success'] && !empty($result['errors'])) {
+                $response['error'] = implode(', ', $result['errors']);
             }
             
             echo json_encode($response);
             
         } catch (Exception $e) {
+            custom_log("Erreur lors de l'upload des pièces jointes : " . $e->getMessage(), 'ERROR');
             echo json_encode([
                 'success' => false,
                 'error' => $e->getMessage()

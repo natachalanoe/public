@@ -3,6 +3,8 @@
  * Contrôleur pour la gestion des interventions clients
  * Filtre automatiquement selon les localisations autorisées du client
  */
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
+
 class InterventionsClientController {
     private $db;
     private $model;
@@ -256,7 +258,8 @@ class InterventionsClientController {
             if ($success) {
                 $_SESSION['success'] = 'Commentaire modifie avec succes.';
             } else {
-                $_SESSION['error'] = 'Erreur lors de la modification du commentaire.';
+                custom_log("Échec de la modification du commentaire ID {$commentId} par l'utilisateur " . ($_SESSION['user']['id'] ?? 'unknown'), 'ERROR');
+                $_SESSION['error'] = 'Erreur lors de la modification du commentaire. Veuillez vérifier les logs pour plus de détails.';
             }
         }
 
@@ -276,12 +279,17 @@ class InterventionsClientController {
         $userId = $_SESSION['user']['id'];
         
         // Verifier que le commentaire appartient a l'utilisateur connecte
+        // IMPORTANT: Récupérer l'ID de l'intervention AVANT de supprimer le commentaire
         $commentData = $this->model->getCommentById($commentId);
         if (!$commentData || $commentData['created_by'] != $userId) {
             $_SESSION['error'] = 'Vous n\'etes pas autorise a supprimer ce commentaire.';
-            header('Location: ' . BASE_URL . 'interventions_client/view/' . $this->getInterventionIdFromComment($commentId));
+            $interventionId = $commentData ? $commentData['intervention_id'] : 0;
+            header('Location: ' . BASE_URL . 'interventions_client/view/' . $interventionId);
             exit;
         }
+
+        // Récupérer l'ID de l'intervention avant de supprimer le commentaire
+        $interventionId = $commentData['intervention_id'];
 
         $success = $this->model->deleteComment($commentId);
 
@@ -291,7 +299,7 @@ class InterventionsClientController {
             $_SESSION['error'] = 'Erreur lors de la suppression du commentaire.';
         }
 
-        header('Location: ' . BASE_URL . 'interventions_client/view/' . $this->getInterventionIdFromComment($commentId));
+        header('Location: ' . BASE_URL . 'interventions_client/view/' . $interventionId);
         exit;
     }
 
@@ -306,6 +314,10 @@ class InterventionsClientController {
     /**
      * Ajouter une piece jointe
      */
+    /**
+     * Ajoute une pièce jointe à une intervention (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function addAttachment($interventionId) {
         if (!hasPermission('client_view_interventions')) {
             header('Location: ' . BASE_URL . 'dashboard');
@@ -313,36 +325,50 @@ class InterventionsClientController {
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            // Verifier que l'intervention appartient aux locations autorisees du client
-            $userLocations = getUserLocations();
-            $intervention = $this->model->getByIdWithAccess($interventionId, $userLocations);
-            
-            if (!$intervention) {
-                $_SESSION['error'] = 'Intervention non trouvee ou non autorisee.';
-                header('Location: ' . BASE_URL . 'interventions_client');
-                exit;
-            }
+            try {
+                // Vérifier que l'intervention appartient aux locations autorisées du client
+                $userLocations = getUserLocations();
+                $intervention = $this->model->getByIdWithAccess($interventionId, $userLocations);
+                
+                if (!$intervention) {
+                    throw new Exception('Intervention non trouvée ou non autorisée.');
+                }
 
-            if (!isset($_FILES['attachment']) || $_FILES['attachment']['error'] !== UPLOAD_ERR_OK) {
-                $_SESSION['error'] = 'Erreur lors du telechargement du fichier.';
-                header('Location: ' . BASE_URL . 'interventions_client/view/' . $interventionId);
-                exit;
-            }
+                if (!isset($_FILES['attachment']) || $_FILES['attachment']['error'] !== UPLOAD_ERR_OK) {
+                    throw new Exception('Erreur lors du téléchargement du fichier.');
+                }
 
-            $file = $_FILES['attachment'];
-            $userId = $_SESSION['user']['id'];
-            
-            // Récupérer le nom personnalisé s'il existe
-            $customName = isset($_POST['custom_name']) && !empty(trim($_POST['custom_name'])) 
-                ? trim($_POST['custom_name']) 
-                : null;
-            
-            $success = $this->model->addAttachment($interventionId, $userId, $file, $customName);
+                // Utiliser AttachmentService pour gérer l'upload
+                $attachmentService = new AttachmentService($this->db);
+                
+                // Préparer les options
+                $customName = isset($_POST['custom_name']) && !empty(trim($_POST['custom_name'])) 
+                    ? trim($_POST['custom_name']) 
+                    : null;
+                
+                $options = [
+                    'custom_names' => [$customName]
+                ];
 
-            if ($success) {
-                $_SESSION['success'] = 'Piece jointe ajoutee avec succes.';
-            } else {
-                $_SESSION['error'] = 'Erreur lors de l\'ajout de la piece jointe.';
+                // Upload du fichier
+                $result = $attachmentService->upload(
+                    AttachmentService::TYPE_INTERVENTION,
+                    $interventionId,
+                    $_FILES['attachment'],
+                    $options,
+                    $_SESSION['user']['id']
+                );
+
+                if ($result['success']) {
+                    $_SESSION['success'] = 'Pièce jointe ajoutée avec succès.';
+                } else {
+                    $errorMessage = !empty($result['errors']) ? implode(', ', $result['errors']) : 'Erreur lors de l\'ajout de la pièce jointe.';
+                    throw new Exception($errorMessage);
+                }
+
+            } catch (Exception $e) {
+                custom_log("Erreur lors de l'ajout de la pièce jointe : " . $e->getMessage(), 'ERROR');
+                $_SESSION['error'] = $e->getMessage();
             }
         }
 
@@ -380,142 +406,39 @@ class InterventionsClientController {
                 throw new Exception("Aucun fichier à uploader");
             }
 
-            require_once INCLUDES_PATH . '/FileUploadValidator.php';
+            // Utiliser AttachmentService pour gérer l'upload
+            $attachmentService = new AttachmentService($this->db);
             
-            $uploadedFiles = [];
-            $errors = [];
-            $userId = $_SESSION['user']['id'];
-            
-            // Traiter chaque fichier
-            foreach ($_FILES['attachments']['tmp_name'] as $index => $tmpName) {
-                if ($_FILES['attachments']['error'][$index] !== UPLOAD_ERR_OK) {
-                    $errors[] = "Erreur lors de l'upload du fichier " . ($index + 1);
-                    continue;
-                }
+            // Préparer les options
+            $options = [
+                'custom_names' => $_POST['custom_names'] ?? []
+            ];
 
-                $originalFileName = $_FILES['attachments']['name'][$index];
-                $fileSize = $_FILES['attachments']['size'][$index];
-                $fileTmpPath = $tmpName;
-                
-                // Récupérer le nom personnalisé s'il existe
-                $customName = isset($_POST['custom_names'][$index]) && !empty(trim($_POST['custom_names'][$index])) 
-                    ? trim($_POST['custom_names'][$index]) 
-                    : null;
+            // Upload des fichiers
+            $result = $attachmentService->upload(
+                AttachmentService::TYPE_INTERVENTION,
+                $interventionId,
+                $_FILES['attachments'],
+                $options,
+                $_SESSION['user']['id']
+            );
 
-                // Vérifier la taille du fichier (limite du serveur)
-                $maxFileSize = getServerMaxUploadSize();
-                if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
-                    continue;
-                }
-
-                // Vérifier l'extension
-                $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
-                    $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
-                    continue;
-                }
-
-                // Créer le dossier de stockage s'il n'existe pas
-                $uploadDir = __DIR__ . '/../../uploads/interventions/' . $interventionId;
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
-
-                // Préparer le nom du fichier
-                $fileName = pathinfo($originalFileName, PATHINFO_FILENAME);
-                $fileName = str_replace(' ', '_', $fileName);
-                $fileName = preg_replace('/[^a-zA-Z0-9_-]/', '', $fileName);
-                $baseFileName = $fileName;
-                $extension = pathinfo($originalFileName, PATHINFO_EXTENSION);
-                $finalFileName = $baseFileName . '.' . $extension;
-                $filePath = $uploadDir . '/' . $finalFileName;
-
-                // Éviter les doublons
-                $counter = 1;
-                while (file_exists($filePath)) {
-                    $finalFileName = $baseFileName . '_' . $counter . '.' . $extension;
-                    $filePath = $uploadDir . '/' . $finalFileName;
-                    $counter++;
-                }
-
-                // Déplacer le fichier
-                if (move_uploaded_file($fileTmpPath, $filePath)) {
-                    // Enregistrer en base de données directement
-                    try {
-                        $this->db->beginTransaction();
-
-                        // Insérer la pièce jointe
-                        $sql = "INSERT INTO pieces_jointes (
-                                    nom_fichier, nom_personnalise, chemin_fichier, type_fichier, taille_fichier, 
-                                    commentaire, masque_client, created_by
-                                ) VALUES (
-                                    :nom_fichier, :nom_personnalise, :chemin_fichier, :type_fichier, :taille_fichier,
-                                    :commentaire, :masque_client, :created_by
-                                )";
-
-                        // Utiliser le nom personnalisé s'il existe, sinon le nom original
-                        $displayName = $customName ?: $originalFileName;
-                        
-                        $stmt = $this->db->prepare($sql);
-                        $stmt->execute([
-                            ':nom_fichier' => $finalFileName, // Nom physique du fichier
-                            ':nom_personnalise' => $displayName, // Nom d'affichage
-                            ':chemin_fichier' => 'uploads/interventions/' . $interventionId . '/' . $finalFileName,
-                            ':type_fichier' => $extension,
-                            ':taille_fichier' => $fileSize,
-                            ':commentaire' => null,
-                            ':masque_client' => 0, // Visible par les clients
-                            ':created_by' => $userId
-                        ]);
-
-                        $pieceJointeId = $this->db->lastInsertId();
-
-                        // Créer la liaison
-                        $sql = "INSERT INTO liaisons_pieces_jointes (
-                                    piece_jointe_id, type_liaison, entite_id
-                                ) VALUES (
-                                    :piece_jointe_id, 'intervention', :intervention_id
-                                )";
-
-                        $stmt = $this->db->prepare($sql);
-                        $stmt->execute([
-                            ':piece_jointe_id' => $pieceJointeId,
-                            ':intervention_id' => $interventionId
-                        ]);
-
-                        $this->db->commit();
-                        $uploadedFiles[] = $finalFileName;
-                        
-                    } catch (Exception $e) {
-                        $this->db->rollBack();
-                        $errors[] = "Erreur lors de l'enregistrement du fichier '$originalFileName': " . $e->getMessage();
-                        // Supprimer le fichier uploadé si l'enregistrement en base a échoué
-                        if (file_exists($filePath)) {
-                            unlink($filePath);
-                        }
-                    }
-                } else {
-                    $errors[] = "Erreur lors du déplacement du fichier '$originalFileName'";
-                }
-            }
-
-            // Préparer la réponse
-            if (!empty($uploadedFiles)) {
-                $message = count($uploadedFiles) . " fichier(s) uploadé(s) avec succès";
-                if (!empty($errors)) {
-                    $message .= ". " . count($errors) . " erreur(s) : " . implode(', ', $errors);
+            // Retourner le résultat
+            header('Content-Type: application/json');
+            if ($result['success']) {
+                $message = count($result['uploaded_files']) . " fichier(s) uploadé(s) avec succès";
+                if (!empty($result['errors'])) {
+                    $message .= ". " . count($result['errors']) . " erreur(s) : " . implode(', ', $result['errors']);
                 }
                 
-                header('Content-Type: application/json');
                 echo json_encode([
                     'success' => true,
                     'message' => $message,
-                    'uploaded_files' => $uploadedFiles,
-                    'errors' => $errors
+                    'uploaded_files' => $result['uploaded_files'],
+                    'errors' => $result['errors']
                 ]);
             } else {
-                throw new Exception("Aucun fichier n'a pu être uploadé. " . implode(', ', $errors));
+                throw new Exception("Aucun fichier n'a pu être uploadé. " . implode(', ', $result['errors']));
             }
 
         } catch (Exception $e) {
@@ -529,32 +452,144 @@ class InterventionsClientController {
     /**
      * Supprimer une piece jointe
      */
+    /**
+     * Supprime une pièce jointe (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function deleteAttachment($attachmentId) {
         if (!hasPermission('client_view_interventions')) {
             header('Location: ' . BASE_URL . 'dashboard');
             exit;
         }
 
-        $userId = $_SESSION['user']['id'];
-        
-        // Verifier que la piece jointe appartient a l'utilisateur connecte
-        $attachmentData = $this->model->getAttachmentById($attachmentId);
-        if (!$attachmentData || $attachmentData['created_by'] != $userId) {
-            $_SESSION['error'] = 'Vous n\'etes pas autorise a supprimer cette piece jointe.';
-            header('Location: ' . BASE_URL . 'interventions_client/view/' . $this->getInterventionIdFromAttachment($attachmentId));
+        try {
+            $userId = $_SESSION['user']['id'];
+            
+            // Vérifier que la pièce jointe appartient à l'utilisateur connecté
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentData = $attachmentService->getAttachmentById($attachmentId);
+            
+            if (!$attachmentData || $attachmentData['created_by'] != $userId) {
+                throw new Exception('Vous n\'êtes pas autorisé à supprimer cette pièce jointe.');
+            }
+
+            // Récupérer l'ID de l'intervention pour la redirection
+            $interventionId = $attachmentData['entite_id'] ?? $this->getInterventionIdFromAttachment($attachmentId);
+
+            // Utiliser AttachmentService pour gérer la suppression
+            $attachmentService->delete($attachmentId, AttachmentService::TYPE_INTERVENTION, $interventionId);
+
+            $_SESSION['success'] = 'Pièce jointe supprimée avec succès.';
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la suppression de la pièce jointe : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = $e->getMessage();
+        }
+
+        header('Location: ' . BASE_URL . 'interventions_client/view/' . ($interventionId ?? ''));
+        exit;
+    }
+
+    /**
+     * Télécharge une pièce jointe (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
+    public function download($attachmentId) {
+        if (!hasPermission('client_view_interventions')) {
+            header('Location: ' . BASE_URL . 'dashboard');
             exit;
         }
 
-        $success = $this->model->deleteAttachment($attachmentId);
+        try {
+            $userId = $_SESSION['user']['id'];
+            $userLocations = getUserLocations();
+            
+            // Récupérer la pièce jointe
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentData = $attachmentService->getAttachmentById($attachmentId);
+            
+            if (!$attachmentData) {
+                throw new Exception('Pièce jointe non trouvée.');
+            }
 
-        if ($success) {
-            $_SESSION['success'] = 'Piece jointe supprimee avec succes.';
-        } else {
-            $_SESSION['error'] = 'Erreur lors de la suppression de la piece jointe.';
+            // Vérifier que la pièce jointe est visible par le client
+            if (isset($attachmentData['masque_client']) && $attachmentData['masque_client'] == 1) {
+                throw new Exception('Cette pièce jointe n\'est pas accessible.');
+            }
+
+            // Vérifier que l'intervention appartient aux locations autorisées du client
+            $interventionId = $attachmentData['entite_id'] ?? null;
+            if (!$interventionId) {
+                throw new Exception('Impossible de déterminer l\'intervention associée.');
+            }
+            
+            $intervention = $this->model->getByIdWithAccess($interventionId, $userLocations);
+            
+            if (!$intervention) {
+                throw new Exception('Intervention non trouvée ou non autorisée.');
+            }
+
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService->download($attachmentId, true);
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors du téléchargement de la pièce jointe (client) : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors du téléchargement : " . $e->getMessage();
+            $interventionId = $attachmentData['entite_id'] ?? 0;
+            header('Location: ' . BASE_URL . 'interventions_client/view/' . $interventionId);
+            exit;
+        }
+    }
+
+    /**
+     * Affiche l'aperçu d'une pièce jointe (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
+    public function preview($attachmentId) {
+        if (!hasPermission('client_view_interventions')) {
+            header('Location: ' . BASE_URL . 'dashboard');
+            exit;
         }
 
-        header('Location: ' . BASE_URL . 'interventions_client/view/' . $this->getInterventionIdFromAttachment($attachmentId));
-        exit;
+        try {
+            $userId = $_SESSION['user']['id'];
+            $userLocations = getUserLocations();
+            
+            // Récupérer la pièce jointe
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentData = $attachmentService->getAttachmentById($attachmentId);
+            
+            if (!$attachmentData) {
+                throw new Exception('Pièce jointe non trouvée.');
+            }
+
+            // Vérifier que la pièce jointe est visible par le client
+            if (isset($attachmentData['masque_client']) && $attachmentData['masque_client'] == 1) {
+                throw new Exception('Cette pièce jointe n\'est pas accessible.');
+            }
+
+            // Vérifier que l'intervention appartient aux locations autorisées du client
+            $interventionId = $attachmentData['entite_id'] ?? null;
+            if (!$interventionId) {
+                throw new Exception('Impossible de déterminer l\'intervention associée.');
+            }
+            
+            $intervention = $this->model->getByIdWithAccess($interventionId, $userLocations);
+            
+            if (!$intervention) {
+                throw new Exception('Intervention non trouvée ou non autorisée.');
+            }
+
+            // Utiliser AttachmentService pour gérer l'aperçu
+            $attachmentService->preview($attachmentId);
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'aperçu de la pièce jointe (client) : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors de l'aperçu : " . $e->getMessage();
+            $interventionId = $attachmentData['entite_id'] ?? 0;
+            header('Location: ' . BASE_URL . 'interventions_client/view/' . $interventionId);
+            exit;
+        }
     }
 
     /**

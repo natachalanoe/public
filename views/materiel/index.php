@@ -1566,28 +1566,60 @@ function renderAttachments(attachments, container, materielId) {
     container.innerHTML = html;
     
     // Gérer les actions sur les pièces jointes avec délégation d'événements
-    container.addEventListener('click', function(e) {
+    // Supprimer l'ancien gestionnaire s'il existe pour éviter les doublons
+    const oldHandler = container._attachmentClickHandler;
+    if (oldHandler) {
+        container.removeEventListener('click', oldHandler);
+    }
+    
+    // Créer un nouveau gestionnaire
+    const clickHandler = function(e) {
         const link = e.target.closest('a[href*="deleteAttachment"], a[href*="toggleAttachmentVisibility"]');
         if (link) {
             e.preventDefault();
+            e.stopPropagation();
+            
             const confirmMsg = link.getAttribute('data-confirm') || link.getAttribute('title') || 'Confirmer cette action ?';
             
-            if (confirm(confirmMsg)) {
-                fetch(link.href)
-                    .then(response => {
-                        if (response.ok || response.redirected) {
-                            loadAttachments(materielId, container);
-                        } else {
-                            alert('Erreur lors de l\'opération');
-                        }
-                    })
-                    .catch(() => {
-                        // Si erreur, recharger la page pour être sûr
-                        window.location.reload();
-                    });
+            // Si l'utilisateur annule, ne rien faire
+            if (!confirm(confirmMsg)) {
+                return false;
             }
+            
+            // Le backend utilise GET pour deleteAttachment et toggleAttachmentVisibility
+            // Récupérer le token CSRF si disponible (pour compatibilité future)
+            const csrfToken = window.AppConfig?.csrfToken || window.CSRF_TOKEN || '';
+            const headers = {
+                'X-Requested-With': 'XMLHttpRequest'
+            };
+            if (csrfToken) {
+                headers['X-CSRF-Token'] = csrfToken;
+            }
+            
+            fetch(link.href, {
+                method: 'GET',
+                headers: headers,
+                credentials: 'same-origin'
+            })
+                .then(response => {
+                    if (response.ok || response.redirected) {
+                        loadAttachments(materielId, container);
+                    } else {
+                        alert('Erreur lors de l\'opération');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Erreur lors de la suppression:', error);
+                    alert('Erreur lors de l\'opération');
+                });
+            
+            return false;
         }
-    });
+    };
+    
+    // Stocker la référence du gestionnaire pour pouvoir le supprimer plus tard
+    container._attachmentClickHandler = clickHandler;
+    container.addEventListener('click', clickHandler);
 }
 
 // Fonction pour prévisualiser une pièce jointe
@@ -1693,6 +1725,7 @@ require_once __DIR__ . '/../../includes/FileUploadValidator.php';
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <form id="dragDropForm" method="post" enctype="multipart/form-data">
+                    <?= csrf_field() ?>
                 <div class="modal-header">
                     <h5 class="modal-title" id="addAttachmentModalLabel">
                         <i class="bi bi-cloud-upload me-2"></i>
@@ -2146,6 +2179,9 @@ class DragDropUploader {
         try {
             const response = await fetch('<?php echo BASE_URL; ?>materiel/uploadAttachment', {
                 method: 'POST',
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>'
+            },
                 body: formData
             });
             

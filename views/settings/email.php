@@ -101,6 +101,7 @@ $config = Config::getInstance();
                 </div>
                 <div class="card-body">
                     <form method="POST" action="<?= BASE_URL ?>settings/saveEmailConfig">
+                        <?= csrf_field() ?>
                         <!-- Paramètres SMTP -->
                         <div class="mb-3">
                             <label for="mail_host" class="form-label">Serveur SMTP</label>
@@ -287,6 +288,7 @@ $config = Config::getInstance();
                 </div>
                 <div class="card-body">
                     <form method="POST" action="<?= BASE_URL ?>settings/saveEmailSettings">
+                        <?= csrf_field() ?>
                         <div class="mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="email_auto_send_creation" 
@@ -518,6 +520,9 @@ document.getElementById('testOAuth2Btn').addEventListener('click', function() {
     
     fetch('<?= BASE_URL ?>settings/testOAuth2', {
         method: 'POST',
+        headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>'
+        },
         body: formData
     })
     .then(response => response.json())
@@ -575,6 +580,9 @@ document.getElementById('testEmailSendBtn').addEventListener('click', function()
     
     fetch('<?= BASE_URL ?>settings/testEmailSend', {
         method: 'POST',
+        headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>'
+        },
         body: formData
     })
     .then(response => response.json())
@@ -623,6 +631,9 @@ document.getElementById('testSmtpBtn').addEventListener('click', function() {
     // Envoyer la requête
     fetch('<?= BASE_URL ?>settings/testSmtp', {
         method: 'POST',
+        headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>'
+        },
         body: formData
     })
     .then(response => response.json())

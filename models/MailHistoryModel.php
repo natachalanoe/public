@@ -1,15 +1,14 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
 /**
  * Modèle pour la gestion de l'historique des envois d'emails
  */
-class MailHistoryModel {
-    private $db;
-    private $table = 'mail_history';
-
+class MailHistoryModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'mail_history';
     }
 
     /**

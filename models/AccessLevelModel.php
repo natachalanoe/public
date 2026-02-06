@@ -1,12 +1,13 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
+
 /**
  * Modèle pour la gestion des niveaux d'accès des contrats
  */
-class AccessLevelModel {
-    private $db;
-
+class AccessLevelModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'contract_access_levels';
     }
 
     /**
@@ -15,7 +16,7 @@ class AccessLevelModel {
      */
     public function getAllAccessLevels() {
         try {
-            $sql = "SELECT * FROM contract_access_levels ORDER BY ordre_affichage, name";
+            $sql = "SELECT id, name, description, ordre_affichage, created_at, updated_at FROM contract_access_levels ORDER BY ordre_affichage, name";
             $stmt = $this->db->prepare($sql);
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -32,10 +33,7 @@ class AccessLevelModel {
      */
     public function getAccessLevelById($id) {
         try {
-            $sql = "SELECT * FROM contract_access_levels WHERE id = :id";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([':id' => $id]);
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            return $this->find($id);
         } catch (Exception $e) {
             custom_log("Erreur lors de la récupération du niveau d'accès : " . $e->getMessage(), 'ERROR');
             return null;
@@ -282,14 +280,12 @@ class AccessLevelModel {
             // Récupérer le prochain ordre d'affichage disponible
             $nextOrder = $this->getNextDisplayOrder();
             
-            $sql = "INSERT INTO contract_access_levels (name, description, ordre_affichage) VALUES (:name, :description, :ordre_affichage)";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                ':name' => $name,
-                ':description' => $description,
-                ':ordre_affichage' => $nextOrder
-            ]);
-            return $this->db->lastInsertId();
+            $data = [
+                'name' => $name,
+                'description' => $description,
+                'ordre_affichage' => $nextOrder
+            ];
+            return parent::create($data);
         } catch (Exception $e) {
             custom_log("Erreur lors de la création d'un niveau d'accès : " . $e->getMessage(), 'ERROR');
             return false;
@@ -462,14 +458,11 @@ class AccessLevelModel {
      */
     public function updateAccessLevel($id, $name, $description) {
         try {
-            $sql = "UPDATE contract_access_levels SET name = :name, description = :description WHERE id = :id";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([
-                ':id' => $id,
-                ':name' => $name,
-                ':description' => $description
-            ]);
-            return true;
+            $data = [
+                'name' => $name,
+                'description' => $description
+            ];
+            return parent::update($id, $data);
         } catch (Exception $e) {
             custom_log("Erreur lors de la mise à jour du niveau d'accès : " . $e->getMessage(), 'ERROR');
             return false;
@@ -482,6 +475,8 @@ class AccessLevelModel {
      * @return bool Succès de la suppression
      */
     public function deleteAccessLevel($id) {
+        require_once __DIR__ . '/../classes/Services/CacheService.php';
+        
         try {
             $this->db->beginTransaction();
 
@@ -500,10 +495,11 @@ class AccessLevelModel {
             $stmt = $this->db->prepare($sql);
             $stmt->execute([':id' => $id]);
 
-            // Supprimer le niveau d'accès
-            $sql = "DELETE FROM contract_access_levels WHERE id = :id";
-            $stmt = $this->db->prepare($sql);
-            $stmt->execute([':id' => $id]);
+            // Supprimer le niveau d'accès (utilise BaseModel::delete())
+            $deleteResult = parent::delete($id);
+            if (!$deleteResult) {
+                throw new Exception("Erreur lors de la suppression du niveau d'accès");
+            }
 
             $this->db->commit();
             return true;

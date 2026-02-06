@@ -3,8 +3,9 @@
  * Fichier d'initialisation de l'application
  */
 
-// Démarrage de la session
-session_start();
+// Démarrage de la session sécurisée
+require_once __DIR__ . '/../classes/Security/SessionManager.php';
+SessionManager::start();
 
 // Définition des constantes
 define('ROOT_PATH', dirname(dirname(__DIR__)));
@@ -33,6 +34,16 @@ function custom_log($message, $level = 'INFO', $context = []) {
     $log_message = "[$date][$level] $message $context_str\n";
     error_log($log_message, 3, $log_file);
 }
+
+// Initialisation du gestionnaire d'erreurs centralisé
+require_once __DIR__ . '/../classes/Error/ErrorHandler.php';
+// Déterminer l'environnement (dev ou prod) - peut être défini dans config.php
+$environment = defined('APP_ENV') ? APP_ENV : 'dev';
+ErrorHandler::init($environment);
+
+// Initialisation du service de cache
+require_once __DIR__ . '/../classes/Services/CacheService.php';
+CacheService::init();
 
 // Chargement de la configuration de la base de données
 require_once CONFIG_PATH . '/database.php';

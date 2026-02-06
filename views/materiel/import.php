@@ -100,7 +100,8 @@ $selectedSalleId = $_GET['salle_id'] ?? '';
                     </div>
 
                     <!-- Sélecteurs de localisation -->
-                    <form method="post" action="<?= BASE_URL ?>materiel/process_import" enctype="multipart/form-data" id="importForm">
+                    <form method="post" action="<?= BASE_URL ?>
+                        <?= csrf_field() ?>materiel/process_import" enctype="multipart/form-data" id="importForm">
                         <div class="row mb-4">
                             <div class="col-md-4">
                                 <label for="client_id" class="form-label fw-bold">Client <span class="text-danger">*</span></label>

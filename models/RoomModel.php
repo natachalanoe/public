@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class RoomModel {
-    private $db;
-
+class RoomModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'rooms';
     }
 
     /**
@@ -135,19 +135,14 @@ class RoomModel {
      * Supprime une salle
      */
     public function deleteRoom($id) {
-        $query = "DELETE FROM rooms WHERE id = :id";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        
-        return $stmt->execute();
+        return parent::delete($id);
     }
 
     /**
      * Récupère un site par son ID
      */
     public function getSiteById($id) {
-        $query = "SELECT * FROM sites WHERE id = :id";
+        $query = "SELECT id, client_id, name, address, postal_code, city, phone, email, comment, status, main_contact_id, created_at, updated_at FROM sites WHERE id = :id";
         
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
@@ -157,7 +152,7 @@ class RoomModel {
     }
 
     public function getAllRooms() {
-        $query = "SELECT * FROM rooms ORDER BY name";
+        $query = "SELECT id, client_id, site_id, name, comment, status, main_contact_id, created_at, updated_at FROM rooms ORDER BY name";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -1586,9 +1586,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Faire l'appel AJAX
                 fetch(baseUrl + 'materiel_v2/updateField', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>',
+                'Content-Type': 'application/json',
+            },
                     body: JSON.stringify({
                         id: id,
                         field: field,

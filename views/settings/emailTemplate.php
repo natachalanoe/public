@@ -138,6 +138,7 @@ $availableVariables = [
                 </div>
                 <div class="card-body">
                     <form method="POST" action="<?= BASE_URL ?>settings/saveEmailTemplate">
+                        <?= csrf_field() ?>
                         <?php if ($isEdit): ?>
                             <input type="hidden" name="template_id" value="<?= $template['id'] ?>">
                         <?php endif; ?>

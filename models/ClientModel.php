@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class ClientModel {
-    private $db;
-
+class ClientModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'clients';
     }
 
     public function getAllClientsWithStats($filters = []) {
@@ -81,11 +81,7 @@ class ClientModel {
     }
 
     public function getClientById($id) {
-        $query = "SELECT * FROM clients WHERE id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->find($id);
     }
 
     public function updateClient($id, $data) {
@@ -162,7 +158,7 @@ class ClientModel {
     }
 
     public function getAllClients() {
-        $query = "SELECT * FROM clients ORDER BY name";
+        $query = "SELECT id, name, address, postal_code, city, phone, email, website, comment, status, created_at, updated_at FROM clients ORDER BY name";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -56,6 +56,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 <div class="card-body">
 
                             <form method="POST" action="<?= BASE_URL ?>contactClient/add">
+                                <?= csrf_field() ?>
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="mb-3">

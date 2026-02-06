@@ -80,8 +80,10 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
     <div class="card">
         <div class="card-body">
             <form action="<?php echo BASE_URL; ?>contracts/update/<?php echo $contract['id']; ?>" method="POST" id="contractForm">
+                <?= csrf_field() ?>
                 <input type="hidden" name="client_id" value="<?php echo $client['id']; ?>">
                 <input type="hidden" name="redirect_to" value="view">
+                <input type="hidden" id="contract_id" value="<?php echo $contract['id']; ?>" data-client-id="<?php echo $client['id']; ?>">
                 
                 <div class="row">
                     <div class="col-md-6">
@@ -93,7 +95,8 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
 
                         <div class="mb-3">
                             <label for="contract_type_id" class="form-label">Type de contrat <span class="text-danger">*</span></label>
-                            <select class="form-control bg-body text-body" id="contract_type_id" name="contract_type_id" required>
+                            <select class="form-control bg-body text-body" id="contract_type_id" name="contract_type_id" required
+                                    data-contract-types='<?php echo json_encode($contractTypes); ?>'>
                                 <option value="">Sélectionnez un type</option>
                                 <?php foreach ($contractTypes as $type): ?>
                                     <option value="<?php echo $type['id']; ?>" 
@@ -297,46 +300,11 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialiser BASE_URL pour les fonctions communes
-    initBaseUrl(baseUrl);
-    
-    // Initialiser la validation Bootstrap
-    initBootstrapValidation();
-    
-    const clientId = <?php echo $client['id']; ?>;
-    const contractId = <?php echo $contract['id']; ?>;
-    const contractTypes = <?php echo json_encode($contractTypes); ?>;
-    const contractTypeSelect = document.getElementById('contract_type_id');
-    const ticketsNumberInput = document.getElementById('tickets_number');
-    const isticketcontractCheckbox = document.getElementById('isticketcontract');
+<!-- JavaScript extrait vers public/assets/js/pages/contracts-form.js -->
+<!-- Code JavaScript supprimé - Utilise maintenant contracts-form.js -->
 
-    // Fonction pour mettre à jour les champs selon le type de contrat sélectionné
-    function updateFieldsBasedOnContractType() {
-        const selectedType = contractTypes.find(type => type.id == contractTypeSelect.value);
-        if (selectedType) {
-            // Mettre à jour le nombre de tickets seulement si c'est différent de la valeur actuelle
-            if (ticketsNumberInput.value !== selectedType.default_tickets.toString()) {
-                ticketsNumberInput.value = selectedType.default_tickets;
-            }
-            
-            // Cocher automatiquement la case isticketcontract si le type a des tickets par défaut > 0
-            if (selectedType.default_tickets > 0) {
-                isticketcontractCheckbox.checked = true;
-            } else {
-                isticketcontractCheckbox.checked = false;
-            }
-        }
-    }
-
-    // Mettre à jour les champs quand le type de contrat change
-    contractTypeSelect.addEventListener('change', updateFieldsBasedOnContractType);
-
-    // Utiliser la fonction standardisée pour charger les salles avec pré-sélection
-    loadContractRoomsSimple(clientId, 'rooms-container', contractId);
-});
-</script>
+<!-- JavaScript spécifique aux formulaires de contrats -->
+<script src="<?php echo BASE_URL; ?>assets/js/pages/contracts-form.js" onerror="console.error('ERREUR: contracts-form.js n\'a pas pu être chargé. Vérifiez que le fichier existe et est accessible.');"></script>
 
 <?php
 // Inclure le footer

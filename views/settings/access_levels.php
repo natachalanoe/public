@@ -157,6 +157,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <div class="card-body">
                     <form method="post" action="<?= BASE_URL ?>settings/saveAccessLevelVisibility">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="access_level_id" value="<?= $selectedLevel['id'] ?>">
                         <div class="row">
                             <?php foreach ($fields as $field => $info): ?>
@@ -204,6 +205,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <div class="card-body">
                     <form method="post" action="<?= BASE_URL ?>settings/createAccessLevel">
+                        <?= csrf_field() ?>
                         <div class="row">
                             <div class="col-md-4 mb-3">
                                 <label for="name" class="form-label">Nom du niveau</label>
@@ -244,6 +246,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('deleteAccessLevelModal')">Annuler</button>
                 <form method="post" action="<?= BASE_URL ?>settings/deleteAccessLevel" style="display: inline;">
+                    <?= csrf_field() ?>
                     <input type="hidden" name="id" id="delete_access_level_id">
                     <button type="submit" class="btn btn-danger">Supprimer</button>
                 </form>
@@ -320,6 +323,7 @@ function saveAccessLevelOrder() {
     fetch('<?= BASE_URL ?>settings/updateAccessLevelOrder', {
         method: 'POST',
         headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>',
             'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: 'orders=' + encodeURIComponent(JSON.stringify(orders))
@@ -403,6 +407,9 @@ function saveAccessLevel(id) {
     
     fetch('<?= BASE_URL ?>settings/updateAccessLevel', {
         method: 'POST',
+        headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>'
+        },
         body: formData
     })
     .then(response => response.text())

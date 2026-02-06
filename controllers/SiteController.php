@@ -2,8 +2,10 @@
 require_once __DIR__ . '/../models/SiteModel.php';
 require_once __DIR__ . '/../models/ContactModel.php';
 require_once __DIR__ . '/../models/ClientModel.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class SiteController {
+    use AccessControlTrait;
     private $db;
     private $siteModel;
     private $contactModel;
@@ -17,21 +19,6 @@ class SiteController {
         $this->clientModel = new ClientModel($this->db);
     }
 
-    /**
-     * Vérifie si l'utilisateur a le droit d'accéder aux sites
-     */
-    private function checkAccess() {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
-        }
-
-        if (!isStaff()) {
-            $_SESSION['error'] = "Vous n'avez pas les droits nécessaires pour accéder à cette page.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-    }
 
     /**
      * Affiche le formulaire d'ajout d'un site

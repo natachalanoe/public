@@ -260,6 +260,7 @@ $userGroups = $userTypeModel->getAllGroups();
                     <div class="mb-4">
                         <h6>Ajouter un type d'utilisateur :</h6>
                         <form method="POST">
+                     <?= csrf_field() ?>
                             <input type="hidden" name="action" value="add">
                             <div class="row">
                                 <div class="col-md-3">
@@ -305,6 +306,7 @@ $userGroups = $userTypeModel->getAllGroups();
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST">
+                <?= csrf_field() ?>
                 <input type="hidden" name="action" value="update">
                 <input type="hidden" name="id" id="edit_type_id">
                 <div class="modal-body">
@@ -356,6 +358,7 @@ function deleteType(id, name) {
     const form = document.createElement('form');
     form.method = 'POST';
     form.innerHTML = `
+        <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="id" value="${id}">
     `;

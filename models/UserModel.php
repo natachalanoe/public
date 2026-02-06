@@ -1,11 +1,11 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
+
 /**
  * Modèle User
  * Gère toutes les opérations liées aux utilisateurs
  */
-class UserModel {
-    private $db;
-    private $table = 'users';
+class UserModel extends BaseModel {
     private $id;
     private $username;
     private $email;
@@ -21,7 +21,8 @@ class UserModel {
      * Constructeur
      */
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'users';
     }
 
     /**
@@ -263,10 +264,7 @@ class UserModel {
      * Supprime un utilisateur
      */
     public function deleteUser($id) {
-        $sql = "DELETE FROM " . $this->table . " WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':id', $id);
-        return $stmt->execute();
+        return parent::delete($id);
     }
 
     /**
@@ -795,10 +793,14 @@ class UserModel {
             $stmt = $this->db->prepare($query);
             $stmt->execute(['user_id' => $userId]);
 
-            // Récupérer le client_id du formulaire
-            $clientId = $_POST['client_id'] ?? null;
+            // Récupérer le client_id depuis l'utilisateur ou depuis $_POST
+            $userData = $this->getUserById($userId);
+            $clientId = $_POST['client_id'] ?? $userData['client_id'] ?? null;
+            
+            custom_log("DEBUG - Client ID récupéré: " . ($clientId ?? 'NULL') . " (depuis POST: " . ($_POST['client_id'] ?? 'NULL') . ", depuis user: " . ($userData['client_id'] ?? 'NULL') . ")", 'DEBUG');
+            
             if (!$clientId) {
-                custom_log("Client ID manquant lors de la sauvegarde des localisations", 'ERROR');
+                custom_log("Client ID manquant lors de la sauvegarde des localisations pour l'utilisateur {$userId}", 'ERROR');
                 return false;
             }
             
@@ -827,27 +829,38 @@ class UserModel {
             if (isset($locations['sites']) && !empty($locations['sites'])) {
                 custom_log("Traitement de " . count($locations['sites']) . " sites pour l'utilisateur {$userId}", 'INFO');
                 
-                foreach ($locations['sites'] as $siteId) {
-                    // Vérifier que le site appartient bien au client
-                    $query = "SELECT id, name FROM sites WHERE id = :site_id AND client_id = :client_id AND status = 1";
-                    $stmt = $this->db->prepare($query);
-                    $stmt->execute([
-                        'site_id' => $siteId,
-                        'client_id' => $clientId
-                    ]);
-                    
-                    $site = $stmt->fetch(PDO::FETCH_ASSOC);
-                    if ($site) {
-                        $query = "INSERT INTO user_locations (user_id, client_id, site_id) 
-                                 VALUES (:user_id, :client_id, :site_id)";
-                        $stmt = $this->db->prepare($query);
-                        $stmt->execute([
-                            'user_id' => $userId,
-                            'client_id' => $clientId,
-                            'site_id' => $siteId
-                        ]);
+                // OPTIMISATION N+1 : Récupérer tous les sites valides en une seule requête
+                $placeholders = implode(',', array_fill(0, count($locations['sites']), '?'));
+                $query = "SELECT id, name FROM sites WHERE id IN ($placeholders) AND client_id = ? AND status = 1";
+                $params = array_merge($locations['sites'], [$clientId]);
+                $stmt = $this->db->prepare($query);
+                $stmt->execute($params);
+                
+                $validSites = [];
+                while ($site = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $validSites[$site['id']] = $site;
+                }
+                
+                // INSERT batch pour tous les sites valides
+                if (!empty($validSites)) {
+                    $values = [];
+                    $insertParams = [];
+                    foreach ($validSites as $siteId => $site) {
+                        $values[] = "(?, ?, ?)";
+                        $insertParams[] = $userId;
+                        $insertParams[] = $clientId;
+                        $insertParams[] = $siteId;
                         custom_log("Site {$siteId} ({$site['name']}) enregistré pour l'utilisateur {$userId}", 'INFO');
-                    } else {
+                    }
+                    
+                    $query = "INSERT INTO user_locations (user_id, client_id, site_id) VALUES " . implode(', ', $values);
+                    $stmt = $this->db->prepare($query);
+                    $stmt->execute($insertParams);
+                }
+                
+                // Logger les sites invalides
+                foreach ($locations['sites'] as $siteId) {
+                    if (!isset($validSites[$siteId])) {
                         custom_log("Site {$siteId} non trouvé ou n'appartient pas au client {$clientId}", 'WARNING');
                     }
                 }
@@ -860,48 +873,68 @@ class UserModel {
                 custom_log("Traitement de " . count($locations['rooms']) . " salles pour l'utilisateur {$userId}", 'INFO');
                 custom_log("Sites déjà sélectionnés: " . json_encode($selectedSites), 'INFO');
                 
-                foreach ($locations['rooms'] as $roomId) {
-                    // Récupérer le site_id de la salle
-                    $query = "SELECT r.site_id, r.name as room_name, s.name as site_name 
-                             FROM rooms r 
-                             JOIN sites s ON r.site_id = s.id 
-                             WHERE r.id = :room_id AND r.status = 1 AND s.status = 1";
-                    $stmt = $this->db->prepare($query);
-                    $stmt->execute(['room_id' => $roomId]);
-                    $room = $stmt->fetch(PDO::FETCH_ASSOC);
-
-                    if (!$room) {
-                        custom_log("Salle {$roomId} non trouvée ou inactive", 'WARNING');
-                        continue;
-                    }
-
+                // OPTIMISATION N+1 : Récupérer toutes les salles avec leurs sites en une seule requête
+                $placeholders = implode(',', array_fill(0, count($locations['rooms']), '?'));
+                $query = "SELECT 
+                            r.id as room_id,
+                            r.name as room_name,
+                            r.site_id,
+                            s.name as site_name,
+                            s.client_id
+                          FROM rooms r 
+                          JOIN sites s ON r.site_id = s.id 
+                          WHERE r.id IN ($placeholders)
+                          AND r.status = 1 
+                          AND s.status = 1
+                          AND s.client_id = ?";
+                $params = array_merge($locations['rooms'], [$clientId]);
+                $stmt = $this->db->prepare($query);
+                $stmt->execute($params);
+                
+                $validRooms = [];
+                while ($room = $stmt->fetch(PDO::FETCH_ASSOC)) {
                     // Ne traiter la salle que si son site n'est pas déjà sélectionné
                     if (!in_array($room['site_id'], $selectedSites)) {
-                        // Vérifier que le site appartient bien au client
-                        $query = "SELECT id FROM sites WHERE id = :site_id AND client_id = :client_id AND status = 1";
-                        $stmt = $this->db->prepare($query);
-                        $stmt->execute([
-                            'site_id' => $room['site_id'],
-                            'client_id' => $clientId
-                        ]);
-                        
-                        if ($stmt->fetch()) {
-                            $query = "INSERT INTO user_locations (user_id, client_id, site_id, room_id) 
-                                     VALUES (:user_id, :client_id, :site_id, :room_id)";
-                            $stmt = $this->db->prepare($query);
-                            $stmt->execute([
-                                'user_id' => $userId,
-                                'client_id' => $clientId,
-                                'site_id' => $room['site_id'],
-                                'room_id' => $roomId
-                            ]);
-                            custom_log("Salle {$roomId} ({$room['room_name']}) du site {$room['site_name']} enregistrée pour l'utilisateur {$userId}", 'INFO');
-                        } else {
-                            custom_log("Site {$room['site_id']} ({$room['site_name']}) n'appartient pas au client {$clientId}", 'WARNING');
-                        }
+                        $validRooms[] = $room;
                     } else {
-                        custom_log("Salle {$roomId} ({$room['room_name']}) ignorée car son site {$room['site_id']} est déjà sélectionné", 'INFO');
+                        custom_log("Salle {$room['room_id']} ({$room['room_name']}) ignorée car son site {$room['site_id']} est déjà sélectionné", 'INFO');
                     }
+                }
+                
+                // Logger les salles non trouvées ou invalides
+                $foundRoomIds = array_column($validRooms, 'room_id');
+                foreach ($locations['rooms'] as $roomId) {
+                    if (!in_array($roomId, $foundRoomIds)) {
+                        // Vérifier si c'est parce que le site est déjà sélectionné ou si la salle est invalide
+                        $roomFound = false;
+                        foreach ($validRooms as $room) {
+                            if ($room['room_id'] == $roomId) {
+                                $roomFound = true;
+                                break;
+                            }
+                        }
+                        if (!$roomFound) {
+                            custom_log("Salle {$roomId} non trouvée, inactive ou n'appartient pas au client {$clientId}", 'WARNING');
+                        }
+                    }
+                }
+                
+                // INSERT batch pour toutes les salles valides
+                if (!empty($validRooms)) {
+                    $values = [];
+                    $insertParams = [];
+                    foreach ($validRooms as $room) {
+                        $values[] = "(?, ?, ?, ?)";
+                        $insertParams[] = $userId;
+                        $insertParams[] = $clientId;
+                        $insertParams[] = $room['site_id'];
+                        $insertParams[] = $room['room_id'];
+                        custom_log("Salle {$room['room_id']} ({$room['room_name']}) du site {$room['site_name']} enregistrée pour l'utilisateur {$userId}", 'INFO');
+                    }
+                    
+                    $query = "INSERT INTO user_locations (user_id, client_id, site_id, room_id) VALUES " . implode(', ', $values);
+                    $stmt = $this->db->prepare($query);
+                    $stmt->execute($insertParams);
                 }
             }
 

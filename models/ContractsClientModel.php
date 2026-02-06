@@ -1,14 +1,14 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
+
 /**
  * Modèle pour la gestion des contrats clients
  * Filtre automatiquement selon les localisations autorisées
  */
-class ContractsClientModel {
-    private $db;
-    private $table = 'contracts';
-
+class ContractsClientModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'contracts';
     }
 
     /**
@@ -228,7 +228,7 @@ class ContractsClientModel {
      * @return array Liste des types de contrats
      */
     public function getContractTypes() {
-        $sql = "SELECT * FROM contract_types ORDER BY ordre_affichage, name";
+        $sql = "SELECT id, name, description, default_tickets, nb_inter_prev, ordre_affichage, created_at, updated_at FROM contract_types ORDER BY ordre_affichage, name";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

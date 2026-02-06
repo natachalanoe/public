@@ -349,7 +349,7 @@ $attachments = $attachments ?? [];
                                             </small>
                                         </div>
                                         <div class="ms-3">
-                                            <a href="<?= BASE_URL; ?>materiel/download/<?= $att['id'] ?>" 
+                                            <a href="<?= BASE_URL; ?>materiel_client/download/<?= $att['id'] ?>" 
                                                target="_blank" 
                                                class="btn btn-sm btn-outline-primary" 
                                                title="Télécharger">

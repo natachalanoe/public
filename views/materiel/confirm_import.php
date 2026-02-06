@@ -230,6 +230,7 @@ $selectedSiteId = $_GET['site_id'] ?? '';
                         </p>
                         
                         <form action="<?= BASE_URL ?>materiel_bulk/process_bulk_import" method="POST" id="confirmForm">
+                            <?= csrf_field() ?>
                             <?php foreach ($rowsToProcess as $index => $row): ?>
                                 <div class="card mb-3">
                                     <div class="card-header bg-light">

@@ -2,8 +2,11 @@
 require_once __DIR__ . '/../models/DocumentationModel.php';
 require_once __DIR__ . '/../models/DocumentationCategoryModel.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class DocumentationClientController {
+    use AccessControlTrait;
     private $db;
     private $documentationModel;
     private $categoryModel;
@@ -17,19 +20,10 @@ class DocumentationClientController {
 
     /**
      * Vérifie si l'utilisateur est connecté et a les permissions client
+     * Utilise AccessControlTrait::checkClientPermission()
      */
     private function checkAccess() {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
-        }
-
-        // Vérifier que l'utilisateur a la permission de voir la documentation
-        if (!hasPermission('client_view_documentation')) {
-            $_SESSION['error'] = "Vous n'avez pas les permissions pour accéder à la documentation.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
+        $this->checkClientPermission('client_view_documentation');
     }
 
     /**
@@ -1123,6 +1117,10 @@ class DocumentationClientController {
     /**
      * Télécharge une pièce jointe de documentation
      */
+    /**
+     * Télécharge une pièce jointe de documentation (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function download($attachmentId) {
         $this->checkAccess();
 
@@ -1168,27 +1166,9 @@ class DocumentationClientController {
                 throw new Exception("Vous n'avez pas accès à ce document");
             }
 
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-            
-            if (!file_exists($filePath)) {
-                throw new Exception("Fichier non trouvé");
-            }
-
-            // Définir les headers pour le téléchargement
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
-            header('Content-Length: ' . filesize($filePath));
-            header('Cache-Control: no-cache, must-revalidate');
-            header('Pragma: no-cache');
-
-            // Nettoyer les buffers de sortie avant d'envoyer le fichier
-            if (ob_get_level()) {
-                ob_end_clean();
-            }
-
-            // Lire et envoyer le fichier
-            readfile($filePath);
-            exit;
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->download($attachmentId, true);
 
         } catch (Exception $e) {
             custom_log("Erreur lors du téléchargement de la pièce jointe : " . $e->getMessage(), 'ERROR');
@@ -1246,52 +1226,9 @@ class DocumentationClientController {
                 throw new Exception("Vous n'avez pas accès à ce document");
             }
 
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-            
-            if (!file_exists($filePath)) {
-                throw new Exception("Fichier non trouvé");
-            }
-
-            // Définir les en-têtes pour l'aperçu
-            $mimeType = mime_content_type($filePath);
-            
-            if (!$mimeType) {
-                // Fallback basé sur l'extension si mime_content_type échoue
-                $extension = strtolower(pathinfo($pieceJointe['nom_fichier'], PATHINFO_EXTENSION));
-                switch ($extension) {
-                    case 'pdf':
-                        $mimeType = 'application/pdf';
-                        break;
-                    case 'jpg':
-                    case 'jpeg':
-                        $mimeType = 'image/jpeg';
-                        break;
-                    case 'png':
-                        $mimeType = 'image/png';
-                        break;
-                    case 'gif':
-                        $mimeType = 'image/gif';
-                        break;
-                    case 'webp':
-                        $mimeType = 'image/webp';
-                        break;
-                    default:
-                        $mimeType = 'application/octet-stream';
-                }
-            }
-
-            header('Content-Type: ' . $mimeType);
-            header('Content-Length: ' . filesize($filePath));
-            header('Cache-Control: public, max-age=3600');
-
-            // Nettoyer les buffers de sortie avant d'envoyer le fichier
-            if (ob_get_level()) {
-                ob_end_clean();
-            }
-
-            // Lire et envoyer le fichier
-            readfile($filePath);
-            exit;
+            // Utiliser AttachmentService pour gérer l'aperçu
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->preview($attachmentId);
 
         } catch (Exception $e) {
             custom_log("Erreur lors de l'aperçu de la pièce jointe : " . $e->getMessage(), 'ERROR');

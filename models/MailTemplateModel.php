@@ -1,15 +1,14 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
 /**
  * Modèle pour la gestion des templates d'emails
  */
-class MailTemplateModel {
-    private $db;
-    private $table = 'mail_templates';
-
+class MailTemplateModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'mail_templates';
     }
 
     /**
@@ -17,7 +16,7 @@ class MailTemplateModel {
      * @return array Liste des templates
      */
     public function getAll() {
-        $sql = "SELECT * FROM " . $this->table . " ORDER BY template_type, name";
+        $sql = "SELECT id, name, subject, body, description, template_type, is_active, created_at, updated_at FROM " . $this->table . " ORDER BY template_type, name";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -29,10 +28,7 @@ class MailTemplateModel {
      * @return array|null Le template ou null
      */
     public function getById($id) {
-        $sql = "SELECT * FROM " . $this->table . " WHERE id = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->find($id);
     }
 
     /**
@@ -41,7 +37,7 @@ class MailTemplateModel {
      * @return array|null Le template ou null
      */
     public function getByType($type) {
-        $sql = "SELECT * FROM " . $this->table . " WHERE template_type = ? AND is_active = 1 LIMIT 1";
+        $sql = "SELECT id, name, subject, body, description, template_type, is_active, created_at, updated_at FROM " . $this->table . " WHERE template_type = ? AND is_active = 1 LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$type]);
         return $stmt->fetch(PDO::FETCH_ASSOC);
@@ -62,23 +58,18 @@ class MailTemplateModel {
     /**
      * Crée un nouveau template
      * @param array $data Données du template
-     * @return int ID du template créé
+     * @return int|false ID du template créé ou false en cas d'erreur
      */
     public function create($data) {
-        $sql = "INSERT INTO " . $this->table . " (name, template_type, subject, body, description, is_active) 
-                VALUES (?, ?, ?, ?, ?, ?)";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            $data['name'],
-            $data['template_type'],
-            $data['subject'],
-            $data['body'],
-            $data['description'],
-            $data['is_active']
-        ]);
-        
-        return $this->db->lastInsertId();
+        $insertData = [
+            'name' => $data['name'],
+            'template_type' => $data['template_type'],
+            'subject' => $data['subject'],
+            'body' => $data['body'],
+            'description' => $data['description'] ?? null,
+            'is_active' => $data['is_active'] ?? 1
+        ];
+        return parent::create($insertData);
     }
 
     /**
@@ -88,20 +79,15 @@ class MailTemplateModel {
      * @return bool Succès de la mise à jour
      */
     public function update($id, $data) {
-        $sql = "UPDATE " . $this->table . " SET 
-                name = ?, template_type = ?, subject = ?, body = ?, description = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP 
-                WHERE id = ?";
-        
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([
-            $data['name'],
-            $data['template_type'],
-            $data['subject'],
-            $data['body'],
-            $data['description'],
-            $data['is_active'],
-            $id
-        ]);
+        $updateData = [
+            'name' => $data['name'],
+            'template_type' => $data['template_type'],
+            'subject' => $data['subject'],
+            'body' => $data['body'],
+            'description' => $data['description'] ?? null,
+            'is_active' => $data['is_active'] ?? 1
+        ];
+        return parent::update($id, $updateData);
     }
 
     /**
@@ -110,9 +96,7 @@ class MailTemplateModel {
      * @return bool Succès de la suppression
      */
     public function delete($id) {
-        $sql = "DELETE FROM " . $this->table . " WHERE id = ?";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([$id]);
+        return parent::delete($id);
     }
 
     /**
@@ -133,7 +117,7 @@ class MailTemplateModel {
      * @return array Liste des templates
      */
     public function getByTemplateType($type) {
-        $sql = "SELECT * FROM " . $this->table . " WHERE template_type = ? ORDER BY name";
+        $sql = "SELECT id, name, subject, body, description, template_type, is_active, created_at, updated_at FROM " . $this->table . " WHERE template_type = ? ORDER BY name";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$type]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

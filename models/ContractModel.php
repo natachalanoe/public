@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class ContractModel {
-    private $db;
-
+class ContractModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'contracts';
     }
 
     public function getContractsByClientId($clientId, $siteId = null, $roomId = null, $includeInactive = false) {
@@ -117,7 +117,7 @@ class ContractModel {
     }
 
     public function getContractTypes() {
-        $query = "SELECT * FROM contract_types ORDER BY ordre_affichage, name";
+        $query = "SELECT id, name, description, default_tickets, nb_inter_prev, ordre_affichage, created_at, updated_at FROM contract_types ORDER BY ordre_affichage, name";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -129,7 +129,7 @@ class ContractModel {
      * @return array|null Les données du type de contrat ou null si non trouvé
      */
     public function getContractTypeById($id) {
-        $query = "SELECT * FROM contract_types WHERE id = :id";
+        $query = "SELECT id, name, description, default_tickets, nb_inter_prev, ordre_affichage, created_at, updated_at FROM contract_types WHERE id = :id";
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':id', $id, PDO::PARAM_INT);
         $stmt->execute();

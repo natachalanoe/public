@@ -251,6 +251,7 @@ if (!empty($sites)) {
         </div>
         <div class="card-body">
             <form method="POST" action="<?= BASE_URL ?>documentation_client/store" class="needs-validation" novalidate id="documentationForm">
+                <?= csrf_field() ?>
                 <!-- Sélection du site/salle -->
                 <div class="row mb-4">
                     <div class="col-md-6">
@@ -551,6 +552,7 @@ class DocumentationUploader {
         fetch('<?= BASE_URL ?>documentation_client/store', {
             method: 'POST',
             headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>',
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData

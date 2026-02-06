@@ -1,8 +1,11 @@
 <?php
 require_once __DIR__ . '/../models/MaterielClientModel.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
 
 class MaterielClientController {
+    use AccessControlTrait;
     private $db;
     private $model;
 
@@ -12,39 +15,12 @@ class MaterielClientController {
         $this->model = new MaterielClientModel($this->db);
     }
 
-    /**
-     * Vérifie si l'utilisateur est connecté et a les permissions client
-     */
-    private function checkAccess() {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
-        }
-
-        // Vérifier que l'utilisateur est un client
-        if (!isClient()) {
-            $_SESSION['error'] = "Accès réservé aux clients.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-
-        // Vérifier que l'utilisateur a la permission de voir le matériel
-        $user = $_SESSION['user'];
-        if (isset($user['permissions']['rights']['client_view_materiel']) && 
-            $user['permissions']['rights']['client_view_materiel'] === true) {
-            // Permission OK
-        } else {
-            $_SESSION['error'] = "Vous n'avez pas les permissions pour accéder au matériel.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-    }
 
     /**
      * Affiche la liste du matériel du client
      */
     public function index() {
-        $this->checkAccess();
+        $this->checkClientPermission('client_view_materiel', "Vous n'avez pas les permissions pour accéder au matériel.");
 
         // Récupérer les localisations autorisées de l'utilisateur
         $userLocations = getUserLocations();
@@ -91,9 +67,15 @@ class MaterielClientController {
                 $materiel_ids = array_column($materiel_list, 'id');
                 $visibilites_champs = $this->model->getVisibiliteChampsForMateriels($materiel_ids);
                 
-                // Récupération du nombre de pièces jointes pour chaque matériel
-                foreach ($materiel_ids as $materiel_id) {
-                    $pieces_jointes_count[$materiel_id] = $this->model->getPiecesJointesCount($materiel_id);
+                // OPTIMISATION N+1 : Récupération du nombre de pièces jointes pour tous les matériels en une seule requête
+                // Au lieu de faire N requêtes (une par matériel), on fait 1 seule requête avec GROUP BY
+                $pieces_jointes_count = $this->model->getPiecesJointesCountForMultiple($materiel_ids);
+                
+                // Initialiser à 0 pour les matériels sans pièces jointes
+                foreach ($materiel_ids as $id) {
+                    if (!isset($pieces_jointes_count[$id])) {
+                        $pieces_jointes_count[$id] = 0;
+                    }
                 }
             }
 
@@ -127,7 +109,7 @@ class MaterielClientController {
         error_log("DEBUG: MaterielClientController::salle() appelé avec salleId = $salleId");
         
         try {
-            $this->checkAccess();
+            $this->checkClientPermission('client_view_materiel', "Vous n'avez pas les permissions pour accéder au matériel.");
             error_log("DEBUG: checkAccess() OK");
 
             // Récupérer les localisations autorisées de l'utilisateur
@@ -174,7 +156,7 @@ class MaterielClientController {
      * Affiche les détails d'un matériel
      */
     public function view($id) {
-        $this->checkAccess();
+        $this->checkClientPermission('client_view_materiel', "Vous n'avez pas les permissions pour accéder au matériel.");
 
         // Récupérer les localisations autorisées de l'utilisateur
         $userLocations = getUserLocations();
@@ -216,7 +198,7 @@ class MaterielClientController {
      * Récupère les sites selon les localisations autorisées (AJAX)
      */
     public function get_sites() {
-        $this->checkAccess();
+        $this->checkClientPermission('client_view_materiel', "Vous n'avez pas les permissions pour accéder au matériel.");
 
         $userLocations = getUserLocations();
         $sites = $this->model->getSitesByLocations($userLocations);
@@ -229,7 +211,7 @@ class MaterielClientController {
      * Récupère les salles d'un site selon les localisations autorisées (AJAX)
      */
     public function get_rooms() {
-        $this->checkAccess();
+        $this->checkClientPermission('client_view_materiel', "Vous n'avez pas les permissions pour accéder au matériel.");
 
         $siteId = $_GET['site_id'] ?? null;
         if (!$siteId) {
@@ -242,5 +224,77 @@ class MaterielClientController {
 
         header('Content-Type: application/json');
         echo json_encode($rooms);
+    }
+
+    /**
+     * Télécharge une pièce jointe (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
+    public function download($attachmentId) {
+        $this->checkClientPermission('client_view_materiel');
+        
+        try {
+            $userLocations = getUserLocations();
+            
+            // Vérifier que la pièce jointe appartient à un matériel accessible
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentData = $attachmentService->getAttachmentById($attachmentId);
+            
+            if (!$attachmentData || $attachmentData['type_liaison'] !== AttachmentService::TYPE_MATERIEL) {
+                throw new Exception('Pièce jointe non trouvée.');
+            }
+            
+            // Vérifier l'accès au matériel
+            $materiel = $this->model->getByIdWithAccess($attachmentData['entite_id'], $userLocations);
+            if (!$materiel) {
+                throw new Exception('Vous n\'êtes pas autorisé à accéder à cette pièce jointe.');
+            }
+            
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService->download($attachmentId, true);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors du téléchargement de la pièce jointe (client matériel) : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors du téléchargement : " . $e->getMessage();
+            $materielId = $attachmentData['entite_id'] ?? 0;
+            header('Location: ' . BASE_URL . 'materiel_client/view/' . $materielId);
+            exit;
+        }
+    }
+
+    /**
+     * Aperçu d'une pièce jointe (client)
+     * Utilise AttachmentService pour centraliser la logique
+     */
+    public function preview($attachmentId) {
+        $this->checkClientPermission('client_view_materiel');
+        
+        try {
+            $userLocations = getUserLocations();
+            
+            // Vérifier que la pièce jointe appartient à un matériel accessible
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentData = $attachmentService->getAttachmentById($attachmentId);
+            
+            if (!$attachmentData || $attachmentData['type_liaison'] !== AttachmentService::TYPE_MATERIEL) {
+                throw new Exception('Pièce jointe non trouvée.');
+            }
+            
+            // Vérifier l'accès au matériel
+            $materiel = $this->model->getByIdWithAccess($attachmentData['entite_id'], $userLocations);
+            if (!$materiel) {
+                throw new Exception('Vous n\'êtes pas autorisé à accéder à cette pièce jointe.');
+            }
+            
+            // Utiliser AttachmentService pour gérer l'aperçu
+            $attachmentService->preview($attachmentId);
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'aperçu de la pièce jointe (client matériel) : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors de l'aperçu : " . $e->getMessage();
+            $materielId = $attachmentData['entite_id'] ?? 0;
+            header('Location: ' . BASE_URL . 'materiel_client/view/' . $materielId);
+            exit;
+        }
     }
 } 

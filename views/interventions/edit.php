@@ -92,6 +92,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             </div>
             <div class="card-body py-2">
                 <form action="<?php echo BASE_URL; ?>interventions/update/<?php echo $intervention['id']; ?>" method="post" id="interventionForm">
+                    <?= csrf_field() ?>
                     <div class="row g-3">
                         <!-- Colonne 1 : Client, Site, Salle -->
                         <div class="col-md-3">
@@ -807,6 +808,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <div class="modal-dialog">
         <div class="modal-content">
             <form action="<?php echo BASE_URL; ?>interventions/addComment/<?php echo $intervention['id']; ?>" method="post">
+                <?= csrf_field() ?>
                 <div class="modal-header">
                     <h5 class="modal-title" id="addCommentModalLabel">Ajouter un commentaire</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -847,6 +849,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
     <div class="modal-dialog">
         <div class="modal-content">
             <form action="<?php echo BASE_URL; ?>interventions/addAttachment/<?php echo $intervention['id']; ?>" method="post" enctype="multipart/form-data">
+                <?= csrf_field() ?>
                 <div class="modal-header">
                     <h5 class="modal-title" id="addAttachmentModalLabel">Ajouter une pièce jointe</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1134,7 +1137,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 clientSpinner.classList.remove('d-none');
                 clientIcon.classList.add('d-none');
                 saveQuickClientBtn.disabled = true;
-                fetch(`${BASE_URL}interventions/quickCreateClient`, { method: 'POST', body: formData })
+                fetch(`${BASE_URL}interventions/quickCreateClient`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': '<?= csrf_token() ?>'
+                    },
+                    body: formData
+                })
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
@@ -1170,7 +1179,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 siteSpinner.classList.remove('d-none');
                 siteIcon.classList.add('d-none');
                 saveQuickSiteBtn.disabled = true;
-                fetch(`${BASE_URL}interventions/quickCreateSite`, { method: 'POST', body: formData })
+                fetch(`${BASE_URL}interventions/quickCreateSite`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': '<?= csrf_token() ?>'
+                    },
+                    body: formData
+                })
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
@@ -1207,7 +1222,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 roomSpinner.classList.remove('d-none');
                 roomIcon.classList.add('d-none');
                 saveQuickRoomBtn.disabled = true;
-                fetch(`${BASE_URL}interventions/quickCreateRoom`, { method: 'POST', body: formData })
+                fetch(`${BASE_URL}interventions/quickCreateRoom`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': '<?= csrf_token() ?>'
+                    },
+                    body: formData
+                })
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
@@ -1245,7 +1266,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 contactSpinner.classList.remove('d-none');
                 contactIcon.classList.add('d-none');
                 saveQuickContactBtn.disabled = true;
-                fetch(`${BASE_URL}interventions/quickCreateContact`, { method: 'POST', body: formData })
+                fetch(`${BASE_URL}interventions/quickCreateContact`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': '<?= csrf_token() ?>'
+                    },
+                    body: formData
+                })
                     .then(r => r.json())
                     .then(data => {
                         if (data.success) {
@@ -1710,6 +1737,9 @@ document.getElementById('editAttachmentNameForm').addEventListener('submit', fun
             // Envoyer la requête AJAX
             fetch(`${BASE_URL}interventions/quickCreateClient`, {
                 method: 'POST',
+                headers: {
+                    'X-CSRF-Token': '<?= csrf_token() ?>'
+                },
                 body: formData
             })
             .then(response => response.json())
@@ -1803,6 +1833,9 @@ document.getElementById('editAttachmentNameForm').addEventListener('submit', fun
             // Envoyer la requête AJAX
             fetch(`${BASE_URL}interventions/quickCreateSite`, {
                 method: 'POST',
+                headers: {
+                    'X-CSRF-Token': '<?= csrf_token() ?>'
+                },
                 body: formData
             })
             .then(response => response.json())
@@ -1896,6 +1929,9 @@ document.getElementById('editAttachmentNameForm').addEventListener('submit', fun
             // Envoyer la requête AJAX
             fetch(`${BASE_URL}interventions/quickCreateRoom`, {
                 method: 'POST',
+                headers: {
+                    'X-CSRF-Token': '<?= csrf_token() ?>'
+                },
                 body: formData
             })
             .then(response => response.json())
@@ -1995,6 +2031,9 @@ document.getElementById('editAttachmentNameForm').addEventListener('submit', fun
             // Envoyer la requête AJAX
             fetch(`${BASE_URL}interventions/quickCreateContact`, {
                 method: 'POST',
+                headers: {
+                    'X-CSRF-Token': '<?= csrf_token() ?>'
+                },
                 body: formData
             })
             .then(response => response.json())
@@ -2235,6 +2274,9 @@ function saveInterventionDataBeforeClose() {
     // Envoyer les données
     fetch('<?php echo BASE_URL; ?>interventions/update/<?php echo $intervention['id']; ?>', {
         method: 'POST',
+        headers: {
+            'X-CSRF-Token': '<?= csrf_token() ?>'
+        },
         body: formData,
         credentials: 'same-origin'
     })

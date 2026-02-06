@@ -1,14 +1,14 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
+
 /**
  * Modèle pour la gestion des interventions clients
  * Filtre automatiquement selon les localisations autorisées
  */
-class InterventionsClientModel {
-    private $db;
-    private $table = 'interventions';
-
+class InterventionsClientModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'interventions';
     }
 
     /**
@@ -380,11 +380,31 @@ class InterventionsClientModel {
      */
     public function updateComment($commentId, $comment) {
         try {
-            $sql = "UPDATE intervention_comments SET comment = ?, updated_at = NOW() WHERE id = ?";
+            // Vérifier si la colonne updated_at existe, sinon ne pas l'utiliser
+            $sql = "UPDATE intervention_comments SET comment = ? WHERE id = ?";
             $stmt = $this->db->prepare($sql);
-            return $stmt->execute([$comment, $commentId]);
+            $result = $stmt->execute([$comment, $commentId]);
+            
+            if (!$result) {
+                $errorInfo = $stmt->errorInfo();
+                custom_log("Erreur SQL lors de la modification du commentaire ID {$commentId}: " . print_r($errorInfo, true), 'ERROR');
+                return false;
+            }
+            
+            // Si la colonne updated_at existe, la mettre à jour
+            try {
+                $sqlUpdate = "UPDATE intervention_comments SET updated_at = NOW() WHERE id = ?";
+                $stmtUpdate = $this->db->prepare($sqlUpdate);
+                $stmtUpdate->execute([$commentId]);
+            } catch (Exception $e) {
+                // La colonne updated_at n'existe peut-être pas, ce n'est pas grave
+                custom_log("Note: colonne updated_at non disponible pour intervention_comments", 'DEBUG');
+            }
+            
+            return true;
         } catch (Exception $e) {
-            custom_log("Erreur lors de la modification du commentaire: " . $e->getMessage(), 'ERROR');
+            custom_log("Erreur lors de la modification du commentaire ID {$commentId}: " . $e->getMessage(), 'ERROR');
+            custom_log("Stack trace: " . $e->getTraceAsString(), 'ERROR');
             return false;
         }
     }
@@ -556,7 +576,7 @@ class InterventionsClientModel {
      * @return array Liste des statuts
      */
     public function getAllStatuses() {
-        $sql = "SELECT * FROM intervention_statuses ORDER BY id ASC";
+        $sql = "SELECT id, name, color, is_critical, created_at FROM intervention_statuses ORDER BY id ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -567,7 +587,7 @@ class InterventionsClientModel {
      * @return array Liste des priorités
      */
     public function getAllPriorities() {
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id ASC";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -595,7 +615,7 @@ class InterventionsClientModel {
      * @return array Liste des contacts
      */
     public function getContactsByClient($clientId) {
-        $sql = "SELECT * FROM contacts 
+        $sql = "SELECT id, client_id, first_name, last_name, fonction, phone1, phone2, email, comment, status, has_user_account, user_id, created_at, updated_at FROM contacts 
                 WHERE client_id = ? AND status = 1 
                 ORDER BY last_name, first_name ASC";
         $stmt = $this->db->prepare($sql);

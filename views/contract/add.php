@@ -60,6 +60,10 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
 // Initialiser BASE_URL pour JavaScript
 echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
+// Passer les données nécessaires au JavaScript
+if (isset($client) && $client) {
+    echo '<script>document.getElementById("client_id_select").setAttribute("data-client-id", "' . $client['id'] . '");</script>';
+}
 ?>
 
 <div class="container-fluid flex-grow-1 container-p-y">
@@ -92,6 +96,7 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
         </div>
         <div class="card-body py-2">
             <form id="contractForm" action="<?php echo BASE_URL; ?>contracts/create<?php echo isset($_GET['return_to']) ? '?return_to=' . $_GET['return_to'] : ''; ?>" method="POST">
+                <?= csrf_field() ?>
                 <?php if ($client): ?>
                 <input type="hidden" name="client_id" value="<?php echo $client['id']; ?>">
                     <p class="mb-3"><strong>Client :</strong> <?php echo h($client['name']); ?></p>
@@ -122,7 +127,8 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
 
                         <div class="mb-3">
                             <label for="contract_type_id" class="form-label">Type de contrat <span class="text-danger">*</span></label>
-                            <select class="form-control bg-body text-body" id="contract_type_id" name="contract_type_id" required>
+                            <select class="form-control bg-body text-body" id="contract_type_id" name="contract_type_id" required
+                                    data-contract-types='<?php echo json_encode($contractTypes); ?>'>
                                 <option value="">Sélectionnez un type</option>
                                 <?php foreach ($contractTypes as $type): ?>
                                     <option value="<?php echo $type['id']; ?>" 
@@ -307,89 +313,11 @@ echo '<script>const baseUrl = "' . BASE_URL . '";</script>';
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialiser BASE_URL pour les fonctions communes
-    initBaseUrl(baseUrl);
-    
-    // Initialiser la validation Bootstrap
-    initBootstrapValidation();
-    
-    const clientSelect = document.getElementById('client_id_select');
-    const roomsContainer = document.getElementById('rooms-container');
-    const contractTypes = <?php echo json_encode($contractTypes); ?>;
-    const contractTypeSelect = document.getElementById('contract_type_id');
-    const ticketsNumberInput = document.getElementById('tickets_number');
-    const startDateInput = document.getElementById('start_date');
-    const endDateInput = document.getElementById('end_date');
+<!-- JavaScript extrait vers public/assets/js/pages/contracts-form.js -->
+<!-- Code JavaScript supprimé - Utilise maintenant contracts-form.js -->
 
-    // Fonction pour mettre à jour les champs selon le type de contrat sélectionné
-    function updateFieldsBasedOnContractType() {
-        const selectedType = contractTypes.find(type => type.id == contractTypeSelect.value);
-        if (selectedType) {
-            ticketsNumberInput.value = selectedType.default_tickets;
-            
-            // Cocher automatiquement la case isticketcontract si le type a des tickets par défaut > 0
-            const isticketcontractCheckbox = document.getElementById('isticketcontract');
-            if (selectedType.default_tickets > 0) {
-                isticketcontractCheckbox.checked = true;
-            } else {
-                isticketcontractCheckbox.checked = false;
-            }
-        }
-    }
-
-    // Mettre à jour les champs quand le type de contrat change
-    contractTypeSelect.addEventListener('change', updateFieldsBasedOnContractType);
-    
-    // Initialiser les champs au chargement de la page si un type est déjà sélectionné
-    updateFieldsBasedOnContractType();
-
-    // Calculer automatiquement la date de fin au 31 décembre de l'année suivante
-    startDateInput.addEventListener('change', function() {
-        if (this.value) {
-            const startDate = new Date(this.value);
-            const startYear = startDate.getFullYear();
-            const endYear = startYear + 1;
-            
-            // Créer la date de fin au 31 décembre de l'année suivante
-            const endDate = new Date(endYear, 11, 31); // 11 = décembre (0-indexé)
-            
-            // Formater la date au format YYYY-MM-DD
-            const year = endDate.getFullYear();
-            const month = String(endDate.getMonth() + 1).padStart(2, '0');
-            const day = String(endDate.getDate()).padStart(2, '0');
-            const formattedEndDate = `${year}-${month}-${day}`;
-            
-            endDateInput.value = formattedEndDate;
-        }
-    });
-
-    // Utiliser la fonction standardisée pour charger les salles
-    if (clientSelect) {
-        clientSelect.addEventListener('change', function() {
-            if (this.value) {
-                loadContractRoomsSimple(this.value, 'rooms-container');
-            } else {
-                roomsContainer.innerHTML = `
-                    <div class="text-center text-muted">
-                        <i class="bi bi-info-circle me-1"></i>
-                        Sélectionnez d'abord un client
-                    </div>
-                `;
-            }
-        });
-        
-        // Si un client est déjà sélectionné (ex: rechargement avec erreur de formulaire), charger ses salles
-        if (clientSelect.value) {
-            loadContractRoomsSimple(clientSelect.value, 'rooms-container');
-        }
-    } else if (<?php echo $client ? 'true' : 'false'; ?>) {
-        // Si le client est fixé (passé par l'URL), charger ses salles au démarrage
-        loadContractRoomsSimple(<?php echo $client ? $client['id'] : 'null'; ?>, 'rooms-container');
-    }
-});
-</script>
+<!-- JavaScript spécifique aux formulaires de contrats -->
+<script src="<?php echo BASE_URL; ?>assets/js/pages/contracts-form.js" onerror="console.error('ERREUR: contracts-form.js n\'a pas pu être chargé. Vérifiez que le fichier existe et est accessible.');"></script>
 
 <?php
 // Inclure le footer

@@ -421,9 +421,10 @@ function saveSelection() {
     
     return fetch(`<?php echo BASE_URL; ?>interventions/saveBonSelection/<?php echo $intervention['id']; ?>`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>',
+                'Content-Type': 'application/json',
+            },
         body: JSON.stringify({
             comments: selectedComments,
             attachments: selectedAttachments

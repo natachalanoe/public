@@ -1,22 +1,19 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
+
 /**
  * Modèle pour la gestion des durées d'intervention
  */
-class DurationModel {
-    private $db;
-    private $table = 'intervention_durations';
-
+class DurationModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'intervention_durations';
     }
 
     /**
      * Récupère toutes les durées disponibles
      */
     public function getAll() {
-        $sql = "SELECT * FROM " . $this->table . " ORDER BY duration";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $this->findAll([], ['orderBy' => 'duration']);
     }
 } 

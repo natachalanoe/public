@@ -258,9 +258,17 @@ class UserController {
                         }
 
                         // Gérer les localisations - utiliser directement la valeur du formulaire
-                        if (isset($_POST['locations']) && $data['type'] === 'client') {
+                        // Si c'est un client, toujours traiter les localisations (même si vides pour supprimer les anciennes)
+                        if ($data['type'] === 'client') {
+                            $locations = $_POST['locations'] ?? [];
                             custom_log("Sauvegarde des localisations pour l'utilisateur {$id}, type: {$data['type']}", 'INFO');
-                            $this->userModel->saveUserLocations($id, $_POST['locations']);
+                            custom_log("Localisations reçues: " . json_encode($locations), 'DEBUG');
+                            $result = $this->userModel->saveUserLocations($id, $locations);
+                            custom_log("Résultat de saveUserLocations: " . ($result ? 'SUCCÈS' : 'ÉCHEC'), $result ? 'INFO' : 'ERROR');
+                        } else {
+                            // Si ce n'est plus un client, supprimer toutes les localisations
+                            custom_log("Utilisateur {$id} n'est plus un client, suppression des localisations", 'INFO');
+                            $this->userModel->saveUserLocations($id, []);
                         }
                     }
                     header('Location: ' . BASE_URL . 'user');

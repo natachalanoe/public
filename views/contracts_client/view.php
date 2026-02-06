@@ -189,7 +189,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                                         </small>
                                     </div>
                                     <div class="ms-3">
-                                        <a href="<?= BASE_URL; ?>contracts/download?attachment_id=<?= $att['id'] ?>" 
+                                        <a href="<?= BASE_URL; ?>contracts_client/download?attachment_id=<?= $att['id'] ?>" 
                                            target="_blank" 
                                            class="btn btn-sm btn-outline-primary" 
                                            title="Télécharger">

@@ -1,19 +1,19 @@
 <?php
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
 /**
  * Modèle pour la gestion des types d'intervention
  */
-class InterventionTypeModel {
-    private $db;
-    private $table = 'intervention_types';
-
+class InterventionTypeModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'intervention_types';
     }
 
     /**
      * Récupère tous les types d'intervention avec le nombre d'interventions
+     * Note: Pas de cache car le COUNT(i.id) change à chaque nouvelle intervention
      * @return array Liste des types d'intervention avec intervention_count
      */
     public function getAll() {
@@ -33,10 +33,7 @@ class InterventionTypeModel {
      * @return array|null Les données du type d'intervention ou null si non trouvé
      */
     public function getById($id) {
-        $sql = "SELECT * FROM " . $this->table . " WHERE id = ?";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$id]);
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->find($id);
     }
 
     /**
@@ -45,14 +42,9 @@ class InterventionTypeModel {
      * @return int|false L'ID du nouveau type d'intervention ou false en cas d'erreur
      */
     public function create($data) {
-        $sql = "INSERT INTO " . $this->table . " (name, requires_travel) VALUES (?, ?)";
-        $stmt = $this->db->prepare($sql);
-        
-        if ($stmt->execute([$data['name'], $data['requires_travel'] ? 1 : 0])) {
-            return $this->db->lastInsertId();
-        }
-        
-        return false;
+        // Normaliser requires_travel en booléen
+        $data['requires_travel'] = isset($data['requires_travel']) ? ($data['requires_travel'] ? 1 : 0) : 0;
+        return parent::create($data);
     }
 
     /**
@@ -62,9 +54,11 @@ class InterventionTypeModel {
      * @return bool True si la mise à jour a réussi, false sinon
      */
     public function update($id, $data) {
-        $sql = "UPDATE " . $this->table . " SET name = ?, requires_travel = ? WHERE id = ?";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([$data['name'], $data['requires_travel'] ? 1 : 0, $id]);
+        // Normaliser requires_travel en booléen
+        if (isset($data['requires_travel'])) {
+            $data['requires_travel'] = $data['requires_travel'] ? 1 : 0;
+        }
+        return parent::update($id, $data);
     }
 
     /**
@@ -73,9 +67,7 @@ class InterventionTypeModel {
      * @return bool True si la suppression a réussi, false sinon
      */
     public function delete($id) {
-        $sql = "DELETE FROM " . $this->table . " WHERE id = ?";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([$id]);
+        return parent::delete($id);
     }
 
     /**

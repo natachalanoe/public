@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class SiteModel {
-    private $db;
-
+class SiteModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'sites';
     }
 
     /**
@@ -143,12 +143,8 @@ class SiteModel {
             $stmtRooms->bindParam(':site_id', $id, PDO::PARAM_INT);
             $stmtRooms->execute();
 
-            // 2. Supprimer le site lui-même
-            $querySite = "DELETE FROM sites WHERE id = :id";
-            $stmtSite = $this->db->prepare($querySite);
-            $stmtSite->bindParam(':id', $id, PDO::PARAM_INT);
-            
-            if (!$stmtSite->execute()) {
+            // 2. Supprimer le site lui-même (utilise BaseModel::delete())
+            if (!parent::delete($id)) {
                 // If site deletion fails, roll back
                 $this->db->rollBack();
                 error_log("Erreur lors de la suppression du site ID: " . $id . " - Échec de la suppression du site principal.");
@@ -195,7 +191,7 @@ class SiteModel {
     }
 
     public function getAllSites() {
-        $query = "SELECT * FROM sites ORDER BY name";
+        $query = "SELECT id, client_id, name, address, postal_code, city, phone, email, comment, status, main_contact_id, created_at, updated_at FROM sites ORDER BY name";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -1,8 +1,10 @@
 <?php
 require_once __DIR__ . '/../models/ContractTypeModel.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class ContractTypeController {
+    use AccessControlTrait;
     private $db;
     private $contractTypeModel;
 
@@ -12,22 +14,10 @@ class ContractTypeController {
     }
 
     /**
-     * Vérifie que l'utilisateur est connecté et est admin
-     */
-    private function checkAdminAccess() {
-        checkStaffAccess();
-        if (!isAdmin()) {
-            $_SESSION['error'] = "Seuls les administrateurs peuvent gérer les types de contrats.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-    }
-
-    /**
      * Affiche la liste des types de contrats
      */
     public function index() {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les types de contrats.");
 
         try {
             $contractTypes = $this->contractTypeModel->getAllContractTypes();
@@ -54,7 +44,7 @@ class ContractTypeController {
      * Affiche le formulaire d'ajout d'un type de contrat
      */
     public function add() {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les types de contrats.");
 
         $formData = [];
         
@@ -74,7 +64,7 @@ class ContractTypeController {
      * Traite l'ajout d'un type de contrat
      */
     public function create() {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les types de contrats.");
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ' . BASE_URL . 'settings/contractTypes');
@@ -127,7 +117,7 @@ class ContractTypeController {
      * Affiche le formulaire d'édition d'un type de contrat
      */
     public function edit($id = null) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les types de contrats.");
 
         if (!$id || !is_numeric($id)) {
             $_SESSION['error'] = "ID de type de contrat invalide.";
@@ -170,7 +160,7 @@ class ContractTypeController {
      * Traite la modification d'un type de contrat
      */
     public function update($id = null) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les types de contrats.");
 
         if (!$id || !is_numeric($id)) {
             $_SESSION['error'] = "ID de type de contrat invalide.";
@@ -229,7 +219,7 @@ class ContractTypeController {
      * Supprime un type de contrat
      */
     public function delete($id = null) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les types de contrats.");
 
         if (!$id || !is_numeric($id)) {
             $_SESSION['error'] = "ID de type de contrat invalide.";
@@ -261,7 +251,7 @@ class ContractTypeController {
      * Met à jour l'ordre d'affichage des types de contrats
      */
     public function updateOrder() {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les types de contrats.");
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ' . BASE_URL . 'settings/contractTypes');

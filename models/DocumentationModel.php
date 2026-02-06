@@ -1,10 +1,10 @@
 <?php
-class DocumentationModel {
-    private $db;
-    private $table = 'documentation';
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
+class DocumentationModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'documentation';
     }
 
     /**
@@ -46,7 +46,7 @@ class DocumentationModel {
      * Récupère les documents d'un utilisateur spécifique
      */
     public function getUserDocuments($userId) {
-        $query = "SELECT * FROM {$this->table} WHERE user_id = :user_id ORDER BY created_at DESC";
+        $query = "SELECT id, client_id, site_id, room_id, category_id, title, description, content, attachment_path, visible_by_client, created_by, created_at, updated_at FROM {$this->table} WHERE user_id = :user_id ORDER BY created_at DESC";
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':user_id', $userId);
         $stmt->execute();

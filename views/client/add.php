@@ -65,6 +65,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
                 <div class="card-body py-2">
                     <form id="clientForm" action="<?php echo BASE_URL; ?>clients/store" method="POST">
+                        <?= csrf_field() ?>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">

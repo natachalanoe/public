@@ -4,8 +4,11 @@ require_once __DIR__ . '/../models/DocumentationCategoryModel.php';
 require_once __DIR__ . '/../models/ClientModel.php';
 require_once __DIR__ . '/../models/SiteModel.php';
 require_once __DIR__ . '/../models/RoomModel.php';
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class DocumentationController {
+    use AccessControlTrait;
     private $db;
     private $documentationModel;
     private $categoryModel;
@@ -57,22 +60,10 @@ class DocumentationController {
 
     /**
      * Vérifie si l'utilisateur est connecté
+     * Utilise AccessControlTrait::checkAccessWithAjax() pour gérer les requêtes AJAX
      */
     private function checkAccess() {
-        if (!isset($_SESSION['user'])) {
-            // Vérifier si c'est une requête AJAX
-            if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-                strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
-                // Réponse JSON pour les requêtes AJAX
-                header('Content-Type: application/json');
-                echo json_encode(['error' => 'Session expirée. Veuillez vous reconnecter.']);
-                exit;
-            } else {
-                // Redirection normale pour les requêtes classiques
-                header('Location: ' . BASE_URL . 'auth/login');
-                exit;
-            }
-        }
+        $this->checkAccessWithAjax();
     }
 
     /**
@@ -1346,46 +1337,42 @@ class DocumentationController {
     /**
      * Supprime un document via AJAX
      */
+    /**
+     * Supprime une pièce jointe de documentation
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function deleteAttachment($id) {
         $this->checkAccess();
         
-        // Récupérer le document depuis pieces_jointes
-        $query = "SELECT pj.*, lpj.type_liaison, lpj.entite_id 
-                  FROM pieces_jointes pj 
-                  LEFT JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id 
-                  WHERE pj.id = ?";
-        $stmt = $this->db->prepare($query);
-        $stmt->execute([$id]);
-        $document = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if (!$document) {
-            http_response_code(404);
-            echo json_encode(['success' => false, 'message' => 'Document non trouvé.']);
-            exit;
-        }
-
-        // Supprimer le fichier physique s'il existe
-        if (!empty($document['chemin_fichier'])) {
-            $filePath = __DIR__ . '/../../' . $document['chemin_fichier'];
-            if (file_exists($filePath)) {
-                unlink($filePath);
+        try {
+            // Récupérer le document pour obtenir le type de liaison
+            $query = "SELECT pj.*, lpj.type_liaison, lpj.entite_id 
+                      FROM pieces_jointes pj 
+                      LEFT JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id 
+                      WHERE pj.id = ?";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([$id]);
+            $document = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$document) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'message' => 'Document non trouvé.']);
+                exit;
             }
-        }
 
-        // Supprimer les liaisons
-        $deleteLiaisonQuery = "DELETE FROM liaisons_pieces_jointes WHERE piece_jointe_id = ?";
-        $deleteLiaisonStmt = $this->db->prepare($deleteLiaisonQuery);
-        $deleteLiaisonStmt->execute([$id]);
-
-        // Supprimer l'entrée dans pieces_jointes
-        $deleteQuery = "DELETE FROM pieces_jointes WHERE id = ?";
-        $deleteStmt = $this->db->prepare($deleteQuery);
-        
-        if ($deleteStmt->execute([$id])) {
+            // Utiliser AttachmentService pour gérer la suppression
+            $attachmentService = new AttachmentService($this->db);
+            $typeLiaison = $document['type_liaison'] ?? 'documentation_client';
+            $entityId = $document['entite_id'] ?? null;
+            
+            $attachmentService->delete($id, $typeLiaison, $entityId);
+            
             echo json_encode(['success' => true, 'message' => 'Document supprimé avec succès.']);
-        } else {
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de la suppression du document : " . $e->getMessage(), 'ERROR');
             http_response_code(500);
-            echo json_encode(['success' => false, 'message' => 'Erreur lors de la suppression du document.']);
+            echo json_encode(['success' => false, 'message' => 'Erreur lors de la suppression du document : ' . $e->getMessage()]);
         }
         exit;
     }
@@ -1592,11 +1579,12 @@ class DocumentationController {
     /**
      * Upload de pièces jointes pour la documentation
      */
+    /**
+     * Upload de pièces jointes pour la documentation
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function uploadAttachment() {
         $this->checkAccess();
-        
-        // Log pour debug
-        error_log("[DEBUG] DocumentationController::uploadAttachment - Début de l'upload");
         
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Content-Type: application/json');
@@ -1609,122 +1597,93 @@ class DocumentationController {
         $roomId = isset($_POST['room_id']) ? (int)$_POST['room_id'] : null;
         $masqueClient = isset($_POST['masque_client']) ? 1 : 0;
         
-        // Log pour debug
-        error_log("[DEBUG] DocumentationController::uploadAttachment - clientId: $clientId, siteId: $siteId, roomId: $roomId");
-        
         if (!$clientId) {
-            error_log("[ERROR] DocumentationController::uploadAttachment - Client ID manquant");
             header('Content-Type: application/json');
             echo json_encode(['error' => 'Client ID requis']);
             exit;
         }
         
         if (!isset($_FILES['files']) || empty($_FILES['files']['name'][0])) {
-            error_log("[ERROR] DocumentationController::uploadAttachment - Aucun fichier sélectionné");
             header('Content-Type: application/json');
             echo json_encode(['error' => 'Aucun fichier sélectionné']);
             exit;
         }
-        
-        // Log pour debug
-        error_log("[DEBUG] DocumentationController::uploadAttachment - Fichiers reçus: " . count($_FILES['files']['name']));
-        
-        $uploadDir = __DIR__ . '/../../uploads/documentation/' . $clientId . '/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-        
-        $uploadedFiles = [];
-        $errors = [];
-        
-        require_once INCLUDES_PATH . '/FileUploadValidator.php';
-        
-        foreach ($_FILES['files']['name'] as $key => $filename) {
-            if ($_FILES['files']['error'][$key] === UPLOAD_ERR_OK) {
-                $fileExtension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                
-                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
-                    $errors[] = "Extension non autorisée pour le fichier: $filename";
-                    continue;
-                }
-                
-                $newFilename = uniqid() . '_' . $filename;
-                $filePath = $uploadDir . $newFilename;
-                
-                if (move_uploaded_file($_FILES['files']['tmp_name'][$key], $filePath)) {
-                    // Enregistrer en base de données
-                    $query = "INSERT INTO pieces_jointes (nom_fichier, chemin_fichier, type_fichier, taille_fichier, masque_client, created_by, date_creation) 
-                              VALUES (:nom_fichier, :chemin_fichier, :type_fichier, :taille_fichier, :masque_client, :created_by, NOW())";
-                    
-                    $stmt = $this->db->prepare($query);
-                    $result = $stmt->execute([
-                        ':nom_fichier' => $filename,
-                        ':chemin_fichier' => 'uploads/documentation/' . $clientId . '/' . $newFilename,
-                        ':type_fichier' => $fileExtension,
-                        ':taille_fichier' => $_FILES['files']['size'][$key],
-                        ':masque_client' => $masqueClient,
-                        ':created_by' => $_SESSION['user']['id']
-                    ]);
-                    
-                    if ($result) {
-                        $attachmentId = $this->db->lastInsertId();
-                        
-                        // Créer la liaison selon le niveau
-                        if ($roomId) {
-                            // Liaison avec une salle
-                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
-                                          VALUES (:piece_jointe_id, 'documentation_room', :room_id)";
-                            $linkStmt = $this->db->prepare($linkQuery);
-                            $linkStmt->execute([
-                                ':piece_jointe_id' => $attachmentId,
-                                ':room_id' => $roomId
-                            ]);
-                        } elseif ($siteId) {
-                            // Liaison avec un site
-                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
-                                          VALUES (:piece_jointe_id, 'documentation_site', :site_id)";
-                            $linkStmt = $this->db->prepare($linkQuery);
-                            $linkStmt->execute([
-                                ':piece_jointe_id' => $attachmentId,
-                                ':site_id' => $siteId
-                            ]);
-                        } else {
-                            // Liaison avec le client
-                            $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
-                                          VALUES (:piece_jointe_id, 'documentation_client', :client_id)";
-                            $linkStmt = $this->db->prepare($linkQuery);
-                            $linkStmt->execute([
-                                ':piece_jointe_id' => $attachmentId,
-                                ':client_id' => $clientId
-                            ]);
-                        }
-                        
-                        $uploadedFiles[] = $filename;
-                    } else {
-                        $errors[] = "Erreur lors de l'enregistrement en base pour: $filename";
-                        unlink($filePath); // Supprimer le fichier si l'enregistrement en base échoue
-                    }
-                } else {
-                    $errors[] = "Erreur lors de l'upload de: $filename";
-                }
+
+        try {
+            // Déterminer le type de liaison et l'ID de l'entité
+            if ($roomId) {
+                $typeLiaison = 'documentation_room';
+                $entityId = $roomId;
+            } elseif ($siteId) {
+                $typeLiaison = 'documentation_site';
+                $entityId = $siteId;
             } else {
-                $errors[] = "Erreur d'upload pour: $filename";
+                $typeLiaison = 'documentation_client';
+                $entityId = $clientId;
             }
-        }
-        
-        if (!empty($uploadedFiles)) {
+
+            // Utiliser AttachmentService pour gérer l'upload
+            // Note: Le répertoire sera 'documentation/{clientId}' grâce à la logique dans getUploadDirectory
+            $attachmentService = new AttachmentService($this->db);
+            
+            // Préparer les options
+            $fileCount = count($_FILES['files']['name']);
+            $options = [
+                'masque_client' => array_fill(0, $fileCount, $masqueClient)
+            ];
+
+            // Upload des fichiers (utilise clientId pour le répertoire, mais typeLiaison pour la liaison)
+            // On doit passer clientId comme entityId pour le répertoire, mais créer la bonne liaison après
+            $result = $attachmentService->upload(
+                $typeLiaison,
+                $clientId, // Le répertoire est toujours basé sur clientId pour la documentation
+                $_FILES['files'],
+                $options,
+                $_SESSION['user']['id']
+            );
+
+            // Mettre à jour les liaisons pour utiliser le bon entityId (roomId, siteId ou clientId)
+            if ($result['success'] && !empty($result['attachment_ids'])) {
+                foreach ($result['attachment_ids'] as $attachmentId) {
+                    // Supprimer la liaison créée par défaut
+                    $deleteQuery = "DELETE FROM liaisons_pieces_jointes WHERE piece_jointe_id = :attachment_id";
+                    $deleteStmt = $this->db->prepare($deleteQuery);
+                    $deleteStmt->execute([':attachment_id' => $attachmentId]);
+                    
+                    // Créer la bonne liaison
+                    $linkQuery = "INSERT INTO liaisons_pieces_jointes (piece_jointe_id, type_liaison, entite_id) 
+                                 VALUES (:piece_jointe_id, :type_liaison, :entity_id)";
+                    $linkStmt = $this->db->prepare($linkQuery);
+                    $linkStmt->execute([
+                        ':piece_jointe_id' => $attachmentId,
+                        ':type_liaison' => $typeLiaison,
+                        ':entity_id' => $entityId
+                    ]);
+                }
+            }
+
+            // Retourner le résultat
             header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'uploaded_files' => $uploadedFiles,
-                'errors' => $errors
-            ]);
-        } else {
+            if ($result['success']) {
+                echo json_encode([
+                    'success' => true,
+                    'uploaded_files' => $result['uploaded_files'],
+                    'errors' => $result['errors']
+                ]);
+            } else {
+                echo json_encode([
+                    'success' => false,
+                    'error' => !empty($result['errors']) ? implode(', ', $result['errors']) : 'Aucun fichier n\'a pu être uploadé',
+                    'errors' => $result['errors']
+                ]);
+            }
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'upload de documentation : " . $e->getMessage(), 'ERROR');
             header('Content-Type: application/json');
             echo json_encode([
                 'success' => false,
-                'error' => 'Aucun fichier n\'a pu être uploadé',
-                'errors' => $errors
+                'error' => $e->getMessage()
             ]);
         }
         exit;
@@ -1732,42 +1691,15 @@ class DocumentationController {
 
     /**
      * Télécharge une pièce jointe de documentation
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function download($pieceJointeId) {
         $this->checkAccess();
 
         try {
-            // Récupérer les informations de la pièce jointe directement depuis la base
-            $query = "SELECT * FROM pieces_jointes WHERE id = :piece_jointe_id";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([':piece_jointe_id' => $pieceJointeId]);
-            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$pieceJointe) {
-                throw new Exception("Pièce jointe non trouvée");
-            }
-
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-            
-            if (!file_exists($filePath)) {
-                throw new Exception("Fichier non trouvé");
-            }
-
-            // Définir les headers pour le téléchargement
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
-            header('Content-Length: ' . filesize($filePath));
-            header('Cache-Control: no-cache, must-revalidate');
-            header('Pragma: no-cache');
-
-            // Nettoyer les buffers de sortie avant d'envoyer le fichier
-            if (ob_get_level()) {
-                ob_end_clean();
-            }
-
-            // Lire et envoyer le fichier
-            readfile($filePath);
-            exit;
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->download($pieceJointeId, true);
 
         } catch (Exception $e) {
             custom_log("Erreur lors du téléchargement de la pièce jointe : " . $e->getMessage(), 'ERROR');
@@ -1779,94 +1711,15 @@ class DocumentationController {
 
     /**
      * Aperçu d'une pièce jointe de documentation
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function preview($attachmentId) {
         $this->checkAccess();
 
         try {
-            // Log pour débogage
-            custom_log("Tentative d'aperçu documentation pour l'ID: " . $attachmentId, 'DEBUG');
-            
-            // Récupérer les informations de la pièce jointe directement depuis la base
-            $query = "SELECT * FROM pieces_jointes WHERE id = :piece_jointe_id";
-            $stmt = $this->db->prepare($query);
-            $stmt->execute([':piece_jointe_id' => $attachmentId]);
-            $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
-            
-            if (!$pieceJointe) {
-                throw new Exception("Pièce jointe non trouvée");
-            }
-
-            custom_log("Pièce jointe trouvée: " . json_encode($pieceJointe), 'DEBUG');
-
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-            custom_log("Chemin du fichier: " . $filePath, 'DEBUG');
-            
-            if (!file_exists($filePath)) {
-                custom_log("Le fichier n'existe pas: " . $filePath, 'ERROR');
-                throw new Exception("Fichier non trouvé");
-            }
-
-            custom_log("Fichier trouvé, taille: " . filesize($filePath), 'DEBUG');
-
-            // Définir les en-têtes pour l'aperçu
-            $mimeType = mime_content_type($filePath);
-            custom_log("Type MIME détecté: " . ($mimeType ?: 'null'), 'DEBUG');
-            
-            if (!$mimeType) {
-                // Fallback basé sur l'extension si mime_content_type échoue
-                $extension = strtolower(pathinfo($pieceJointe['nom_fichier'], PATHINFO_EXTENSION));
-                switch ($extension) {
-                    case 'pdf':
-                        $mimeType = 'application/pdf';
-                        break;
-                    case 'jpg':
-                    case 'jpeg':
-                        $mimeType = 'image/jpeg';
-                        break;
-                    case 'png':
-                        $mimeType = 'image/png';
-                        break;
-                    case 'gif':
-                        $mimeType = 'image/gif';
-                        break;
-                    case 'webp':
-                        $mimeType = 'image/webp';
-                        break;
-                    case 'svg':
-                        $mimeType = 'image/svg+xml';
-                        break;
-                    case 'bmp':
-                        $mimeType = 'image/bmp';
-                        break;
-                    default:
-                        $mimeType = 'application/octet-stream';
-                        break;
-                }
-            }
-            
-            header('Content-Type: ' . $mimeType);
-            
-            // Pour les images et PDFs, utiliser inline pour la prévisualisation
-            if (strpos($mimeType, 'image/') === 0 || $mimeType === 'application/pdf') {
-                header('Content-Disposition: inline; filename="' . $pieceJointe['nom_fichier'] . '"');
-            } else {
-                header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
-            }
-
-            header('Content-Length: ' . filesize($filePath));
-            // Headers plus permissifs pour la prévisualisation
-            header('Cache-Control: public, max-age=3600');
-            header('X-Content-Type-Options: nosniff');
-
-            // Nettoyer les buffers de sortie avant d'envoyer le fichier
-            if (ob_get_level()) {
-                ob_end_clean();
-            }
-
-            // Lire et envoyer le fichier
-            readfile($filePath);
-            exit;
+            // Utiliser AttachmentService pour gérer l'aperçu
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->preview($attachmentId);
 
         } catch (Exception $e) {
             custom_log("Erreur lors de l'aperçu de la pièce jointe : " . $e->getMessage(), 'ERROR');
@@ -1884,7 +1737,7 @@ class DocumentationController {
 
         try {
             // Récupérer les informations de la pièce jointe
-            $query = "SELECT * FROM pieces_jointes WHERE id = :piece_jointe_id";
+            $query = "SELECT id, nom_fichier, nom_personnalise, chemin_fichier, type_fichier, taille_fichier, commentaire, date_creation, masque_client, type_id, created_by FROM pieces_jointes WHERE id = :piece_jointe_id";
             $stmt = $this->db->prepare($query);
             $stmt->execute([':piece_jointe_id' => $pieceJointeId]);
             $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1984,7 +1837,7 @@ class DocumentationController {
         
         try {
             // Vérifier que le document existe
-            $query = "SELECT * FROM pieces_jointes WHERE id = ?";
+            $query = "SELECT id, nom_fichier, nom_personnalise, chemin_fichier, type_fichier, taille_fichier, commentaire, date_creation, masque_client, type_id, created_by FROM pieces_jointes WHERE id = ?";
             $stmt = $this->db->prepare($query);
             $stmt->execute([$attachmentId]);
             $pieceJointe = $stmt->fetch(PDO::FETCH_ASSOC);

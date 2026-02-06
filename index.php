@@ -1,6 +1,70 @@
 <?php
+// Servir directement les fichiers statiques (assets) sans passer par le routage
+$request_uri = $_SERVER['REQUEST_URI'];
+$script_name = $_SERVER['SCRIPT_NAME'];
+$script_dir = dirname($script_name);
+
+// Extraire le chemin relatif depuis la racine du script
+$path = $request_uri;
+if ($script_dir !== '/') {
+    // Si l'application est dans un sous-dossier, retirer le chemin du sous-dossier
+    $path = substr($request_uri, strlen($script_dir));
+}
+$path = parse_url($path, PHP_URL_PATH); // Retirer les paramètres de requête
+
+// Normaliser le chemin
+$path = '/' . ltrim($path, '/');
+
+// Si c'est un fichier statique (assets, uploads, etc.), le servir directement
+if (preg_match('#^/(assets|uploads)/#', $path)) {
+    $file_path = __DIR__ . $path;
+    if (file_exists($file_path) && is_file($file_path)) {
+        // Déterminer le type MIME
+        $mime_types = [
+            'js' => 'application/javascript; charset=utf-8',
+            'css' => 'text/css; charset=utf-8',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif',
+            'svg' => 'image/svg+xml',
+            'ico' => 'image/x-icon',
+            'pdf' => 'application/pdf',
+            'json' => 'application/json; charset=utf-8',
+            'woff' => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf' => 'font/ttf',
+            'eot' => 'application/vnd.ms-fontobject'
+        ];
+        
+        $ext = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
+        $mime_type = $mime_types[$ext] ?? 'application/octet-stream';
+        
+        header('Content-Type: ' . $mime_type);
+        header('Content-Length: ' . filesize($file_path));
+        header('Cache-Control: public, max-age=3600');
+        readfile($file_path);
+        exit;
+    } else {
+        // Fichier non trouvé - retourner 404
+        http_response_code(404);
+        exit;
+    }
+}
+
 // Chargement de l'initialisation
 require_once __DIR__ . '/includes/init.php';
+
+// Chargement du middleware CSRF (doit être après init.php pour avoir accès à la session)
+require_once __DIR__ . '/includes/middleware/csrf.php';
+
+// Application du middleware CSRF pour les requêtes modifiantes
+try {
+    csrfMiddleware();
+} catch (Exception $e) {
+    // Le middleware gère déjà les erreurs et les redirections
+    exit;
+}
 
 // Chargement des modèles
 require_once MODELS_PATH . '/UserModel.php';
@@ -82,19 +146,39 @@ $public_routes = ['auth/login', 'auth/logout', 'settings/getAllowedExtensions'];
 $current_route = $controller . '/' . $action;
 
 if (!in_array($current_route, $public_routes) && !isset($_SESSION['user'])) {
-    // Stocker l'URL de redirection dans la session pour rediriger après connexion
-    $redirectUrl = $controller;
-    if ($action && $action !== 'index') {
-        $redirectUrl .= '/' . $action;
+    // Ignorer les requêtes pour les fichiers statiques (favicon, robots.txt, etc.)
+    $staticFiles = ['favicon.ico', 'robots.txt', '.well-known'];
+    $isStaticFile = false;
+    foreach ($staticFiles as $staticFile) {
+        if (strpos($path, $staticFile) !== false || strpos($controller, $staticFile) !== false) {
+            $isStaticFile = true;
+            break;
+        }
     }
-    if ($id) {
-        $redirectUrl .= '/' . $id;
+    
+    // Ne sauvegarder l'URL de redirection que si ce n'est pas un fichier statique
+    // et si on n'a pas déjà une URL de redirection valide en session
+    if (!$isStaticFile && (!isset($_SESSION['redirect_after_login']) || empty($_SESSION['redirect_after_login']) || $_SESSION['redirect_after_login'] === 'favicon.ico')) {
+        // Stocker l'URL de redirection dans la session pour rediriger après connexion
+        $redirectUrl = $controller;
+        if ($action && $action !== 'index') {
+            $redirectUrl .= '/' . $action;
+        }
+        if ($id) {
+            $redirectUrl .= '/' . $id;
+        }
+        // Ajouter les paramètres de requête s'il y en a
+        if (!empty($_SERVER['QUERY_STRING'])) {
+            $redirectUrl .= '?' . $_SERVER['QUERY_STRING'];
+        }
+        $_SESSION['redirect_after_login'] = $redirectUrl;
+        
+        // Debug: logger l'URL sauvegardée
+        custom_log("Redirection vers login - URL sauvegardée: " . $redirectUrl . " (Session ID: " . session_id() . ")", 'DEBUG');
+    } else if ($isStaticFile) {
+        // Pour les fichiers statiques, rediriger directement sans sauvegarder
+        custom_log("Fichier statique ignoré: " . $path, 'DEBUG');
     }
-    // Ajouter les paramètres de requête s'il y en a
-    if (!empty($_SERVER['QUERY_STRING'])) {
-        $redirectUrl .= '?' . $_SERVER['QUERY_STRING'];
-    }
-    $_SESSION['redirect_after_login'] = $redirectUrl;
     
     header('Location: ' . BASE_URL . 'auth/login');
     exit;
@@ -986,17 +1070,53 @@ try {
                         header('Location: ' . BASE_URL . 'interventions_client');
                     }
                     break;
+                case 'download':
+                    if ($id) {
+                        $interventionsClientController->download($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'interventions_client');
+                    }
+                    break;
+                case 'preview':
+                    if ($id) {
+                        $interventionsClientController->preview($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'interventions_client');
+                    }
+                    break;
                 case 'get_rooms':
+                    // Vérifier que l'utilisateur est connecté et est un client
+                    if (!isset($_SESSION['user']) || !isClient()) {
+                        header('Content-Type: application/json');
+                        http_response_code(401);
+                        echo json_encode(['error' => 'Non autorisé']);
+                        exit;
+                    }
+                    
                     $siteId = $_GET['site_id'] ?? null;
                     if ($siteId) {
-                        // Récupérer les salles du site selon les localisations autorisées
-                        $userLocations = getUserLocations();
-                        $rooms = $interventionsClientController->getRoomsBySiteAndLocations($siteId, $userLocations);
-                        header('Content-Type: application/json');
-                        echo json_encode($rooms);
-                        exit;
+                        try {
+                            // Récupérer les salles du site selon les localisations autorisées
+                            $userLocations = getUserLocations();
+                            if (empty($userLocations)) {
+                                header('Content-Type: application/json');
+                                echo json_encode(['error' => 'Aucune localisation autorisée']);
+                                exit;
+                            }
+                            $rooms = $interventionsClientController->getRoomsBySiteAndLocations($siteId, $userLocations);
+                            header('Content-Type: application/json');
+                            echo json_encode($rooms);
+                            exit;
+                        } catch (Exception $e) {
+                            custom_log("Erreur lors de la récupération des salles (client): " . $e->getMessage(), 'ERROR');
+                            header('Content-Type: application/json');
+                            http_response_code(500);
+                            echo json_encode(['error' => 'Erreur serveur lors de la récupération des salles']);
+                            exit;
+                        }
                     } else {
                         header('Content-Type: application/json');
+                        http_response_code(400);
                         echo json_encode(['error' => 'ID site manquant']);
                         exit;
                     }
@@ -1028,6 +1148,20 @@ try {
                     break;
                 case 'getRoomsBySiteAndLocations':
                     $contractsClientController->getRoomsBySiteAndLocations();
+                    break;
+                case 'download':
+                    if (isset($_GET['attachment_id'])) {
+                        $contractsClientController->download($_GET['attachment_id']);
+                    } else {
+                        header('Location: ' . BASE_URL . 'contracts_client');
+                    }
+                    break;
+                case 'preview':
+                    if (isset($_GET['attachment_id'])) {
+                        $contractsClientController->preview($_GET['attachment_id']);
+                    } else {
+                        header('Location: ' . BASE_URL . 'contracts_client');
+                    }
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'contracts_client');
@@ -1256,6 +1390,20 @@ try {
                 case 'get_rooms':
                     $materielClientController->get_rooms();
                     break;
+                case 'download':
+                    if ($id) {
+                        $materielClientController->download($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'materiel_client');
+                    }
+                    break;
+                case 'preview':
+                    if ($id) {
+                        $materielClientController->preview($id);
+                    } else {
+                        header('Location: ' . BASE_URL . 'materiel_client');
+                    }
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'materiel_client');
                     break;
@@ -1444,7 +1592,7 @@ try {
                     $settingsController->updateIcons();
                     break;
                 case 'fileExtensions':
-                    require_once __DIR__ . '/views/settings/file_extensions.php';
+                    $settingsController->fileExtensions();
                     break;
                 case 'getAllowedExtensions':
                     $settingsController->getAllowedExtensions();
@@ -1548,6 +1696,9 @@ try {
                     break;
                 case 'testSmtp':
                     $settingsController->testSmtp();
+                    break;
+                case 'exportRoomsUrls':
+                    $settingsController->exportRoomsUrls();
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'settings');

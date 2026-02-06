@@ -1,13 +1,9 @@
 <?php
-require_once __DIR__ . '/../../includes/functions.php';
+// Les données sont récupérées par le contrôleur SettingsController
+// Variables disponibles : $icons
+// Les variables de page sont déjà définies par le contrôleur
 
-// Vérifier les permissions admin
-if (!isAdmin()) {
-    header('Location: ' . BASE_URL . 'dashboard');
-    exit;
-}
-
-setPageVariables('Paramètres des icônes', 'settings_icons');
+// Inclure le header qui contient le menu latéral
 include_once __DIR__ . '/../../includes/header.php';
 include_once __DIR__ . '/../../includes/sidebar.php';
 include_once __DIR__ . '/../../includes/navbar.php';
@@ -46,12 +42,8 @@ include_once __DIR__ . '/../../includes/navbar.php';
         <div class="card-body">
             <form action="<?php echo BASE_URL; ?>settings/updateIcons" method="post">
                 <?php 
-                // Récupérer toutes les icônes configurées
-                global $db;
-                $sql = "SELECT * FROM settings_icons ORDER BY icon_key";
-                $stmt = $db->prepare($sql);
-                $stmt->execute();
-                $icons = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                // Les icônes sont récupérées par le contrôleur SettingsController
+                // Variable disponible : $icons
                 ?>
                 
                 <div class="table-responsive">

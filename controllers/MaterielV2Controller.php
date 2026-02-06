@@ -1,6 +1,9 @@
 <?php
 
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
+
 class MaterielV2Controller {
+    use AccessControlTrait;
     private $db;
     private $materielModel;
     private $clientModel;
@@ -30,9 +33,6 @@ class MaterielV2Controller {
     /**
      * Vérifie si l'utilisateur a le droit d'accéder au matériel
      */
-    private function checkAccess() {
-        checkStaffAccess();
-    }
 
     /**
      * Affiche la liste du matériel (Version 2)

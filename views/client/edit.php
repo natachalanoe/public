@@ -80,6 +80,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
     <?php if ($client): ?>
         <form id="clientForm" action="<?php echo BASE_URL; ?>clients/update/<?php echo $client['id']; ?>" method="POST">
+            <?= csrf_field() ?>
             <!-- Onglets pour les différentes sections -->
             <ul class="nav nav-tabs mb-4" id="clientTabs" role="tablist">
                 <li class="nav-item" role="presentation">

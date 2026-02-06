@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class MaterielModel {
-    private $db;
-
+class MaterielModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'materiel';
     }
 
     /**
@@ -306,10 +306,7 @@ class MaterielModel {
      * @return bool Succès de la suppression
      */
     public function deleteMateriel($id) {
-        $query = "DELETE FROM materiel WHERE id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
+        return parent::delete($id);
     }
 
     /**

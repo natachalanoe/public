@@ -695,6 +695,7 @@ function editDocumentName(element) {
         fetch('<?= BASE_URL ?>documentation/updateName', {
             method: 'POST',
             headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>',
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest'
             },

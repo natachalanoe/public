@@ -75,6 +75,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
 
     <?php if ($client): ?>
         <form id="contactForm" action="<?php echo BASE_URL; ?>contacts/add/<?php echo $client['id']; ?><?php echo isset($_GET['return_to']) ? '?return_to=' . $_GET['return_to'] : ''; ?>" method="POST">
+            <?= csrf_field() ?>
             <div class="card">
                 <div class="card-header py-2">
                     <h5 class="card-title mb-0">Informations du contact</h5>

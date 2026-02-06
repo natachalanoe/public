@@ -169,21 +169,17 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Get style from local storage or use default
-  let storedStyle = localStorage.getItem('theme-' + templateName) || document.documentElement.getAttribute('data-bs-theme') || 'light';
-
-  // Run switchImage function based on the stored style
-  window.Helpers.switchImage(storedStyle);
-
-  // Update light/dark image based on current style
-  window.Helpers.setTheme(window.Helpers.getPreferredTheme());
-
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    const storedTheme = window.Helpers.getStoredTheme();
-    if (storedTheme !== 'light' && storedTheme !== 'dark') {
-      window.Helpers.setTheme(window.Helpers.getPreferredTheme());
-    }
-  });
+  // Thème fixe : sidebar foncée, reste clair (semi-dark)
+  // Forcer le thème semi-dark et supprimer les anciens thèmes du localStorage
+  document.documentElement.setAttribute('data-bs-theme', 'semi-dark');
+  document.documentElement.setAttribute('data-semidark-menu', 'true');
+  
+  // Nettoyer le localStorage des anciens thèmes
+  const themeKeys = Object.keys(localStorage).filter(key => key.startsWith('theme-') || key.startsWith('semi-dark-'));
+  themeKeys.forEach(key => localStorage.removeItem(key));
+  
+  // Run switchImage function pour le thème light (car semi-dark utilise light pour les images)
+  window.Helpers.switchImage('light');
 
   function getScrollbarWidth() {
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
@@ -191,97 +187,16 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   getScrollbarWidth();
   
-  // Theme initialization function
-  function initializeTheme() {
-    // Récupérer le thème stocké
-    const storedTheme = localStorage.getItem(`theme-${templateName}`);
-    
-    // Appliquer le thème au chargement
-    if (storedTheme === 'semi-dark') {
-      document.documentElement.setAttribute('data-bs-theme', 'semi-dark');
-      window.Helpers.showActiveTheme('semi-dark');
-    } else {
-      // Thème classique
-      window.Helpers.showActiveTheme(window.Helpers.getPreferredTheme());
-    }
-    
-    // Get scrollbar width
-    getScrollbarWidth();
-    
-    // Toggle Universal Sidebar
-    window.Helpers.initSidebarToggle();
-    
-    // Attach theme toggle event listeners
-    const themeToggles = document.querySelectorAll('[data-bs-theme-value]');
-    
-    themeToggles.forEach(toggle => {
-      // Remove existing listeners to prevent duplicates
-      toggle.removeEventListener('click', toggleThemeHandler);
-      // Add new listener
-      toggle.addEventListener('click', toggleThemeHandler);
-    });
-  }
-  
-  // Theme toggle handler function
-  function toggleThemeHandler() {
-    const theme = this.getAttribute('data-bs-theme-value');
-    
-    window.Helpers.setStoredTheme(templateName, theme);
-    
-    // Appliquer le thème (semi-dark est maintenant un vrai thème)
-    window.Helpers.setTheme(theme);
-    window.Helpers.showActiveTheme(theme, true);
-    window.Helpers.syncCustomOptions(theme);
-    
-    let currTheme = theme;
-    if (theme === 'system') {
-      currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    } else if (theme === 'semi-dark') {
-      currTheme = 'light'; // Pour les images, utiliser le thème light
-    }
-    
-    // Gestion du template customizer
-    const semiDarkL = document.querySelector('.template-customizer-semiDark');
-    if (semiDarkL) {
-      if (theme === 'dark') {
-        semiDarkL.classList.add('d-none');
-      } else {
-        semiDarkL.classList.remove('d-none');
-      }
-    }
-    
-    window.Helpers.switchImage(currTheme);
-  }
-  
-  // Initialize theme when DOM is ready
+  // Initialize sidebar toggle
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeTheme);
+    document.addEventListener('DOMContentLoaded', () => {
+      window.Helpers.initSidebarToggle();
+      getScrollbarWidth();
+    });
   } else {
-    // DOM is already ready
-    initializeTheme();
+    window.Helpers.initSidebarToggle();
+    getScrollbarWidth();
   }
-  
-  // Also try to initialize after a short delay to ensure all elements are loaded
-  setTimeout(initializeTheme, 100);
-  
-  // Additional initialization after a longer delay to catch any late-loading elements
-  setTimeout(() => {
-    initializeTheme();
-  }, 500);
-  
-  // Check Bootstrap initialization
-  setTimeout(() => {
-    if (typeof bootstrap !== 'undefined') {
-      // Check if dropdowns are working
-      const themeDropdown = document.querySelector('#nav-theme');
-      if (themeDropdown) {
-        const dropdown = bootstrap.Dropdown.getInstance(themeDropdown);
-        if (!dropdown) {
-          new bootstrap.Dropdown(themeDropdown);
-        }
-      }
-    }
-  }, 1000);
 
   // Internationalization (Language Dropdown)
   // ---------------------------------------

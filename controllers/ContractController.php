@@ -7,8 +7,11 @@ require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../models/AccessLevelModel.php';
 require_once __DIR__ . '/../models/MaterielModel.php';
 require_once __DIR__ . '/../includes/DateUtils.php';
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class ContractController {
+    use AccessControlTrait;
     private $db;
     private $contractModel;
     private $clientModel;
@@ -26,25 +29,6 @@ class ContractController {
         $this->accessLevelModel = new AccessLevelModel($this->db);
     }
 
-    /**
-     * Vérifie si l'utilisateur est connecté et est staff
-     */
-    private function checkAccess() {
-        checkStaffAccess();
-    }
-
-    /**
-     * Vérifie si l'utilisateur est administrateur
-     */
-    private function checkAdminAccess() {
-        $this->checkAccess();
-        
-        if (!isAdmin()) {
-            $_SESSION['error'] = "Seuls les administrateurs peuvent gérer les contrats.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-    }
 
     /**
      * Vérifie si l'utilisateur peut gérer les contrats (admin ou permission spécifique)
@@ -851,7 +835,7 @@ class ContractController {
      * Supprime un contrat
      */
     public function delete($id) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les contrats.");
 
         // Déterminer l'URL de redirection
         $redirect_url = BASE_URL . 'contracts'; // URL de redirection par défaut
@@ -977,7 +961,7 @@ class ContractController {
      * Affiche la page de confirmation pour la mise à jour des matériels
      */
     public function confirmAccessLevelChange($contractId) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les contrats.");
         
         if (!isset($_SESSION['access_level_change']) || $_SESSION['access_level_change']['contract_id'] != $contractId) {
             $_SESSION['error'] = "Session de confirmation invalide.";
@@ -1002,7 +986,7 @@ class ContractController {
      * Traite la mise à jour des matériels suite au changement de niveau d'accès
      */
     public function applyAccessLevelChange($contractId) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les contrats.");
         
         if (!isset($_SESSION['access_level_change']) || $_SESSION['access_level_change']['contract_id'] != $contractId) {
             $_SESSION['error'] = "Session de confirmation invalide.";
@@ -1076,7 +1060,7 @@ class ContractController {
      * Ignore la mise à jour des matériels
      */
     public function ignoreAccessLevelChange($contractId) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les contrats.");
         
         if (!isset($_SESSION['access_level_change']) || $_SESSION['access_level_change']['contract_id'] != $contractId) {
             $_SESSION['error'] = "Session de confirmation invalide.";
@@ -1272,6 +1256,7 @@ class ContractController {
 
     /**
      * Ajoute plusieurs pièces jointes à un contrat (Drag & Drop)
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function addMultipleAttachments($contractId) {
         // Vérifier si l'utilisateur est connecté
@@ -1299,86 +1284,38 @@ class ContractController {
                 throw new Exception("Aucun fichier à uploader");
             }
 
-            require_once INCLUDES_PATH . '/FileUploadValidator.php';
+            // Utiliser AttachmentService pour gérer l'upload
+            $attachmentService = new AttachmentService($this->db);
             
-            $uploadedFiles = [];
-            $errors = [];
-            
-            // Traiter chaque fichier
-            foreach ($_FILES['attachments']['tmp_name'] as $index => $tmpName) {
-                if ($_FILES['attachments']['error'][$index] !== UPLOAD_ERR_OK) {
-                    $errors[] = "Erreur lors de l'upload du fichier " . ($index + 1);
-                    continue;
-                }
+            // Préparer les options
+            $options = [
+                'descriptions' => $_POST['file_description'] ?? [],
+                'masque_client' => $_POST['file_masque_client'] ?? []
+            ];
 
-                $originalFileName = $_FILES['attachments']['name'][$index];
-                $fileSize = $_FILES['attachments']['size'][$index];
-                $fileTmpPath = $tmpName;
-
-                // Vérifier la taille du fichier (limite du serveur)
-                $maxFileSize = getServerMaxUploadSize();
-                if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
-                    continue;
-                }
-
-                // Vérifier l'extension
-                $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
-                    $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
-                    continue;
-                }
-
-                // Créer le répertoire de destination (à la racine du site, pas dans public/)
-                $uploadDir = __DIR__ . '/../../uploads/contracts/' . $contractId;
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
-                }
-
-                // Générer un nom de fichier unique
-                $fileName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalFileName);
-                $finalFileName = time() . '_' . $index . '_' . $fileName;
-                $filePath = $uploadDir . '/' . $finalFileName;
-
-                // Déplacer le fichier
-                if (move_uploaded_file($fileTmpPath, $filePath)) {
-                    // Récupérer les options pour ce fichier
-                    $description = $_POST['file_description'][$index] ?? null;
-                    $masqueClient = isset($_POST['file_masque_client'][$index]) ? 1 : 0;
-
-                    // Préparer les données pour la base
-                    $data = [
-                        'nom_fichier' => $originalFileName,
-                        'chemin_fichier' => 'uploads/contracts/' . $contractId . '/' . $finalFileName,
-                        'type_fichier' => $fileExtension,
-                        'taille_fichier' => $fileSize,
-                        'commentaire' => $description,
-                        'masque_client' => $masqueClient,
-                        'created_by' => $_SESSION['user']['id']
-                    ];
-
-                    // Ajouter la pièce jointe
-                    $pieceJointeId = $this->contractModel->addPieceJointe($contractId, $data);
-                    $uploadedFiles[] = $originalFileName;
-                } else {
-                    $errors[] = "Erreur lors du déplacement du fichier '$originalFileName'";
-                }
-            }
+            // Upload des fichiers
+            $result = $attachmentService->upload(
+                AttachmentService::TYPE_CONTRACT,
+                $contractId,
+                $_FILES['attachments'],
+                $options,
+                $_SESSION['user']['id']
+            );
 
             // Retourner le résultat
             header('Content-Type: application/json');
-            if (empty($errors) && !empty($uploadedFiles)) {
+            if ($result['success']) {
                 echo json_encode([
                     'success' => true,
-                    'message' => count($uploadedFiles) . ' fichier(s) uploadé(s) avec succès',
-                    'uploaded_files' => $uploadedFiles
+                    'message' => count($result['uploaded_files']) . ' fichier(s) uploadé(s) avec succès',
+                    'uploaded_files' => $result['uploaded_files']
                 ]);
             } else {
-                $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Aucun fichier uploadé';
+                $errorMessage = !empty($result['errors']) ? implode(', ', $result['errors']) : 'Aucun fichier uploadé';
                 echo json_encode([
                     'success' => false,
                     'error' => $errorMessage,
-                    'uploaded_files' => $uploadedFiles
+                    'uploaded_files' => $result['uploaded_files']
                 ]);
             }
 
@@ -1392,34 +1329,15 @@ class ContractController {
 
     /**
      * Supprime une pièce jointe d'un contrat
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function deleteAttachment($contractId, $pieceJointeId) {
         $this->checkAccess();
 
         try {
-            // Récupérer les informations de la pièce jointe
-            $attachments = $this->contractModel->getPiecesJointes($contractId);
-            $pieceJointe = null;
-            
-            foreach ($attachments as $piece) {
-                if ($piece['id'] == $pieceJointeId) {
-                    $pieceJointe = $piece;
-                    break;
-                }
-            }
-
-            if (!$pieceJointe) {
-                throw new Exception("Pièce jointe non trouvée");
-            }
-
-            // Supprimer le fichier physique
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-            if (file_exists($filePath)) {
-                unlink($filePath);
-            }
-
-            // Supprimer de la base de données
-            $this->contractModel->deletePieceJointe($pieceJointeId, $contractId);
+            // Utiliser AttachmentService pour gérer la suppression
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->delete($pieceJointeId, AttachmentService::TYPE_CONTRACT, $contractId);
             
             $_SESSION['success'] = "Pièce jointe supprimée avec succès";
 
@@ -1434,34 +1352,15 @@ class ContractController {
 
     /**
      * Télécharge une pièce jointe
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function download($pieceJointeId) {
         $this->checkAccess();
 
         try {
-            // Récupérer les informations de la pièce jointe
-            $pieceJointe = $this->contractModel->getPieceJointeById($pieceJointeId);
-            
-            if (!$pieceJointe) {
-                throw new Exception("Pièce jointe non trouvée");
-            }
-
-            $filePath = __DIR__ . '/../../' . $pieceJointe['chemin_fichier'];
-            
-            if (!file_exists($filePath)) {
-                throw new Exception("Fichier non trouvé");
-            }
-
-            // Définir les headers pour le téléchargement
-            header('Content-Type: application/octet-stream');
-            header('Content-Disposition: attachment; filename="' . $pieceJointe['nom_fichier'] . '"');
-            header('Content-Length: ' . filesize($filePath));
-            header('Cache-Control: no-cache, must-revalidate');
-            header('Pragma: no-cache');
-
-            // Lire et envoyer le fichier
-            readfile($filePath);
-            exit;
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->download($pieceJointeId, true);
 
         } catch (Exception $e) {
             custom_log("Erreur lors du téléchargement de la pièce jointe : " . $e->getMessage(), 'ERROR');
@@ -1610,7 +1509,7 @@ class ContractController {
      * Ajoute des tickets à un contrat
      */
     public function addTickets($contractId) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Seuls les administrateurs peuvent gérer les contrats.");
 
         try {
             // Debug: Log des données reçues

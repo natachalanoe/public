@@ -51,6 +51,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             <?php endif; ?>
 
                             <form method="POST" action="<?= BASE_URL ?>profileClient/edit">
+                                <?= csrf_field() ?>
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="mb-3">

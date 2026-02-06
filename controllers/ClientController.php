@@ -6,7 +6,10 @@ require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../models/ContactModel.php';
 require_once __DIR__ . '/../models/InterventionModel.php';
 
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
+
 class ClientController {
+    use AccessControlTrait;
     private $db;
     private $clientModel;
     private $siteModel;
@@ -29,9 +32,6 @@ class ClientController {
     /**
      * Vérifie si l'utilisateur a le droit d'accéder aux clients
      */
-    private function checkAccess() {
-        checkStaffAccess();
-    }
 
     /**
      * Affiche la liste des clients avec leurs statistiques

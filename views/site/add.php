@@ -83,6 +83,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </div>
         <div class="card-body py-2">
             <form id="siteForm" action="<?= BASE_URL ?>site/add/<?= $clientId ?><?php echo isset($_GET['return_to']) ? '?return_to=' . $_GET['return_to'] : ''; ?>" method="POST">
+                <?= csrf_field() ?>
                 <div class="row">
                     <div class="col-md-6">
                         <div class="mb-3"> <!-- Remplacé form-group par mb-3 -->

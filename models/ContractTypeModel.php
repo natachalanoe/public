@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class ContractTypeModel {
-    private $db;
-
+class ContractTypeModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'contract_types';
     }
 
     /**
@@ -12,7 +12,7 @@ class ContractTypeModel {
      * @return array Liste des types de contrats
      */
     public function getAllContractTypes() {
-        $query = "SELECT * FROM contract_types ORDER BY ordre_affichage, name";
+        $query = "SELECT id, name, description, default_tickets, nb_inter_prev, ordre_affichage, created_at, updated_at FROM contract_types ORDER BY ordre_affichage, name";
         $stmt = $this->db->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -24,11 +24,7 @@ class ContractTypeModel {
      * @return array|null Données du type de contrat ou null si non trouvé
      */
     public function getContractTypeById($id) {
-        $query = "SELECT * FROM contract_types WHERE id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        $stmt->execute();
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $this->find($id);
     }
 
     /**
@@ -40,33 +36,16 @@ class ContractTypeModel {
         // Récupérer le prochain ordre d'affichage disponible
         $nextOrder = $this->getNextDisplayOrder();
         
-        $query = "INSERT INTO contract_types (
-                    name, 
-                    description, 
-                    default_tickets, 
-                    nb_inter_prev, 
-                    ordre_affichage,
-                    created_at, 
-                    updated_at
-                ) VALUES (
-                    :name, 
-                    :description, 
-                    :default_tickets, 
-                    :nb_inter_prev,
-                    :ordre_affichage,
-                    NOW(), 
-                    NOW()
-                )";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':name', $data['name'], PDO::PARAM_STR);
-        $stmt->bindParam(':description', $data['description'], PDO::PARAM_STR);
-        $stmt->bindParam(':default_tickets', $data['default_tickets'], PDO::PARAM_INT);
-        $stmt->bindParam(':nb_inter_prev', $data['nb_inter_prev'], PDO::PARAM_INT);
-        $stmt->bindParam(':ordre_affichage', $nextOrder, PDO::PARAM_INT);
+        // Préparer les données avec les valeurs par défaut
+        $insertData = [
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'default_tickets' => $data['default_tickets'] ?? null,
+            'nb_inter_prev' => $data['nb_inter_prev'] ?? null,
+            'ordre_affichage' => $nextOrder
+        ];
         
-        $stmt->execute();
-        return $this->db->lastInsertId();
+        return parent::create($insertData);
     }
 
     /**
@@ -76,22 +55,15 @@ class ContractTypeModel {
      * @return bool True si la mise à jour a réussi
      */
     public function updateContractType($id, $data) {
-        $query = "UPDATE contract_types SET 
-                    name = :name, 
-                    description = :description, 
-                    default_tickets = :default_tickets, 
-                    nb_inter_prev = :nb_inter_prev, 
-                    updated_at = NOW() 
-                  WHERE id = :id";
-
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        $stmt->bindParam(':name', $data['name'], PDO::PARAM_STR);
-        $stmt->bindParam(':description', $data['description'], PDO::PARAM_STR);
-        $stmt->bindParam(':default_tickets', $data['default_tickets'], PDO::PARAM_INT);
-        $stmt->bindParam(':nb_inter_prev', $data['nb_inter_prev'], PDO::PARAM_INT);
+        // Préparer les données à mettre à jour
+        $updateData = [
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'default_tickets' => $data['default_tickets'] ?? null,
+            'nb_inter_prev' => $data['nb_inter_prev'] ?? null
+        ];
         
-        return $stmt->execute();
+        return parent::update($id, $updateData);
     }
 
     /**
@@ -100,10 +72,7 @@ class ContractTypeModel {
      * @return bool True si la suppression a réussi
      */
     public function deleteContractType($id) {
-        $query = "DELETE FROM contract_types WHERE id = :id";
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-        return $stmt->execute();
+        return parent::delete($id);
     }
 
     /**

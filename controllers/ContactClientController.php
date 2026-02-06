@@ -238,9 +238,15 @@ class ContactClientController {
 
         // Récupérer les clients disponibles pour le formulaire (simplifié)
         $availableClients = [];
+        $availableLocations = [];
         foreach ($userLocations as $clientId => $locations) {
             $client = $this->clientModel->getClientById($clientId);
             $availableClients[] = [
+                'client_id' => $clientId,
+                'client_name' => $client['name'] ?? ''
+            ];
+            // Créer la structure attendue par la vue
+            $availableLocations[] = [
                 'client_id' => $clientId,
                 'client_name' => $client['name'] ?? ''
             ];

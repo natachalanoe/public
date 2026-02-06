@@ -6,7 +6,10 @@ require_once __DIR__ . '/../models/SiteModel.php';
 require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../models/AccessLevelModel.php';
 
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
+
 class HorsContratFacturableController {
+    use AccessControlTrait;
     private $db;
     private $contractModel;
     private $clientModel;
@@ -27,9 +30,6 @@ class HorsContratFacturableController {
     /**
      * Vérifie si l'utilisateur est connecté et est staff
      */
-    private function checkAccess() {
-        checkStaffAccess();
-    }
 
     /**
      * Affiche la liste des contrats hors contrat facturable

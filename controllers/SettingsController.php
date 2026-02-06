@@ -1,18 +1,24 @@
 <?php
 require_once __DIR__ . '/../models/AccessLevelModel.php';
 require_once __DIR__ . '/../models/MaterielModel.php';
+require_once __DIR__ . '/../models/ClientModel.php';
+require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 class SettingsController {
     private $db;
     private $accessLevelModel;
     private $materielModel;
+    private $clientModel;
+    private $roomModel;
 
     public function __construct() {
         global $db;
         $this->db = $db;
         $this->accessLevelModel = new AccessLevelModel($this->db);
         $this->materielModel = new MaterielModel($this->db);
+        $this->clientModel = new ClientModel($this->db);
+        $this->roomModel = new RoomModel($this->db);
     }
 
     private function checkAdmin() {
@@ -392,6 +398,17 @@ class SettingsController {
      */
     public function icons() {
         $this->checkAdmin();
+        
+        // Récupérer toutes les icônes configurées
+        $sql = "SELECT id, icon_key, icon_class, icon_library, description, is_active, created_at, updated_at FROM settings_icons ORDER BY icon_key";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $icons = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Définir les variables de page
+        setPageVariables('Gestion des icônes', 'settings');
+        $currentPage = 'settings';
+        
         require_once VIEWS_PATH . '/settings/icons.php';
     }
 
@@ -424,9 +441,31 @@ class SettingsController {
     public function fileExtensions() {
         $this->checkAdmin();
         
-        // Passer la connexion à la base de données à la vue
-        $db = $this->db;
+        // Traitement des actions POST
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+            switch ($_POST['action']) {
+                case 'add':
+                    $this->addExtension();
+                    return; // addExtension() fait déjà la redirection
+                case 'toggle':
+                    $this->toggleExtension();
+                    return; // toggleExtension() fait déjà la réponse JSON
+                case 'delete':
+                    $this->deleteExtension();
+                    return; // deleteExtension() fait déjà la réponse JSON
+            }
+        }
         
+        // Récupérer les données pour la vue
+        require_once INCLUDES_PATH . '/FileUploadValidator.php';
+        $allowedExtensions = FileUploadValidator::getAllExtensions($this->db);
+        $blacklistedExtensions = FileUploadValidator::getBlacklistedExtensions();
+        
+        // Définir les variables de page
+        setPageVariables('Extensions de fichiers autorisées', 'settings');
+        $currentPage = 'settings';
+        
+        // Inclure la vue
         require_once VIEWS_PATH . '/settings/file_extensions.php';
     }
 
@@ -562,7 +601,7 @@ class SettingsController {
         // Récupérer les templates
         $templates = [];
         try {
-            $stmt = $this->db->query("SELECT * FROM mail_templates ORDER BY template_type, name");
+            $stmt = $this->db->query("SELECT id, name, subject, body, description, template_type, is_active, created_at, updated_at FROM mail_templates ORDER BY template_type, name");
             $templates = $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             $templates = [];
@@ -684,7 +723,7 @@ class SettingsController {
         // Si on édite un template existant
         if ($templateId) {
             try {
-                $stmt = $this->db->prepare("SELECT * FROM mail_templates WHERE id = ?");
+                $stmt = $this->db->prepare("SELECT id, name, subject, body, description, template_type, is_active, created_at, updated_at FROM mail_templates WHERE id = ?");
                 $stmt->execute([$templateId]);
                 $template = $stmt->fetch(PDO::FETCH_ASSOC);
                 $isEdit = true;
@@ -1484,5 +1523,151 @@ class SettingsController {
                 'message' => 'Erreur lors de l\'envoi de l\'email de test : ' . $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Exporte toutes les URLs des salles en Excel
+     * Un onglet par client avec les colonnes : Nom du site, Nom de la salle, URL
+     */
+    public function exportRoomsUrls() {
+        $this->checkAdmin();
+        
+        try {
+            // Charger PhpSpreadsheet
+            require_once __DIR__ . '/../vendor/autoload.php';
+            
+            // Créer un nouveau classeur
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $spreadsheet->removeSheetByIndex(0); // Supprimer la feuille par défaut
+            
+            // Récupérer tous les clients
+            $clients = $this->clientModel->getAllClients();
+            
+            if (empty($clients)) {
+                $_SESSION['error'] = "Aucun client trouvé.";
+                header('Location: ' . BASE_URL . 'settings');
+                exit;
+            }
+            
+            // Pour chaque client, créer un onglet
+            foreach ($clients as $client) {
+                // Récupérer toutes les salles du client avec leurs sites
+                $rooms = $this->roomModel->getRoomsByClientId($client['id'], false);
+                
+                // Si le client n'a pas de salles, passer au client suivant
+                if (empty($rooms)) {
+                    continue;
+                }
+                
+                // Créer un nouvel onglet pour ce client
+                $sheet = $spreadsheet->createSheet();
+                $sheetName = $this->sanitizeSheetName($client['name']);
+                $sheet->setTitle($sheetName);
+                
+                // En-têtes
+                $sheet->setCellValue('A1', 'Nom du site');
+                $sheet->setCellValue('B1', 'Nom de la salle');
+                $sheet->setCellValue('C1', 'URL Technicien');
+                $sheet->setCellValue('D1', 'URL Client');
+                
+                // Style des en-têtes
+                $headerStyle = [
+                    'font' => [
+                        'bold' => true,
+                        'color' => ['rgb' => 'FFFFFF'],
+                    ],
+                    'fill' => [
+                        'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '4472C4'],
+                    ],
+                    'alignment' => [
+                        'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                    ],
+                ];
+                $sheet->getStyle('A1:D1')->applyFromArray($headerStyle);
+                
+                // Largeur des colonnes
+                $sheet->getColumnDimension('A')->setWidth(30);
+                $sheet->getColumnDimension('B')->setWidth(30);
+                $sheet->getColumnDimension('C')->setWidth(60);
+                $sheet->getColumnDimension('D')->setWidth(60);
+                
+                // Remplir les données
+                $row = 2;
+                foreach ($rooms as $room) {
+                    $sheet->setCellValue('A' . $row, $room['site_name']);
+                    $sheet->setCellValue('B' . $row, $room['name']);
+                    // Générer l'URL pour les techniciens
+                    $roomUrlTech = BASE_URL . 'materiel/salle/' . $room['id'];
+                    $sheet->setCellValue('C' . $row, $roomUrlTech);
+                    // Générer l'URL pour les clients
+                    $roomUrlClient = BASE_URL . 'materiel_client/salle/' . $room['id'];
+                    $sheet->setCellValue('D' . $row, $roomUrlClient);
+                    
+                    // Ajouter un style pour les cellules de données
+                    $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray([
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+                            ],
+                        ],
+                    ]);
+                    
+                    $row++;
+                }
+                
+                // Geler la première ligne
+                $sheet->freezePane('A2');
+            }
+            
+            // Vérifier qu'il y a au moins un onglet créé
+            if ($spreadsheet->getSheetCount() === 0) {
+                $_SESSION['error'] = "Aucune salle trouvée pour l'export.";
+                header('Location: ' . BASE_URL . 'settings');
+                exit;
+            }
+            
+            // Activer le premier onglet
+            $spreadsheet->setActiveSheetIndex(0);
+            
+            // Générer le nom du fichier
+            $filename = 'export_urls_salles_' . date('Y-m-d_His') . '.xlsx';
+            
+            // Envoyer le fichier au navigateur
+            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            header('Content-Disposition: attachment;filename="' . $filename . '"');
+            header('Cache-Control: max-age=0');
+            
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $writer->save('php://output');
+            exit;
+            
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'export des URLs des salles : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors de l'export : " . $e->getMessage();
+            header('Location: ' . BASE_URL . 'settings');
+            exit;
+        }
+    }
+    
+    /**
+     * Nettoie le nom de l'onglet pour qu'il soit valide dans Excel
+     * Excel limite à 31 caractères et interdit certains caractères
+     */
+    private function sanitizeSheetName($name) {
+        // Remplacer les caractères interdits
+        $name = str_replace(['\\', '/', '?', '*', '[', ']', ':', "'"], '', $name);
+        
+        // Limiter à 31 caractères (limite Excel)
+        if (strlen($name) > 31) {
+            $name = substr($name, 0, 31);
+        }
+        
+        // Si le nom est vide après nettoyage, utiliser un nom par défaut
+        if (empty($name)) {
+            $name = 'Client';
+        }
+        
+        return $name;
     }
 } 

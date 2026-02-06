@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class ContactModel {
-    private $db;
-
+class ContactModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'contacts';
     }
 
     public function getContactsByClientId($clientId) {
@@ -177,11 +177,10 @@ class ContactModel {
             $stmt->bindParam(':id', $id, PDO::PARAM_INT);
             $stmt->execute();
 
-            // Supprimer le contact
-            $query = "DELETE FROM contacts WHERE id = :id";
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':id', $id, PDO::PARAM_INT);
-            $stmt->execute();
+            // Supprimer le contact (utilise BaseModel::delete())
+            if (!parent::delete($id)) {
+                throw new Exception("Erreur lors de la suppression du contact");
+            }
 
             $this->db->commit();
             return true;

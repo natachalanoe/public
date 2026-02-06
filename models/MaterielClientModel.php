@@ -1,14 +1,14 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
+
 /**
  * Modèle pour la gestion du matériel clients
  * Filtre automatiquement selon les localisations autorisées
  */
-class MaterielClientModel {
-    private $db;
-    private $table = 'materiel';
-
+class MaterielClientModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'materiel';
     }
 
     /**
@@ -269,11 +269,49 @@ class MaterielClientModel {
     }
 
     /**
+     * OPTIMISATION N+1 : Récupère le nombre de pièces jointes pour plusieurs matériels en une seule requête
+     * @param array $materielIds Liste des IDs de matériels
+     * @return array Tableau associatif [materiel_id => count]
+     */
+    public function getPiecesJointesCountForMultiple($materielIds) {
+        if (empty($materielIds)) {
+            return [];
+        }
+        
+        try {
+            $placeholders = implode(',', array_fill(0, count($materielIds), '?'));
+            $sql = "SELECT 
+                        lpj.entite_id as materiel_id,
+                        COUNT(*) as count
+                    FROM pieces_jointes pj
+                    INNER JOIN liaisons_pieces_jointes lpj ON pj.id = lpj.piece_jointe_id
+                    WHERE lpj.type_liaison = 'materiel' 
+                    AND lpj.entite_id IN ($placeholders)
+                    AND pj.masque_client = 0
+                    GROUP BY lpj.entite_id";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($materielIds);
+            
+            $results = [];
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $results[$row['materiel_id']] = (int)$row['count'];
+            }
+            
+            return $results;
+        } catch (Exception $e) {
+            // Si la table n'existe pas, retourner un tableau vide
+            custom_log("Erreur lors de la récupération des pièces jointes (batch): " . $e->getMessage(), 'DEBUG');
+            return [];
+        }
+    }
+
+    /**
      * Récupère les types de matériel
      * @return array Liste des types
      */
     public function getTypesMateriel() {
-        $sql = "SELECT * FROM settings WHERE setting_key = 'materiel_type' ORDER BY setting_value";
+        $sql = "SELECT id, setting_key, setting_value, setting_description, setting_group, created_at, updated_at FROM settings WHERE setting_key = 'materiel_type' ORDER BY setting_value";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

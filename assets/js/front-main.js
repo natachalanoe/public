@@ -82,76 +82,21 @@ window.isDarkStyle = window.Helpers.isDarkStyle();
     });
   }
 
-  // Get style from local storage or use default
-  let storedStyle = localStorage.getItem('theme-' + templateName) || document.documentElement.getAttribute('data-bs-theme') || 'light';
-
-  let styleSwitcher = document.querySelector('.dropdown-style-switcher');
-  const styleSwitcherIcon = styleSwitcher.querySelector('i');
-
-  new bootstrap.Tooltip(styleSwitcherIcon, {
-    title: storedStyle.charAt(0).toUpperCase() + storedStyle.slice(1) + ' Mode',
-    fallbackPlacements: ['bottom']
-  });
-
-  // Run switchImage function based on the stored style
-  window.Helpers.switchImage(storedStyle);
-
-  // Update light/dark image based on current style
-  window.Helpers.setTheme(window.Helpers.getPreferredTheme());
-
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    const storedTheme = window.Helpers.getStoredTheme();
-    if (storedTheme !== 'light' && storedTheme !== 'dark') {
-      window.Helpers.setTheme(window.Helpers.getPreferredTheme());
-    }
-  });
+  // Thème fixe : sidebar foncée, reste clair (semi-dark)
+  // Forcer le thème semi-dark et supprimer les anciens thèmes du localStorage
+  document.documentElement.setAttribute('data-bs-theme', 'semi-dark');
+  document.documentElement.setAttribute('data-semidark-menu', 'true');
+  
+  // Nettoyer le localStorage des anciens thèmes
+  const themeKeys = Object.keys(localStorage).filter(key => key.startsWith('theme-') || key.startsWith('semi-dark-'));
+  themeKeys.forEach(key => localStorage.removeItem(key));
+  
+  // Run switchImage function pour le thème light (car semi-dark utilise light pour les images)
+  window.Helpers.switchImage('light');
 
   function getScrollbarWidth() {
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     document.body.style.setProperty('--bs-scrollbar-width', `${scrollbarWidth}px`);
   }
   getScrollbarWidth();
-
-  //Style Switcher (Light/Dark/System/Semi-Dark Mode)
-  window.addEventListener('DOMContentLoaded', () => {
-    // Récupérer le thème stocké
-    const storedTheme = localStorage.getItem(`theme-${templateName}`);
-    const isSemiDark = localStorage.getItem(`semi-dark-${templateName}`) === 'true';
-    
-    // Appliquer le thème au chargement
-    if (storedTheme === 'semi-dark' || isSemiDark) {
-      document.documentElement.setAttribute('data-bs-theme', 'light');
-      document.documentElement.setAttribute('data-semidark-menu', 'true');
-      window.Helpers.showActiveTheme('semi-dark');
-    } else {
-      window.Helpers.showActiveTheme(window.Helpers.getPreferredTheme());
-    }
-    
-    getScrollbarWidth();
-    document.querySelectorAll('[data-bs-theme-value]').forEach(toggle => {
-      toggle.addEventListener('click', () => {
-        const theme = toggle.getAttribute('data-bs-theme-value');
-        window.Helpers.setStoredTheme(templateName, theme);
-        
-        // Appliquer le thème (semi-dark est maintenant un vrai thème)
-        window.Helpers.setTheme(theme);
-        window.Helpers.showActiveTheme(theme, true);
-        window.Helpers.syncCustomOptions(theme);
-        
-        let currTheme = theme;
-        if (theme === 'system') {
-          currTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        } else if (theme === 'semi-dark') {
-          currTheme = 'light'; // Pour les images, utiliser le thème light
-        }
-        
-        window.Helpers.switchImage(currTheme);
-        
-        new bootstrap.Tooltip(styleSwitcherIcon, {
-          title: theme.charAt(0).toUpperCase() + theme.slice(1) + ' Mode',
-          fallbackPlacements: ['bottom']
-        });
-      });
-    });
-  });
 })();

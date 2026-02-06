@@ -2,8 +2,10 @@
 require_once __DIR__ . '/../models/AccessLevelModel.php';
 require_once __DIR__ . '/../models/ContractModel.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class AccessLevelController {
+    use AccessControlTrait;
     private $db;
     private $accessLevelModel;
     private $contractModel;
@@ -16,22 +18,10 @@ class AccessLevelController {
     }
 
     /**
-     * Vérifie si l'utilisateur est connecté et administrateur
-     */
-    private function checkAdminAccess() {
-        checkStaffAccess();
-        if (!isAdmin()) {
-            $_SESSION['error'] = "Accès réservé aux administrateurs";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-    }
-
-    /**
      * Affiche la liste des niveaux d'accès
      */
     public function index() {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Accès réservé aux administrateurs");
 
         try {
             $accessLevels = $this->accessLevelModel->getAllAccessLevels();
@@ -50,7 +40,7 @@ class AccessLevelController {
      * Met à jour le niveau d'accès d'un contrat
      */
     public function updateContractAccessLevel() {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Accès réservé aux administrateurs");
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ' . BASE_URL . 'contract');
@@ -113,7 +103,7 @@ class AccessLevelController {
      * Affiche le formulaire de changement de niveau d'accès pour un contrat
      */
     public function changeContractAccessLevel($contractId) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Accès réservé aux administrateurs");
 
         try {
             // Récupérer le contrat
@@ -150,7 +140,7 @@ class AccessLevelController {
      * Affiche les détails d'un niveau d'accès
      */
     public function view($id) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Accès réservé aux administrateurs");
 
         try {
             $accessLevel = $this->accessLevelModel->getAccessLevelById($id);
@@ -180,7 +170,7 @@ class AccessLevelController {
      * Affiche le formulaire d'édition d'un niveau d'accès
      */
     public function edit($id) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Accès réservé aux administrateurs");
 
         try {
             $accessLevel = $this->accessLevelModel->getAccessLevelById($id);
@@ -210,7 +200,7 @@ class AccessLevelController {
      * Traite la mise à jour d'un niveau d'accès
      */
     public function update($id) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Accès réservé aux administrateurs");
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             header('Location: ' . BASE_URL . 'access_levels');
@@ -254,7 +244,7 @@ class AccessLevelController {
      * Récupère les règles de visibilité d'un niveau d'accès (AJAX)
      */
     public function getVisibilityRules($accessLevelId) {
-        $this->checkAdminAccess();
+        $this->checkAdminAccess("Accès réservé aux administrateurs");
 
         try {
             $rules = $this->accessLevelModel->getVisibilityRulesForLevel($accessLevelId);

@@ -852,6 +852,7 @@ function loadPermissionsSimple(userType, permissionsSectionId) {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRF-Token': window.CSRF_TOKEN || ''
         },
         body: 'type=' + encodeURIComponent(userType) + (userId ? '&user_id=' + encodeURIComponent(userId) : '')
     })
@@ -893,6 +894,7 @@ function loadClientLocationsSimple(clientId, locationsContainerId, userId = null
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRF-Token': window.CSRF_TOKEN || ''
         },
         body: body
     })
@@ -934,6 +936,7 @@ function loadContractRoomsSimple(clientId, roomsContainerId, contractId = null) 
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRF-Token': window.CSRF_TOKEN || ''
         },
         body: body
     })

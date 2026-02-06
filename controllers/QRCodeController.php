@@ -3,11 +3,13 @@ require_once __DIR__ . '/../models/SiteModel.php';
 require_once __DIR__ . '/../models/RoomModel.php';
 require_once __DIR__ . '/../models/MaterielModel.php';
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
 
 class QRCodeController {
+    use AccessControlTrait;
     private $db;
     private $siteModel;
     private $roomModel;
@@ -21,21 +23,6 @@ class QRCodeController {
         $this->materielModel = new MaterielModel($this->db);
     }
 
-    /**
-     * Vérifie si l'utilisateur a le droit d'accéder aux QR codes
-     */
-    private function checkAccess() {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
-        }
-
-        if (!isStaff()) {
-            $_SESSION['error'] = "Vous n'avez pas les droits nécessaires pour accéder à cette page.";
-            header('Location: ' . BASE_URL . 'dashboard');
-            exit;
-        }
-    }
 
     /**
      * Génère les fiches QR codes pour un site complet

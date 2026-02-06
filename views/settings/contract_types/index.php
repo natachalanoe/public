@@ -172,9 +172,10 @@ function saveOrder() {
     // Envoyer les données au serveur
     fetch('<?= BASE_URL ?>settings/contractTypes/updateOrder', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
+            headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
         body: 'orders=' + encodeURIComponent(JSON.stringify(orders))
     })
     .then(response => response.text())

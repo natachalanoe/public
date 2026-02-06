@@ -89,6 +89,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
             }
             ?>
             <form id="roomForm" action="<?= $formAction ?>" method="POST">
+                <?= csrf_field() ?>
                 <?php if (!empty($sites)): ?>
                     <!-- Liste déroulante des sites quand on vient de la vue client -->
                     <div class="row">

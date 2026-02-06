@@ -30,7 +30,7 @@ class AgendaController {
      * Récupère tous les statuts disponibles
      */
     private function getAllStatuses() {
-        $sql = "SELECT * FROM intervention_statuses ORDER BY id ASC";
+        $sql = "SELECT id, name, color, is_critical, created_at FROM intervention_statuses ORDER BY id ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -40,7 +40,7 @@ class AgendaController {
      * Récupère toutes les priorités disponibles
      */
     private function getAllPriorities() {
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id ASC";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -50,7 +50,7 @@ class AgendaController {
      * Récupère tous les types d'intervention
      */
     private function getAllTypes() {
-        $sql = "SELECT * FROM intervention_types ORDER BY id ASC";
+        $sql = "SELECT id, name, requires_travel, created_at FROM intervention_types ORDER BY id ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -1,6 +1,8 @@
 <?php
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
 
 class ContactController {
+    use AccessControlTrait;
     private $db;
     private $contactModel;
     private $clientModel;
@@ -14,12 +16,13 @@ class ContactController {
         $this->userModel = new UserModel($this->db);
     }
 
+    /**
+     * Vérifie l'accès avec vérification optionnelle d'un client spécifique
+     * Utilise AccessControlTrait::checkAccessWithClient() et checkClientManagementAccess()
+     */
     private function checkAccess($clientId = null) {
-        if (!isset($_SESSION['user'])) {
-            header('Location: ' . BASE_URL . 'auth/login');
-            exit;
-        }
-
+        $this->checkAccessWithClient($clientId);
+        
         if (!canModifyClients()) {
             $_SESSION['error'] = "Vous n'avez pas les permissions nécessaires pour accéder à cette page.";
             

@@ -96,6 +96,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
         </div>
         <div class="card-body">
             <form method="POST" action="<?= BASE_URL ?>materiel/update/<?= $materiel['id'] ?>">
+                <?= csrf_field() ?>
                 <!-- Champs cachés pour conserver les filtres -->
                 <?php if (isset($_GET['client_id']) && !empty($_GET['client_id'])): ?>
                     <input type="hidden" name="return_client_id" value="<?= h($_GET['client_id']) ?>">

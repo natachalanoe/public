@@ -1,10 +1,10 @@
 <?php
+require_once __DIR__ . '/../classes/Models/BaseModel.php';
 
-class UserTypeModel {
-    private $db;
-
+class UserTypeModel extends BaseModel {
     public function __construct($db) {
-        $this->db = $db;
+        parent::__construct($db);
+        $this->table = 'user_types';
     }
 
     /**
@@ -30,13 +30,8 @@ class UserTypeModel {
      */
     public function getById($id) {
         try {
-            // D'abord essayer de récupérer depuis user_types
-            $stmt = $this->db->prepare("
-                SELECT * FROM user_types 
-                WHERE id = ?
-            ");
-            $stmt->execute([$id]);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            // D'abord essayer de récupérer depuis user_types via BaseModel
+            $result = $this->find($id);
             
             if ($result) {
                 return $result;
@@ -90,15 +85,12 @@ class UserTypeModel {
      */
     public function create($data) {
         try {
-            $stmt = $this->db->prepare("
-                INSERT INTO user_types (name, description, group_id, created_at) 
-                VALUES (?, ?, ?, NOW())
-            ");
-            return $stmt->execute([
-                $data['name'],
-                $data['description'] ?? '',
-                $data['group_id']
-            ]);
+            $insertData = [
+                'name' => $data['name'],
+                'description' => $data['description'] ?? '',
+                'group_id' => $data['group_id']
+            ];
+            return parent::create($insertData);
         } catch (PDOException $e) {
             custom_log("Erreur lors de la création du type d'utilisateur : " . $e->getMessage(), 'ERROR');
             return false;
@@ -110,17 +102,12 @@ class UserTypeModel {
      */
     public function update($id, $data) {
         try {
-            $stmt = $this->db->prepare("
-                UPDATE user_types 
-                SET name = ?, description = ?, group_id = ?, updated_at = NOW()
-                WHERE id = ?
-            ");
-            return $stmt->execute([
-                $data['name'],
-                $data['description'] ?? '',
-                $data['group_id'],
-                $id
-            ]);
+            $updateData = [
+                'name' => $data['name'],
+                'description' => $data['description'] ?? '',
+                'group_id' => $data['group_id']
+            ];
+            return parent::update($id, $updateData);
         } catch (PDOException $e) {
             custom_log("Erreur lors de la mise à jour du type d'utilisateur : " . $e->getMessage(), 'ERROR');
             return false;
@@ -132,8 +119,7 @@ class UserTypeModel {
      */
     public function delete($id) {
         try {
-            $stmt = $this->db->prepare("DELETE FROM user_types WHERE id = ?");
-            return $stmt->execute([$id]);
+            return parent::delete($id);
         } catch (PDOException $e) {
             custom_log("Erreur lors de la suppression du type d'utilisateur : " . $e->getMessage(), 'ERROR');
             return false;
@@ -164,7 +150,7 @@ class UserTypeModel {
     public function getAllGroups() {
         try {
             $stmt = $this->db->prepare("
-                SELECT * FROM user_groups 
+                SELECT id, name, description, created_at, updated_at FROM user_groups 
                 ORDER BY name ASC
             ");
             $stmt->execute();

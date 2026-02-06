@@ -243,12 +243,13 @@ include_once __DIR__ . '/../../includes/navbar.php';
             </h5>
         </div>
         <div class="card-body">
-            <form method="POST" action="<?= BASE_URL ?>documentation/store" class="needs-validation" novalidate id="documentationForm">
+            <form method="POST" action="<?= BASE_URL ?>documentation/store" class="needs-validation" novalidate id="dragDropForm">
+                <?= csrf_field() ?>
                 <!-- Sélection du client/site/salle -->
                 <div class="row mb-4">
                     <div class="col-md-4">
                         <label for="client_id" class="form-label fw-bold">Client <span class="text-danger">*</span></label>
-                        <select class="form-select" id="client_id" name="client_id" required onchange="updateSites()">
+                        <select class="form-select" id="client_id" name="client_id" required>
                             <option value="">Sélectionner un client</option>
                             <?php if (isset($clients) && is_array($clients)): ?>
                                 <?php foreach ($clients as $client): ?>
@@ -265,7 +266,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     
                     <div class="col-md-4">
                         <label for="site_id" class="form-label fw-bold">Site</label>
-                        <select class="form-select" id="site_id" name="site_id" onchange="updateRooms()">
+                        <select class="form-select" id="site_id" name="site_id">
                             <option value="">Sélectionner un site (optionnel)</option>
                             <?php if (isset($sites) && is_array($sites)): ?>
                                 <?php foreach ($sites as $site): ?>
@@ -303,7 +304,7 @@ include_once __DIR__ . '/../../includes/navbar.php';
                         </div>
                         
                         <input type="file" id="fileInput" multiple style="display: none;" 
-                               accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif,.zip,.rar">
+                               accept="<?php require_once INCLUDES_PATH . '/FileUploadValidator.php'; echo FileUploadValidator::getAcceptAttribute($GLOBALS['db']); ?>">
                         
                         <div class="file-list" id="fileList"></div>
                         
@@ -321,21 +322,27 @@ include_once __DIR__ . '/../../includes/navbar.php';
                             </div>
                         </div>
                     </div>
-                    <div class="invalid-feedback" id="filesError">
+                    <div class="invalid-feedback" id="filesError" style="display: none;">
                         Veuillez ajouter au moins un document.
                     </div>
+                </div>
+
+                <!-- Options des fichiers -->
+                <div id="filesOptions" style="display: none;">
+                    <h6 class="mb-3">Options des fichiers</h6>
+                    <div id="filesOptionsList"></div>
                 </div>
 
                 <!-- Boutons d'action -->
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <button type="button" class="btn btn-outline-danger" id="clearAllBtn" onclick="clearAllFiles()" style="display: none;">
+                        <button type="button" class="btn btn-outline-danger" id="clearAllBtn" style="display: none;">
                             <i class="bi bi-trash me-1"></i>Vider la liste
                         </button>
                     </div>
                     <div>
-                        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
-                            <i class="bi bi-check-lg me-1"></i>Enregistrer la Documentation
+                        <button type="button" class="btn btn-primary" id="uploadValidBtn" style="display: none;">
+                            <i class="bi bi-upload me-1"></i>Uploader les fichiers
                         </button>
                     </div>
                 </div>
@@ -344,10 +351,9 @@ include_once __DIR__ . '/../../includes/navbar.php';
     </div>
 </div>
 
-<script>
-// Classe pour gérer le drag & drop et l'upload
-class DocumentationUploader {
-    constructor() {
+<!-- JavaScript pour le formulaire d'ajout de documentation -->
+<script src="<?php echo BASE_URL; ?>assets/js/pages/documentation-add.js" onerror="console.error('ERREUR: documentation-add.js n\'a pas pu être chargé. Vérifiez que le fichier existe et est accessible.');"></script>
+<!--
         this.dropZone = document.getElementById('dropZone');
         this.fileInput = document.getElementById('fileInput');
         this.fileList = document.getElementById('fileList');
@@ -578,6 +584,7 @@ class DocumentationUploader {
         fetch('<?= BASE_URL ?>documentation/store', {
             method: 'POST',
             headers: {
+                'X-CSRF-Token': '<?= csrf_token() ?>',
                 'X-Requested-With': 'XMLHttpRequest'
             },
             body: formData
@@ -727,6 +734,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+-->
 
 <?php
 // Inclure le footer

@@ -2,7 +2,13 @@
 /**
  * Contrôleur pour la gestion des interventions
  */
+require_once __DIR__ . '/../classes/Services/AttachmentService.php';
+
+require_once __DIR__ . '/../classes/Traits/AccessControlTrait.php';
+
 class InterventionController {
+    use AccessControlTrait;
+    
     private $db;
     private $interventionModel;
     private $clientModel;
@@ -65,9 +71,6 @@ class InterventionController {
     /**
      * Vérifie si l'utilisateur a le droit d'accéder aux interventions
      */
-    private function checkAccess() {
-        checkStaffAccess();
-    }
 
     /**
      * Retourne l'URL de la liste des interventions selon le type
@@ -77,7 +80,7 @@ class InterventionController {
     private function getInterventionsListUrl($priorityId = null) {
         // Si une priorité est fournie, vérifier si c'est préventive
         if ($priorityId) {
-            $sql = "SELECT * FROM intervention_priorities WHERE id = ?";
+            $sql = "SELECT id, name, color, created_at FROM intervention_priorities WHERE id = ?";
             $stmt = $this->db->prepare($sql);
             $stmt->execute([$priorityId]);
             $priority = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -110,7 +113,7 @@ class InterventionController {
         ];
         
         // Récupérer les priorités pour identifier les préventives
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -218,7 +221,7 @@ class InterventionController {
         ];
         
         // Récupérer les priorités pour identifier les préventives
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -302,7 +305,7 @@ class InterventionController {
         ];
         
         // Récupérer les priorités pour identifier les préventives
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -422,7 +425,7 @@ class InterventionController {
         $history = $this->getHistory($id);
 
         // Récupérer les priorités pour identifier les préventives
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -503,12 +506,12 @@ class InterventionController {
         // Récupérer les statuts, priorités et types
         $statuses = $this->getAllStatuses();
 
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $sql = "SELECT * FROM intervention_types ORDER BY name";
+        $sql = "SELECT id, name, requires_travel, created_at FROM intervention_types ORDER BY name";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -536,7 +539,7 @@ class InterventionController {
      */
     private function generateInterventionReport($intervention) {
         // Récupérer les commentaires marqués comme solution
-        $sql = "SELECT * FROM intervention_comments 
+        $sql = "SELECT id, intervention_id, comment, visible_by_client, is_solution, is_observation, pour_bon_intervention, created_by, created_at FROM intervention_comments 
                 WHERE intervention_id = ? AND is_solution = 1 
                 ORDER BY created_at DESC";
         $stmt = $this->db->prepare($sql);
@@ -902,6 +905,11 @@ class InterventionController {
             'created_at' => 'Date de création'
         ];
 
+        // OPTIMISATION N+1 : Précharger toutes les données nécessaires en une seule fois
+        // Au lieu de faire une requête SQL pour chaque appel à getDisplayValue(),
+        // on collecte tous les IDs et on fait des requêtes batch
+        $lookupData = $this->preloadDisplayValues($oldData, $newData);
+
         $changes = [];
         foreach ($fieldsToTrack as $field => $label) {
             // Vérifier si le champ existe dans les nouvelles données
@@ -933,8 +941,9 @@ class InterventionController {
                     $oldFieldValue = array_key_exists($field, $oldData) ? $oldData[$field] : null;
                     
                     // Pour les autres champs, on compare les valeurs d'affichage
-                    $oldValue = $this->getDisplayValue($field, $oldFieldValue);
-                    $newValue = $this->getDisplayValue($field, $newData[$field]);
+                    // Utiliser les données préchargées pour éviter les requêtes N+1
+                    $oldValue = $this->getDisplayValue($field, $oldFieldValue, $lookupData);
+                    $newValue = $this->getDisplayValue($field, $newData[$field], $lookupData);
                     
                     // Ne créer une entrée que si la valeur a réellement changé
                     if ($oldValue !== $newValue) {
@@ -962,9 +971,144 @@ class InterventionController {
     }
 
     /**
-     * Récupère la valeur d'affichage d'un champ
+     * OPTIMISATION N+1 : Précharge toutes les données nécessaires pour getDisplayValue()
+     * @param array $oldData Données anciennes
+     * @param array $newData Données nouvelles
+     * @return array Tableau de lookup avec toutes les données préchargées
      */
-    private function getDisplayValue($field, $value) {
+    private function preloadDisplayValues($oldData, $newData) {
+        $lookupData = [
+            'clients' => [],
+            'sites' => [],
+            'rooms' => [],
+            'technicians' => [],
+            'statuses' => [],
+            'priorities' => [],
+            'types' => [],
+            'contracts' => []
+        ];
+
+        // Collecter tous les IDs nécessaires
+        $clientIds = [];
+        $siteIds = [];
+        $roomIds = [];
+        $technicianIds = [];
+        $statusIds = [];
+        $priorityIds = [];
+        $typeIds = [];
+        $contractIds = [];
+
+        foreach (['oldData' => $oldData, 'newData' => $newData] as $source => $data) {
+            if (isset($data['client_id']) && $data['client_id']) $clientIds[] = $data['client_id'];
+            if (isset($data['site_id']) && $data['site_id']) $siteIds[] = $data['site_id'];
+            if (isset($data['room_id']) && $data['room_id']) $roomIds[] = $data['room_id'];
+            if (isset($data['technician_id']) && $data['technician_id']) $technicianIds[] = $data['technician_id'];
+            if (isset($data['status_id']) && $data['status_id']) $statusIds[] = $data['status_id'];
+            if (isset($data['priority_id']) && $data['priority_id']) $priorityIds[] = $data['priority_id'];
+            if (isset($data['type_id']) && $data['type_id']) $typeIds[] = $data['type_id'];
+            if (isset($data['contract_id']) && $data['contract_id']) $contractIds[] = $data['contract_id'];
+        }
+
+        // Supprimer les doublons
+        $clientIds = array_unique($clientIds);
+        $siteIds = array_unique($siteIds);
+        $roomIds = array_unique($roomIds);
+        $technicianIds = array_unique($technicianIds);
+        $statusIds = array_unique($statusIds);
+        $priorityIds = array_unique($priorityIds);
+        $typeIds = array_unique($typeIds);
+        $contractIds = array_unique($contractIds);
+
+        // Précharger les clients
+        if (!empty($clientIds)) {
+            $placeholders = implode(',', array_fill(0, count($clientIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, name FROM clients WHERE id IN ($placeholders)");
+            $stmt->execute($clientIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['clients'][$row['id']] = $row['name'];
+            }
+        }
+
+        // Précharger les sites
+        if (!empty($siteIds)) {
+            $placeholders = implode(',', array_fill(0, count($siteIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, name FROM sites WHERE id IN ($placeholders)");
+            $stmt->execute($siteIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['sites'][$row['id']] = $row['name'];
+            }
+        }
+
+        // Précharger les salles
+        if (!empty($roomIds)) {
+            $placeholders = implode(',', array_fill(0, count($roomIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, name FROM rooms WHERE id IN ($placeholders)");
+            $stmt->execute($roomIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['rooms'][$row['id']] = $row['name'];
+            }
+        }
+
+        // Précharger les techniciens
+        if (!empty($technicianIds)) {
+            $placeholders = implode(',', array_fill(0, count($technicianIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, CONCAT(first_name, ' ', last_name) as name FROM users WHERE id IN ($placeholders)");
+            $stmt->execute($technicianIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['technicians'][$row['id']] = $row['name'];
+            }
+        }
+
+        // Précharger les statuts
+        if (!empty($statusIds)) {
+            $placeholders = implode(',', array_fill(0, count($statusIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, name FROM intervention_statuses WHERE id IN ($placeholders)");
+            $stmt->execute($statusIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['statuses'][$row['id']] = $row['name'];
+            }
+        }
+
+        // Précharger les priorités
+        if (!empty($priorityIds)) {
+            $placeholders = implode(',', array_fill(0, count($priorityIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, name FROM intervention_priorities WHERE id IN ($placeholders)");
+            $stmt->execute($priorityIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['priorities'][$row['id']] = $row['name'];
+            }
+        }
+
+        // Précharger les types
+        if (!empty($typeIds)) {
+            $placeholders = implode(',', array_fill(0, count($typeIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, name FROM intervention_types WHERE id IN ($placeholders)");
+            $stmt->execute($typeIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['types'][$row['id']] = $row['name'];
+            }
+        }
+
+        // Précharger les contrats
+        if (!empty($contractIds)) {
+            $placeholders = implode(',', array_fill(0, count($contractIds), '?'));
+            $stmt = $this->db->prepare("SELECT id, name FROM contracts WHERE id IN ($placeholders)");
+            $stmt->execute($contractIds);
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $lookupData['contracts'][$row['id']] = $row['name'];
+            }
+        }
+
+        return $lookupData;
+    }
+
+    /**
+     * Récupère la valeur d'affichage d'un champ
+     * @param string $field Nom du champ
+     * @param mixed $value Valeur du champ
+     * @param array $lookupData Données préchargées (optionnel, pour éviter les requêtes N+1)
+     */
+    private function getDisplayValue($field, $value, $lookupData = []) {
         // Code de débogage temporaire
         error_log("DEBUG - getDisplayValue() - field: $field, value: " . var_export($value, true));
         
@@ -974,6 +1118,10 @@ class InterventionController {
 
         switch ($field) {
             case 'client_id':
+                if (!empty($lookupData) && isset($lookupData['clients'][$value])) {
+                    return $lookupData['clients'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT name FROM clients WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -983,6 +1131,10 @@ class InterventionController {
             case 'site_id':
                 error_log("DEBUG - getDisplayValue() - site_id spécifique, value: " . var_export($value, true));
                 if (empty($value)) return 'Non spécifié';
+                if (!empty($lookupData) && isset($lookupData['sites'][$value])) {
+                    return $lookupData['sites'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT name FROM sites WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -992,6 +1144,10 @@ class InterventionController {
                 
             case 'room_id':
                 if (empty($value)) return 'Non spécifié';
+                if (!empty($lookupData) && isset($lookupData['rooms'][$value])) {
+                    return $lookupData['rooms'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT name FROM rooms WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -999,6 +1155,10 @@ class InterventionController {
                 return $result ? $result['name'] : 'Salle inconnue';
                 
             case 'technician_id':
+                if (!empty($lookupData) && isset($lookupData['technicians'][$value])) {
+                    return $lookupData['technicians'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT CONCAT(first_name, ' ', last_name) as name FROM users WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -1006,6 +1166,10 @@ class InterventionController {
                 return $result ? $result['name'] : 'Technicien inconnu';
                 
             case 'status_id':
+                if (!empty($lookupData) && isset($lookupData['statuses'][$value])) {
+                    return $lookupData['statuses'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT name FROM intervention_statuses WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -1013,6 +1177,10 @@ class InterventionController {
                 return $result ? $result['name'] : 'Statut inconnu';
                 
             case 'priority_id':
+                if (!empty($lookupData) && isset($lookupData['priorities'][$value])) {
+                    return $lookupData['priorities'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT name FROM intervention_priorities WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -1020,6 +1188,10 @@ class InterventionController {
                 return $result ? $result['name'] : 'Priorité inconnue';
                 
             case 'type_id':
+                if (!empty($lookupData) && isset($lookupData['types'][$value])) {
+                    return $lookupData['types'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT name FROM intervention_types WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -1028,6 +1200,10 @@ class InterventionController {
                 
             case 'contract_id':
                 if (!$value) return 'Hors contrat';
+                if (!empty($lookupData) && isset($lookupData['contracts'][$value])) {
+                    return $lookupData['contracts'][$value];
+                }
+                // Fallback si lookupData n'est pas fourni (compatibilité)
                 $sql = "SELECT name FROM contracts WHERE id = ?";
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([$value]);
@@ -1175,6 +1351,10 @@ class InterventionController {
     /**
      * Ajoute une pièce jointe à une intervention
      */
+    /**
+     * Ajoute une pièce jointe à une intervention
+     * Utilise AttachmentService pour centraliser la logique
+     */
     public function addAttachment($interventionId) {
         // Vérifier les permissions
         checkInterventionManagementAccess();
@@ -1183,7 +1363,6 @@ class InterventionController {
         $intervention = $this->interventionModel->getById($interventionId);
         
         if (!$intervention) {
-            // Rediriger vers la liste si l'intervention n'existe pas
             header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
@@ -1202,82 +1381,29 @@ class InterventionController {
             exit;
         }
 
-        // Récupérer les informations du fichier
-        $file = $_FILES['attachment'];
-        $originalFileName = $file['name'];
-        $fileTmpPath = $file['tmp_name'];
-        $fileSize = $file['size'];
-        $fileError = $file['error'];
-
-        // Vérifier la taille du fichier (limite du serveur)
-        $maxFileSize = getServerMaxUploadSize();
-        if ($fileSize > $maxFileSize) {
-            $_SESSION['error'] = "Le fichier est trop volumineux. Taille maximale : " . formatFileSize($maxFileSize) . ".";
-            header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
-            exit;
-        }
-
-        // Vérifier le type de fichier
-        require_once INCLUDES_PATH . '/FileUploadValidator.php';
-        
-        $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-        
-        if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
-            $_SESSION['error'] = "Ce format n'est pas accepté, rapprochez-vous de l'administrateur du site, ou utilisez un format compressé.";
-            header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
-            exit;
-        }
-
-        // Créer le dossier de stockage s'il n'existe pas
-        $uploadDir = __DIR__ . '/../../uploads/interventions/' . $interventionId;
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-
-        // Préparer le nom du fichier
-        $fileExtension = pathinfo($originalFileName, PATHINFO_EXTENSION);
-        $fileName = pathinfo($originalFileName, PATHINFO_FILENAME);
-        $fileName = str_replace(' ', '_', $fileName); // Remplacer les espaces par des underscores
-        $fileName = preg_replace('/[^a-zA-Z0-9_-]/', '', $fileName); // Supprimer les caractères spéciaux
-        $baseFileName = $fileName;
-
-        // Vérifier si le fichier existe déjà et incrémenter si nécessaire
-        $counter = 1;
-        while (file_exists($uploadDir . '/' . $fileName . '.' . $fileExtension)) {
-            $fileName = $baseFileName . '_' . $counter;
-            $counter++;
-        }
-
-        $finalFileName = $fileName . '.' . $fileExtension;
-        $filePath = $uploadDir . '/' . $finalFileName;
-
-        // Déplacer le fichier
-        if (move_uploaded_file($fileTmpPath, $filePath)) {
-            // Récupérer le nom personnalisé s'il existe
-            $customName = isset($_POST['custom_name']) && !empty(trim($_POST['custom_name'])) 
-                ? trim($_POST['custom_name']) 
-                : null;
+        try {
+            // Utiliser AttachmentService pour gérer l'upload
+            $attachmentService = new AttachmentService($this->db);
             
-            // Utiliser le nom personnalisé s'il existe, sinon le nom original
-            $displayName = $customName ?: $originalFileName;
-            
-            // Préparer les données pour la base
-            $data = [
-                'nom_fichier' => $originalFileName,
-                'nom_personnalise' => $displayName,
-                'chemin_fichier' => 'uploads/interventions/' . $interventionId . '/' . $finalFileName,
-                'type_fichier' => $fileExtension,
-                'taille_fichier' => $fileSize,
-                'commentaire' => $_POST['description'] ?? null,
-                'masque_client' => isset($_POST['masque_client']) ? 1 : 0,
-                'created_by' => $_SESSION['user']['id']
+            // Préparer les options
+            $options = [
+                'custom_names' => [isset($_POST['custom_name']) && !empty(trim($_POST['custom_name'])) ? trim($_POST['custom_name']) : null],
+                'descriptions' => [$_POST['description'] ?? null],
+                'masque_client' => [isset($_POST['masque_client']) ? 1 : 0]
             ];
 
-            // Ajouter la pièce jointe via le modèle
-            $pieceJointeId = $this->interventionModel->addPieceJointe($interventionId, $data);
+            // Upload du fichier
+            $result = $attachmentService->upload(
+                AttachmentService::TYPE_INTERVENTION,
+                $interventionId,
+                $_FILES['attachment'],
+                $options,
+                $_SESSION['user']['id']
+            );
 
-            if ($pieceJointeId) {
+            if ($result['success'] && !empty($result['attachment_ids'])) {
                 // Enregistrer l'action dans l'historique
+                $displayName = $result['uploaded_files'][0] ?? $_FILES['attachment']['name'];
                 $sql = "INSERT INTO intervention_history (
                             intervention_id, field_name, old_value, new_value, changed_by, description
                         ) VALUES (
@@ -1293,12 +1419,13 @@ class InterventionController {
                 
                 $_SESSION['success'] = "Pièce jointe ajoutée avec succès.";
             } else {
-                $_SESSION['error'] = "Erreur lors de l'ajout de la pièce jointe.";
-                // Supprimer le fichier si l'insertion en base de données a échoué
-                unlink($filePath);
+                $errorMessage = !empty($result['errors']) ? implode(', ', $result['errors']) : "Erreur lors de l'ajout de la pièce jointe.";
+                $_SESSION['error'] = $errorMessage;
             }
-        } else {
-            $_SESSION['error'] = "Erreur lors de l'upload du fichier.";
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'ajout de la pièce jointe : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors de l'ajout de la pièce jointe : " . $e->getMessage();
         }
 
         header('Location: ' . BASE_URL . 'interventions/view/' . $interventionId);
@@ -1307,6 +1434,7 @@ class InterventionController {
 
     /**
      * Ajoute plusieurs pièces jointes à une intervention (Drag & Drop)
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function addMultipleAttachments($interventionId) {
         // Vérifier les permissions
@@ -1340,121 +1468,55 @@ class InterventionController {
                 throw new Exception("Aucun fichier à uploader");
             }
 
-            require_once INCLUDES_PATH . '/FileUploadValidator.php';
+            // Utiliser AttachmentService pour gérer l'upload
+            $attachmentService = new AttachmentService($this->db);
             
-            $uploadedFiles = [];
-            $errors = [];
-            
-            // Traiter chaque fichier
-            foreach ($_FILES['attachments']['tmp_name'] as $index => $tmpName) {
-                if ($_FILES['attachments']['error'][$index] !== UPLOAD_ERR_OK) {
-                    $errors[] = "Erreur lors de l'upload du fichier " . ($index + 1);
-                    continue;
-                }
+            // Préparer les options
+            $options = [
+                'custom_names' => $_POST['custom_names'] ?? []
+            ];
 
-                $originalFileName = $_FILES['attachments']['name'][$index];
-                $fileSize = $_FILES['attachments']['size'][$index];
-                $fileTmpPath = $tmpName;
-                
-                // Récupérer le nom personnalisé s'il existe
-                $customName = isset($_POST['custom_names'][$index]) && !empty(trim($_POST['custom_names'][$index])) 
-                    ? trim($_POST['custom_names'][$index]) 
-                    : null;
+            // Upload des fichiers
+            $result = $attachmentService->upload(
+                AttachmentService::TYPE_INTERVENTION,
+                $interventionId,
+                $_FILES['attachments'],
+                $options,
+                $_SESSION['user']['id']
+            );
 
-                // Vérifier la taille du fichier (limite du serveur)
-                $maxFileSize = getServerMaxUploadSize();
-                if ($fileSize > $maxFileSize) {
-                    $errors[] = "Le fichier '$originalFileName' est trop volumineux (max " . formatFileSize($maxFileSize) . ")";
-                    continue;
-                }
-
-                // Vérifier l'extension
-                $fileExtension = strtolower(pathinfo($originalFileName, PATHINFO_EXTENSION));
-                if (!FileUploadValidator::isExtensionAllowed($fileExtension, $this->db)) {
-                    $errors[] = "Le format du fichier '$originalFileName' n'est pas accepté";
-                    continue;
-                }
-
-                // Créer le dossier de stockage s'il n'existe pas
-                $uploadDir = __DIR__ . '/../../uploads/interventions/' . $interventionId;
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0777, true);
-                }
-
-                // Préparer le nom du fichier
-                $fileName = pathinfo($originalFileName, PATHINFO_FILENAME);
-                $fileName = str_replace(' ', '_', $fileName);
-                $fileName = preg_replace('/[^a-zA-Z0-9_-]/', '', $fileName);
-                $baseFileName = $fileName;
-
-                // Vérifier si le fichier existe déjà et incrémenter si nécessaire
-                $counter = 1;
-                while (file_exists($uploadDir . '/' . $fileName . '.' . $fileExtension)) {
-                    $fileName = $baseFileName . '_' . $counter;
-                    $counter++;
-                }
-
-                $finalFileName = $fileName . '.' . $fileExtension;
-                $filePath = $uploadDir . '/' . $finalFileName;
-
-                // Déplacer le fichier
-                if (move_uploaded_file($fileTmpPath, $filePath)) {
-                    // Utiliser le nom personnalisé s'il existe, sinon le nom original
-                    $displayName = $customName ?: $originalFileName;
+            // Enregistrer dans l'historique pour chaque fichier uploadé
+            if ($result['success'] && !empty($result['attachment_ids'])) {
+                foreach ($result['uploaded_files'] as $index => $displayName) {
+                    $sql = "INSERT INTO intervention_history (
+                                intervention_id, field_name, old_value, new_value, changed_by, description
+                            ) VALUES (
+                                :intervention_id, 'attachment', '', :filename, :changed_by, 'Ajout de pièce jointe'
+                            )";
                     
-                    // Préparer les données pour la base
-                    $data = [
-                        'nom_fichier' => $originalFileName,
-                        'nom_personnalise' => $displayName,
-                        'chemin_fichier' => 'uploads/interventions/' . $interventionId . '/' . $finalFileName,
-                        'type_fichier' => $fileExtension,
-                        'taille_fichier' => $fileSize,
-                        'commentaire' => null, // Pas de commentaire pour les interventions
-                        'masque_client' => 0, // Pas de masquage pour les interventions
-                        'created_by' => $_SESSION['user']['id']
-                    ];
-
-                    // Ajouter la pièce jointe via le modèle
-                    $pieceJointeId = $this->interventionModel->addPieceJointe($interventionId, $data);
-
-                    if ($pieceJointeId) {
-                        // Enregistrer l'action dans l'historique
-                        $sql = "INSERT INTO intervention_history (
-                                    intervention_id, field_name, old_value, new_value, changed_by, description
-                                ) VALUES (
-                                    :intervention_id, 'attachment', '', :filename, :changed_by, 'Ajout de pièce jointe'
-                                )";
-                        
-                        $stmt = $this->db->prepare($sql);
-                        $stmt->execute([
-                            ':intervention_id' => $interventionId,
-                            ':filename' => $displayName,
-                            ':changed_by' => $_SESSION['user']['id']
-                        ]);
-                        
-                        $uploadedFiles[] = $displayName;
-                    } else {
-                        $errors[] = "Erreur lors de l'enregistrement du fichier '$originalFileName'";
-                    }
-                } else {
-                    $errors[] = "Erreur lors du déplacement du fichier '$originalFileName'";
+                    $stmt = $this->db->prepare($sql);
+                    $stmt->execute([
+                        ':intervention_id' => $interventionId,
+                        ':filename' => $displayName,
+                        ':changed_by' => $_SESSION['user']['id']
+                    ]);
                 }
             }
 
             // Retourner le résultat
             header('Content-Type: application/json');
-            if (empty($errors) && !empty($uploadedFiles)) {
+            if ($result['success']) {
                 echo json_encode([
                     'success' => true,
-                    'message' => count($uploadedFiles) . ' fichier(s) uploadé(s) avec succès',
-                    'uploaded_files' => $uploadedFiles
+                    'message' => count($result['uploaded_files']) . ' fichier(s) uploadé(s) avec succès',
+                    'uploaded_files' => $result['uploaded_files']
                 ]);
             } else {
-                $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Aucun fichier uploadé';
+                $errorMessage = !empty($result['errors']) ? implode(', ', $result['errors']) : 'Aucun fichier uploadé';
                 echo json_encode([
                     'success' => false,
                     'error' => $errorMessage,
-                    'uploaded_files' => $uploadedFiles
+                    'uploaded_files' => $result['uploaded_files']
                 ]);
             }
 
@@ -1468,104 +1530,73 @@ class InterventionController {
 
     /**
      * Télécharge une pièce jointe
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function download($attachmentId) {
         // Vérifier les permissions
         $this->checkAccess();
 
-        // Récupérer la pièce jointe via le modèle
-        $attachment = $this->interventionModel->getPieceJointeById($attachmentId);
+        try {
+            // Récupérer la pièce jointe pour vérifier les permissions
+            $attachment = $this->interventionModel->getPieceJointeById($attachmentId);
 
-        if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
-            $_SESSION['error'] = "La pièce jointe n'existe pas.";
+            if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
+                $_SESSION['error'] = "La pièce jointe n'existe pas.";
+                header('Location: ' . $this->getInterventionsListUrl());
+                exit;
+            }
+
+            // Récupérer l'intervention
+            $intervention = $this->interventionModel->getById($attachment['entite_id']);
+
+            // Vérifier les permissions
+            if (!$this->checkPermission('technicien', 'view_interventions') && 
+                $_SESSION['user']['id'] !== $intervention['technician_id']) {
+                $_SESSION['error'] = "Vous n'avez pas la permission de télécharger cette pièce jointe.";
+                header('Location: ' . $this->getInterventionsListUrl());
+                exit;
+            }
+
+            // Utiliser AttachmentService pour gérer le téléchargement
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->download($attachmentId, true);
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors du téléchargement de la pièce jointe : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors du téléchargement : " . $e->getMessage();
             header('Location: ' . $this->getInterventionsListUrl());
             exit;
         }
-
-        // Récupérer l'intervention
-        $intervention = $this->interventionModel->getById($attachment['entite_id']);
-
-        // Vérifier les permissions
-        if (!$this->checkPermission('technicien', 'view_interventions') && 
-            $_SESSION['user']['id'] !== $intervention['technician_id']) {
-            $_SESSION['error'] = "Vous n'avez pas la permission de télécharger cette pièce jointe.";
-            header('Location: ' . $this->getInterventionsListUrl());
-            exit;
-        }
-
-        // Construire le chemin du fichier
-        $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
-
-        if (!file_exists($filePath)) {
-            $_SESSION['error'] = "Le fichier n'existe pas.";
-            header('Location: ' . BASE_URL . 'interventions/view/' . $intervention['id']);
-            exit;
-        }
-
-        // Définir les en-têtes pour le téléchargement
-        header('Content-Type: ' . mime_content_type($filePath));
-        // Utiliser le nom du fichier physique pour le téléchargement
-        $downloadName = $attachment['nom_fichier'];
-        header('Content-Disposition: attachment; filename="' . $downloadName . '"');
-        header('Content-Length: ' . filesize($filePath));
-        header('Cache-Control: no-cache, must-revalidate');
-        header('Pragma: no-cache');
-        header('Expires: 0');
-
-        // Lire et envoyer le fichier
-        readfile($filePath);
-        exit;
     }
 
     /**
      * Affiche l'aperçu d'une pièce jointe
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function preview($attachmentId) {
         // Vérifier les permissions
         $this->checkAccess();
 
-        // Récupérer la pièce jointe via le modèle
-        $attachment = $this->interventionModel->getPieceJointeById($attachmentId);
+        try {
+            // Récupérer la pièce jointe pour vérifier les permissions
+            $attachment = $this->interventionModel->getPieceJointeById($attachmentId);
 
-        if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
-            $_SESSION['error'] = "La pièce jointe n'existe pas.";
-            header('Location: ' . $this->getInterventionsListUrl());
+            if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
+                $_SESSION['error'] = "La pièce jointe n'existe pas.";
+                header('Location: ' . $this->getInterventionsListUrl());
+                exit;
+            }
+
+            // Utiliser AttachmentService pour gérer l'aperçu
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->preview($attachmentId);
+
+        } catch (Exception $e) {
+            custom_log("Erreur lors de l'aperçu de la pièce jointe : " . $e->getMessage(), 'ERROR');
+            $_SESSION['error'] = "Erreur lors de l'aperçu : " . $e->getMessage();
+            header('Location: ' . BASE_URL . 'interventions/view/' . ($attachment['entite_id'] ?? ''));
             exit;
         }
-
-        // Construire le chemin du fichier
-        $filePath = __DIR__ . '/../../' . $attachment['chemin_fichier'];
-
-        // Log pour débogage
-        error_log("Tentative d'ouverture du fichier : " . $filePath);
-        error_log("Type MIME : " . mime_content_type($filePath));
-
-        if (!file_exists($filePath)) {
-            error_log("Le fichier n'existe pas : " . $filePath);
-            $_SESSION['error'] = "Le fichier n'existe pas.";
-            header('Location: ' . BASE_URL . 'interventions/view/' . $attachment['intervention_id']);
-            exit;
-        }
-
-        // Définir les en-têtes pour l'aperçu
-        $mimeType = mime_content_type($filePath);
-        header('Content-Type: ' . $mimeType);
-        // Utiliser le nom du fichier physique pour la prévisualisation
-        $previewName = $attachment['nom_fichier'];
-        header('Content-Disposition: inline; filename="' . $previewName . '"');
-        header('Content-Length: ' . filesize($filePath));
-        // Headers plus permissifs pour la prévisualisation
-        header('Cache-Control: public, max-age=3600');
-        header('X-Content-Type-Options: nosniff');
-
-        // Nettoyer les buffers de sortie avant d'envoyer le fichier
-        if (ob_get_level()) {
-            ob_end_clean();
-        }
-
-        // Lire et envoyer le fichier
-        readfile($filePath);
-        exit;
     }
 
     /**
@@ -1579,7 +1610,7 @@ class InterventionController {
         }
 
         // Récupérer le commentaire
-        $sql = "SELECT * FROM intervention_comments WHERE id = ?";
+        $sql = "SELECT id, intervention_id, comment, visible_by_client, is_solution, is_observation, pour_bon_intervention, created_by, created_at FROM intervention_comments WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$commentId]);
         $comment = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -1624,6 +1655,7 @@ class InterventionController {
 
     /**
      * Supprime une pièce jointe
+     * Utilise AttachmentService pour centraliser la logique
      */
     public function deleteAttachment($attachmentId) {
         // Vérifier les permissions
@@ -1632,46 +1664,47 @@ class InterventionController {
             exit;
         }
 
-        // Récupérer la pièce jointe via le modèle
-        $attachment = $this->interventionModel->getPieceJointeById($attachmentId);
-        
-        if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
-            $_SESSION['error'] = "Pièce jointe introuvable.";
-            header('Location: ' . $this->getInterventionsListUrl());
-            exit;
-        }
-
         try {
-            // Supprimer la pièce jointe via le modèle
-            $result = $this->interventionModel->deletePieceJointe($attachmentId, $attachment['entite_id']);
-
-            if ($result) {
-                // Enregistrer l'action dans l'historique
-                $sql = "INSERT INTO intervention_history (
-                            intervention_id, field_name, old_value, new_value, changed_by, description
-                        ) VALUES (
-                            :intervention_id, :field_name, :old_value, :new_value, :changed_by, :description
-                        )";
-                
-                $stmt = $this->db->prepare($sql);
-                $stmt->execute([
-                    ':intervention_id' => $attachment['entite_id'],
-                    ':field_name' => 'Pièce jointe',
-                    ':old_value' => $attachment['nom_fichier'],
-                    ':new_value' => '',
-                    ':changed_by' => $_SESSION['user']['id'],
-                    ':description' => "Pièce jointe supprimée : " . $attachment['nom_fichier']
-                ]);
-                
-                $_SESSION['success'] = "Pièce jointe supprimée avec succès.";
-            } else {
-                $_SESSION['error'] = "Erreur lors de la suppression de la pièce jointe.";
+            // Récupérer la pièce jointe pour vérifier et obtenir l'ID de l'intervention
+            $attachment = $this->interventionModel->getPieceJointeById($attachmentId);
+            
+            if (!$attachment || ($attachment['type_liaison'] !== 'intervention' && $attachment['type_liaison'] !== 'bi')) {
+                $_SESSION['error'] = "Pièce jointe introuvable.";
+                header('Location: ' . $this->getInterventionsListUrl());
+                exit;
             }
+
+            $interventionId = $attachment['entite_id'];
+
+            // Utiliser AttachmentService pour gérer la suppression
+            $attachmentService = new AttachmentService($this->db);
+            $attachmentService->delete($attachmentId, $attachment['type_liaison'], $interventionId);
+
+            // Enregistrer l'action dans l'historique
+            $sql = "INSERT INTO intervention_history (
+                        intervention_id, field_name, old_value, new_value, changed_by, description
+                    ) VALUES (
+                        :intervention_id, :field_name, :old_value, :new_value, :changed_by, :description
+                    )";
+            
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([
+                ':intervention_id' => $interventionId,
+                ':field_name' => 'Pièce jointe',
+                ':old_value' => $attachment['nom_fichier'],
+                ':new_value' => '',
+                ':changed_by' => $_SESSION['user']['id'],
+                ':description' => "Pièce jointe supprimée : " . $attachment['nom_fichier']
+            ]);
+            
+            $_SESSION['success'] = "Pièce jointe supprimée avec succès.";
+
         } catch (Exception $e) {
+            custom_log("Erreur lors de la suppression de la pièce jointe : " . $e->getMessage(), 'ERROR');
             $_SESSION['error'] = "Erreur lors de la suppression de la pièce jointe : " . $e->getMessage();
         }
 
-        header('Location: ' . BASE_URL . 'interventions/view/' . $attachment['entite_id']);
+        header('Location: ' . BASE_URL . 'interventions/view/' . ($interventionId ?? ''));
         exit;
     }
 
@@ -1683,7 +1716,7 @@ class InterventionController {
         $this->checkAccess();
 
         // Récupérer les informations du type
-        $sql = "SELECT * FROM intervention_types WHERE id = ?";
+        $sql = "SELECT id, name, requires_travel, created_at FROM intervention_types WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$typeId]);
         $type = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -2271,12 +2304,12 @@ class InterventionController {
         // Récupérer les statuts, priorités et types
         $statuses = $this->getAllStatuses();
 
-        $sql = "SELECT * FROM intervention_priorities ORDER BY id";
+        $sql = "SELECT id, name, color, created_at FROM intervention_priorities ORDER BY id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $priorities = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $sql = "SELECT * FROM intervention_types ORDER BY name";
+        $sql = "SELECT id, name, requires_travel, created_at FROM intervention_types ORDER BY name";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -2543,7 +2576,7 @@ class InterventionController {
         $this->checkAccess();
 
         // Récupérer le commentaire
-        $sql = "SELECT * FROM intervention_comments WHERE id = ?";
+        $sql = "SELECT id, intervention_id, comment, visible_by_client, is_solution, is_observation, pour_bon_intervention, created_by, created_at FROM intervention_comments WHERE id = ?";
         $stmt = $this->db->prepare($sql);
         $stmt->execute([$commentId]);
         $comment = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -2630,7 +2663,7 @@ class InterventionController {
      * Récupère tous les statuts disponibles
      */
     public function getAllStatuses() {
-        $sql = "SELECT * FROM intervention_statuses ORDER BY id ASC";
+        $sql = "SELECT id, name, color, is_critical, created_at FROM intervention_statuses ORDER BY id ASC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -2911,6 +2944,18 @@ class InterventionController {
             }
 
             // Enregistrer l'action dans l'historique
+            // OPTIMISATION N+1 : Précharger les status_id nécessaires (ancien et nouveau)
+            $statusIds = array_filter([$intervention['status_id'], 6]);
+            $lookupData = ['statuses' => []];
+            if (!empty($statusIds)) {
+                $placeholders = implode(',', array_fill(0, count($statusIds), '?'));
+                $stmt = $this->db->prepare("SELECT id, name FROM intervention_statuses WHERE id IN ($placeholders)");
+                $stmt->execute(array_values($statusIds));
+                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    $lookupData['statuses'][$row['id']] = $row['name'];
+                }
+            }
+            
             $sql = "INSERT INTO intervention_history (
                         intervention_id, field_name, old_value, new_value, changed_by, description
                     ) VALUES (
@@ -2921,8 +2966,8 @@ class InterventionController {
             $stmt->execute([
                 ':intervention_id' => $id,
                 ':field_name' => 'Statut',
-                ':old_value' => $this->getDisplayValue('status_id', $intervention['status_id']),
-                ':new_value' => $this->getDisplayValue('status_id', 6),
+                ':old_value' => $this->getDisplayValue('status_id', $intervention['status_id'], $lookupData),
+                ':new_value' => $this->getDisplayValue('status_id', 6, $lookupData),
                 ':changed_by' => $_SESSION['user']['id'],
                 ':description' => "Intervention fermée avec {$ticketsUsed} tickets utilisés"
             ]);
@@ -3391,6 +3436,7 @@ class InterventionController {
             $success = $this->interventionModel->updateAttachmentName($attachmentId, $newName);
 
             if ($success) {
+                $oldDisplayName = $attachment['nom_personnalise'] ?? $attachment['nom_fichier'];
                 // Enregistrer l'action dans l'historique
                 $sql = "INSERT INTO intervention_history (
                             intervention_id, field_name, old_value, new_value, changed_by, description
@@ -3401,10 +3447,10 @@ class InterventionController {
                 $stmt = $this->db->prepare($sql);
                 $stmt->execute([
                     ':intervention_id' => $attachment['entite_id'],
-                    ':old_value' => $attachment['nom_fichier'],
+                    ':old_value' => $oldDisplayName,
                     ':new_value' => $newName,
                     ':changed_by' => $_SESSION['user']['id'],
-                    ':description' => "Nom de la pièce jointe modifié : " . $attachment['nom_fichier'] . " → " . $newName
+                    ':description' => "Nom de la pièce jointe modifié : " . $oldDisplayName . " → " . $newName
                 ]);
 
                 header('Content-Type: application/json');
