@@ -146,6 +146,21 @@ $public_routes = ['auth/login', 'auth/logout', 'settings/getAllowedExtensions'];
 $current_route = $controller . '/' . $action;
 
 if (!in_array($current_route, $public_routes) && !isset($_SESSION['user'])) {
+    // Vérifier si c'est une requête AJAX
+    $isAjaxRequest = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+                     strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+    
+    // Si c'est une requête AJAX, retourner du JSON au lieu de rediriger
+    if ($isAjaxRequest) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=UTF-8');
+        echo json_encode([
+            'error' => 'Session expirée. Veuillez vous reconnecter.',
+            'redirect' => BASE_URL . 'auth/login'
+        ]);
+        exit;
+    }
+    
     // Ignorer les requêtes pour les fichiers statiques (favicon, robots.txt, etc.)
     $staticFiles = ['favicon.ico', 'robots.txt', '.well-known'];
     $isStaticFile = false;

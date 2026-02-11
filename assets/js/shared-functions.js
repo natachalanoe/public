@@ -839,6 +839,14 @@ function loadPermissionsSimple(userType, permissionsSectionId) {
     const permissionsSection = document.getElementById(permissionsSectionId);
     if (!permissionsSection) return;
     
+    // Vérifier que BASE_URL est défini
+    const baseUrl = BASE_URL || window.BASE_URL || window.AppConfig?.BASE_URL || '';
+    if (!baseUrl) {
+        console.error('BASE_URL n\'est pas défini');
+        permissionsSection.innerHTML = '<p class="text-danger">Erreur de configuration: BASE_URL non défini.</p>';
+        return;
+    }
+    
     // Afficher un indicateur de chargement
     permissionsSection.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement des permissions...</div>';
     permissionsSection.style.display = 'block';
@@ -848,25 +856,62 @@ function loadPermissionsSimple(userType, permissionsSectionId) {
     const userId = urlParts.includes('edit') && urlParts[urlParts.length - 1] ? urlParts[urlParts.length - 1] : null;
     
     // Faire la requête AJAX
-    fetch(BASE_URL + 'user/load_permissions', {
+    fetch(baseUrl + 'user/load_permissions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRF-Token': window.CSRF_TOKEN || ''
+            'X-CSRF-Token': window.CSRF_TOKEN || '',
+            'X-Requested-With': 'XMLHttpRequest' // Identifier la requête comme AJAX
         },
-        body: 'type=' + encodeURIComponent(userType) + (userId ? '&user_id=' + encodeURIComponent(userId) : '')
+        body: 'type=' + encodeURIComponent(userType) + (userId ? '&user_id=' + encodeURIComponent(userId) : ''),
+        credentials: 'same-origin' // Inclure les cookies de session
     })
-    .then(response => response.json())
+    .then(response => {
+        // Vérifier le status HTTP
+        if (!response.ok) {
+            // Si c'est une redirection (302, 303, etc.) ou une erreur d'authentification
+            if (response.status === 302 || response.status === 303 || response.status === 401 || response.status === 403) {
+                throw new Error('Session expirée ou accès refusé. Veuillez vous reconnecter.');
+            }
+            throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        // Vérifier le Content-Type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // Si on reçoit du HTML au lieu de JSON, c'est probablement une page d'erreur ou de login
+            return response.text().then(text => {
+                console.error('Réponse non-JSON reçue:', text.substring(0, 200));
+                throw new Error('La réponse du serveur n\'est pas au format JSON. Votre session a peut-être expiré.');
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
-        if (data.html) {
+        if (data && data.html) {
             permissionsSection.innerHTML = data.html;
+        } else if (data && data.error) {
+            permissionsSection.innerHTML = '<p class="text-danger">' + (data.error || 'Erreur lors du chargement des permissions.') + '</p>';
         } else {
             permissionsSection.innerHTML = '<p class="text-muted">Aucune permission disponible pour ce type d\'utilisateur.</p>';
         }
     })
     .catch(error => {
         console.error('Erreur lors du chargement des permissions:', error);
-        permissionsSection.innerHTML = '<p class="text-danger">Erreur lors du chargement des permissions.</p>';
+        let errorMessage = 'Erreur lors du chargement des permissions.';
+        
+        if (error.message) {
+            if (error.message.includes('Session expirée') || error.message.includes('session')) {
+                errorMessage = 'Votre session a expiré. Veuillez <a href="' + baseUrl + 'auth/login">vous reconnecter</a>.';
+            } else if (error.message.includes('JSON')) {
+                errorMessage = 'Erreur de communication avec le serveur. Votre session a peut-être expiré.';
+            } else {
+                errorMessage = error.message;
+            }
+        }
+        
+        permissionsSection.innerHTML = '<p class="text-danger">' + errorMessage + '</p>';
     });
 }
 
@@ -880,6 +925,14 @@ function loadClientLocationsSimple(clientId, locationsContainerId, userId = null
     const locationsContainer = document.getElementById(locationsContainerId);
     if (!locationsContainer) return;
     
+    // Vérifier que BASE_URL est défini
+    const baseUrl = BASE_URL || window.BASE_URL || window.AppConfig?.BASE_URL || '';
+    if (!baseUrl) {
+        console.error('BASE_URL n\'est pas défini');
+        locationsContainer.innerHTML = '<p class="text-danger">Erreur de configuration: BASE_URL non défini.</p>';
+        return;
+    }
+    
     // Afficher un indicateur de chargement
     locationsContainer.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin"></i> Chargement des localisations...</div>';
     
@@ -890,25 +943,62 @@ function loadClientLocationsSimple(clientId, locationsContainerId, userId = null
     }
     
     // Faire la requête AJAX
-    fetch(BASE_URL + 'user/load_client_locations', {
+    fetch(baseUrl + 'user/load_client_locations', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRF-Token': window.CSRF_TOKEN || ''
+            'X-CSRF-Token': window.CSRF_TOKEN || '',
+            'X-Requested-With': 'XMLHttpRequest' // Identifier la requête comme AJAX
         },
-        body: body
+        body: body,
+        credentials: 'same-origin' // Inclure les cookies de session
     })
-    .then(response => response.json())
+    .then(response => {
+        // Vérifier le status HTTP
+        if (!response.ok) {
+            // Si c'est une redirection (302, 303, etc.) ou une erreur d'authentification
+            if (response.status === 302 || response.status === 303 || response.status === 401 || response.status === 403) {
+                throw new Error('Session expirée ou accès refusé. Veuillez vous reconnecter.');
+            }
+            throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        // Vérifier le Content-Type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // Si on reçoit du HTML au lieu de JSON, c'est probablement une page d'erreur ou de login
+            return response.text().then(text => {
+                console.error('Réponse non-JSON reçue:', text.substring(0, 200));
+                throw new Error('La réponse du serveur n\'est pas au format JSON. Votre session a peut-être expiré.');
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
-        if (data.html) {
+        if (data && data.html) {
             locationsContainer.innerHTML = data.html;
+        } else if (data && data.error) {
+            locationsContainer.innerHTML = '<p class="text-danger">' + (data.error || 'Erreur lors du chargement des localisations.') + '</p>';
         } else {
             locationsContainer.innerHTML = '<p class="text-muted">Aucune localisation disponible pour ce client.</p>';
         }
     })
     .catch(error => {
         console.error('Erreur lors du chargement des localisations:', error);
-        locationsContainer.innerHTML = '<p class="text-danger">Erreur lors du chargement des localisations.</p>';
+        let errorMessage = 'Erreur lors du chargement des localisations.';
+        
+        if (error.message) {
+            if (error.message.includes('Session expirée') || error.message.includes('session')) {
+                errorMessage = 'Votre session a expiré. Veuillez <a href="' + baseUrl + 'auth/login">vous reconnecter</a>.';
+            } else if (error.message.includes('JSON')) {
+                errorMessage = 'Erreur de communication avec le serveur. Votre session a peut-être expiré.';
+            } else {
+                errorMessage = error.message;
+            }
+        }
+        
+        locationsContainer.innerHTML = '<p class="text-danger">' + errorMessage + '</p>';
     });
 }
 

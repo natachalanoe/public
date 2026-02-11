@@ -508,6 +508,9 @@ class UserController {
      * Charge les localisations d'un client (AJAX simple)
      */
     public function load_client_locations() {
+        // Définir le Content-Type JSON dès le début pour éviter toute confusion
+        header('Content-Type: application/json; charset=UTF-8');
+        
         // Vérifier les droits d'accès
         if (!isset($_SESSION['user']) || !isAdmin()) {
             http_response_code(403);
@@ -549,6 +552,9 @@ class UserController {
      * Charge les permissions pour un type d'utilisateur (AJAX simple)
      */
     public function load_permissions() {
+        // Définir le Content-Type JSON dès le début pour éviter toute confusion
+        header('Content-Type: application/json; charset=UTF-8');
+        
         // Vérifier les droits d'accès
         if (!isset($_SESSION['user']) || !isAdmin()) {
             http_response_code(403);
