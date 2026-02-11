@@ -511,10 +511,20 @@ class UserController {
         // Définir le Content-Type JSON dès le début pour éviter toute confusion
         header('Content-Type: application/json; charset=UTF-8');
         
+        // Log pour déboguer en production
+        $hasUser = isset($_SESSION['user']);
+        $isAdminUser = $hasUser && isAdmin();
+        $sessionId = session_id();
+        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        
+        custom_log("load_client_locations - Session ID: $sessionId, Has User: " . ($hasUser ? 'yes' : 'no') . ", Is Admin: " . ($isAdminUser ? 'yes' : 'no') . ", Is AJAX: " . ($isAjax ? 'yes' : 'no'), 'DEBUG');
+        
         // Vérifier les droits d'accès
-        if (!isset($_SESSION['user']) || !isAdmin()) {
+        if (!$hasUser || !$isAdminUser) {
             http_response_code(403);
-            echo json_encode(['error' => 'Accès refusé']);
+            $errorMsg = !$hasUser ? 'Session expirée ou non accessible' : 'Accès refusé - droits insuffisants';
+            custom_log("load_client_locations - Accès refusé: $errorMsg (Session ID: $sessionId)", 'WARNING');
+            echo json_encode(['error' => $errorMsg]);
             return;
         }
 
@@ -555,10 +565,21 @@ class UserController {
         // Définir le Content-Type JSON dès le début pour éviter toute confusion
         header('Content-Type: application/json; charset=UTF-8');
         
+        // Log pour déboguer en production
+        $hasUser = isset($_SESSION['user']);
+        $isAdminUser = $hasUser && isAdmin();
+        $sessionId = session_id();
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        
+        custom_log("load_permissions - Session ID: $sessionId, Has User: " . ($hasUser ? 'yes' : 'no') . ", Is Admin: " . ($isAdminUser ? 'yes' : 'no') . ", Is AJAX: " . ($isAjax ? 'yes' : 'no'), 'DEBUG');
+        
         // Vérifier les droits d'accès
-        if (!isset($_SESSION['user']) || !isAdmin()) {
+        if (!$hasUser || !$isAdminUser) {
             http_response_code(403);
-            echo json_encode(['error' => 'Accès refusé']);
+            $errorMsg = !$hasUser ? 'Session expirée ou non accessible' : 'Accès refusé - droits insuffisants';
+            custom_log("load_permissions - Accès refusé: $errorMsg (Session ID: $sessionId)", 'WARNING');
+            echo json_encode(['error' => $errorMsg]);
             return;
         }
 

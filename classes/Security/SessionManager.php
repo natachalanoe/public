@@ -28,7 +28,10 @@ class SessionManager {
         // Configuration de sécurité des sessions
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_secure', self::isHttps() ? '1' : '0');
-        ini_set('session.cookie_samesite', 'Strict');
+        // Utiliser 'Lax' au lieu de 'Strict' pour permettre les requêtes AJAX same-origin
+        // 'Lax' permet l'envoi de cookies dans les requêtes GET et POST same-origin
+        // tout en protégeant contre les attaques CSRF cross-site
+        ini_set('session.cookie_samesite', 'Lax');
         ini_set('session.use_strict_mode', '1');
         ini_set('session.cookie_lifetime', self::SESSION_LIFETIME);
         
@@ -37,7 +40,7 @@ class SessionManager {
             'cookie_lifetime' => self::SESSION_LIFETIME,
             'cookie_httponly' => true,
             'cookie_secure' => self::isHttps(),
-            'cookie_samesite' => 'Strict',
+            'cookie_samesite' => 'Lax', // Changé de 'Strict' à 'Lax' pour les requêtes AJAX
             'use_strict_mode' => true,
             'gc_maxlifetime' => self::SESSION_LIFETIME
         ];
