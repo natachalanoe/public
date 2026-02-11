@@ -103,16 +103,29 @@ class CSRF {
         $token = $_POST['csrf_token'] ?? null;
         
         // Si pas dans POST, chercher dans les headers (pour les requêtes AJAX)
+        // Utiliser $_SERVER qui fonctionne dans tous les environnements (Apache, Nginx, FastCGI, etc.)
         if (empty($token)) {
-            $headers = getallheaders();
-            if ($headers) {
-                $token = $headers['X-CSRF-Token'] ?? $headers['x-csrf-token'] ?? null;
+            // Les headers HTTP sont préfixés avec HTTP_ et convertis en majuscules
+            // X-CSRF-Token devient HTTP_X_CSRF_TOKEN
+            $headerToken = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
+            
+            // Si pas trouvé, essayer getallheaders() en fallback (fonctionne sur Apache mod_php)
+            if (empty($headerToken) && function_exists('getallheaders')) {
+                $headers = getallheaders();
+                if ($headers) {
+                    $headerToken = $headers['X-CSRF-Token'] ?? $headers['x-csrf-token'] ?? null;
+                }
             }
+            
+            $token = $headerToken;
         }
         
-        // Log pour débogage (à retirer en production)
+        // Log pour débogage
         if (empty($token)) {
-            custom_log("CSRF: Token manquant dans la requête - URI: " . ($_SERVER['REQUEST_URI'] ?? ''), 'DEBUG');
+            custom_log("CSRF: Token manquant dans la requête - URI: " . ($_SERVER['REQUEST_URI'] ?? '') . " - Headers disponibles: " . json_encode(array_filter([
+                'HTTP_X_CSRF_TOKEN' => $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null,
+                'POST_csrf_token' => $_POST['csrf_token'] ?? null
+            ])), 'DEBUG');
         }
         
         return self::validateToken($token);

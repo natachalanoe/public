@@ -855,12 +855,20 @@ function loadPermissionsSimple(userType, permissionsSectionId) {
     const urlParts = window.location.pathname.split('/');
     const userId = urlParts.includes('edit') && urlParts[urlParts.length - 1] ? urlParts[urlParts.length - 1] : null;
     
+    // Récupérer le token CSRF (essayer plusieurs sources)
+    const csrfToken = window.CSRF_TOKEN || window.AppConfig?.CSRF_TOKEN || window.AppConfig?.csrfToken || '';
+    if (!csrfToken) {
+        console.error('CSRF_TOKEN non défini - impossible d\'envoyer la requête');
+        permissionsSection.innerHTML = '<p class="text-danger">Erreur de configuration: token CSRF manquant. Veuillez recharger la page.</p>';
+        return;
+    }
+    
     // Faire la requête AJAX
     fetch(baseUrl + 'user/load_permissions', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRF-Token': window.CSRF_TOKEN || '',
+            'X-CSRF-Token': csrfToken,
             'X-Requested-With': 'XMLHttpRequest' // Identifier la requête comme AJAX
         },
         body: 'type=' + encodeURIComponent(userType) + (userId ? '&user_id=' + encodeURIComponent(userId) : ''),
@@ -942,12 +950,20 @@ function loadClientLocationsSimple(clientId, locationsContainerId, userId = null
         body += '&user_id=' + encodeURIComponent(userId);
     }
     
+    // Récupérer le token CSRF (essayer plusieurs sources)
+    const csrfToken = window.CSRF_TOKEN || window.AppConfig?.CSRF_TOKEN || window.AppConfig?.csrfToken || '';
+    if (!csrfToken) {
+        console.error('CSRF_TOKEN non défini - impossible d\'envoyer la requête');
+        locationsContainer.innerHTML = '<p class="text-danger">Erreur de configuration: token CSRF manquant. Veuillez recharger la page.</p>';
+        return;
+    }
+    
     // Faire la requête AJAX
     fetch(baseUrl + 'user/load_client_locations', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRF-Token': window.CSRF_TOKEN || '',
+            'X-CSRF-Token': csrfToken,
             'X-Requested-With': 'XMLHttpRequest' // Identifier la requête comme AJAX
         },
         body: body,
@@ -1021,25 +1037,69 @@ function loadContractRoomsSimple(clientId, roomsContainerId, contractId = null) 
         body += '&contract_id=' + encodeURIComponent(contractId);
     }
     
+    // Récupérer le token CSRF (essayer plusieurs sources)
+    const baseUrl = BASE_URL || window.BASE_URL || window.AppConfig?.BASE_URL || '';
+    const csrfToken = window.CSRF_TOKEN || window.AppConfig?.CSRF_TOKEN || window.AppConfig?.csrfToken || '';
+    if (!csrfToken) {
+        console.error('CSRF_TOKEN non défini - impossible d\'envoyer la requête');
+        roomsContainer.innerHTML = '<p class="text-danger">Erreur de configuration: token CSRF manquant. Veuillez recharger la page.</p>';
+        return;
+    }
+    
     // Faire la requête AJAX
-    fetch(BASE_URL + 'contracts/load_client_rooms', {
+    fetch(baseUrl + 'contracts/load_client_rooms', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            'X-CSRF-Token': window.CSRF_TOKEN || ''
+            'X-CSRF-Token': csrfToken,
+            'X-Requested-With': 'XMLHttpRequest' // Identifier la requête comme AJAX
         },
-        body: body
+        body: body,
+        credentials: 'same-origin' // Inclure les cookies de session
     })
-    .then(response => response.json())
+    .then(response => {
+        // Vérifier le status HTTP
+        if (!response.ok) {
+            if (response.status === 302 || response.status === 303 || response.status === 401 || response.status === 403) {
+                throw new Error('Session expirée ou accès refusé. Veuillez vous reconnecter.');
+            }
+            throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        // Vérifier le Content-Type
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            return response.text().then(text => {
+                console.error('Réponse non-JSON reçue:', text.substring(0, 200));
+                throw new Error('La réponse du serveur n\'est pas au format JSON. Votre session a peut-être expiré.');
+            });
+        }
+        
+        return response.json();
+    })
     .then(data => {
-        if (data.html) {
+        if (data && data.html) {
             roomsContainer.innerHTML = data.html;
+        } else if (data && data.error) {
+            roomsContainer.innerHTML = '<p class="text-danger">' + (data.error || 'Erreur lors du chargement des salles.') + '</p>';
         } else {
             roomsContainer.innerHTML = '<p class="text-muted">Aucune salle disponible pour ce client.</p>';
         }
     })
     .catch(error => {
         console.error('Erreur lors du chargement des salles:', error);
-        roomsContainer.innerHTML = '<p class="text-danger">Erreur lors du chargement des salles.</p>';
+        let errorMessage = 'Erreur lors du chargement des salles.';
+        
+        if (error.message) {
+            if (error.message.includes('Session expirée') || error.message.includes('session')) {
+                errorMessage = 'Votre session a expiré. Veuillez <a href="' + baseUrl + 'auth/login">vous reconnecter</a>.';
+            } else if (error.message.includes('JSON')) {
+                errorMessage = 'Erreur de communication avec le serveur. Votre session a peut-être expiré.';
+            } else {
+                errorMessage = error.message;
+            }
+        }
+        
+        roomsContainer.innerHTML = '<p class="text-danger">' + errorMessage + '</p>';
     });
 } 
