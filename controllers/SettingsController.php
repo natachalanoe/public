@@ -655,9 +655,27 @@ class SettingsController {
                 $config->set($key, $value);
             }
 
+            custom_log_mail("Config email sauvegardée", 'INFO', [
+                'host' => $smtpSettings['mail_host'] ?? '',
+                'port' => $smtpSettings['mail_port'] ?? '',
+                'encryption' => $smtpSettings['mail_encryption'] ?? '',
+                'from_address' => $smtpSettings['mail_from_address'] ?? '',
+                'from_name' => $smtpSettings['mail_from_name'] ?? '',
+                'username_set' => !empty(trim($smtpSettings['mail_username'] ?? '')),
+                'password_set' => !empty($smtpSettings['mail_password'] ?? ''),
+            ]);
             $_SESSION['success'] = "Configuration SMTP et OAuth2 sauvegardée avec succès.";
             
         } catch (Exception $e) {
+            custom_log_mail("Erreur sauvegarde config email : " . $e->getMessage(), 'ERROR', [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'host' => $_POST['mail_host'] ?? null,
+                'port' => $_POST['mail_port'] ?? null,
+                'encryption' => $_POST['mail_encryption'] ?? null,
+                'from_address' => $_POST['mail_from_address'] ?? null,
+            ]);
             $_SESSION['error'] = "Erreur lors de la sauvegarde : " . $e->getMessage();
         }
 
@@ -1193,12 +1211,29 @@ class SettingsController {
 
             // Validation des paramètres (host et port requis ; username/password optionnels pour Mailpit ou serveur sans auth)
             if (empty(trim($mailHost)) || empty(trim($mailPort))) {
+                $msg = 'Paramètres SMTP manquants : serveur et port requis (nom d\'utilisateur et mot de passe optionnels pour Mailpit).';
+                custom_log_mail("Test SMTP - Validation échouée : $msg", 'WARNING', [
+                    'host' => $mailHost,
+                    'port' => $mailPort,
+                    'encryption' => $mailEncryption,
+                    'from_address' => $mailFromAddress,
+                    'username_set' => !empty(trim($mailUsername ?? '')),
+                    'password_set' => !empty($mailPassword ?? ''),
+                ]);
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Paramètres SMTP manquants : serveur et port requis (nom d\'utilisateur et mot de passe optionnels pour Mailpit).'
+                    'message' => $msg
                 ]);
                 exit;
             }
+
+            custom_log_mail("Test SMTP - Tentative connexion $mailHost:$mailPort", 'INFO', [
+                'host' => $mailHost,
+                'port' => $mailPort,
+                'encryption' => $mailEncryption,
+                'from_address' => $mailFromAddress,
+                'username_set' => !empty(trim($mailUsername ?? '')),
+            ]);
 
             // Test de connexion SMTP
             $result = $this->testSmtpConnection($mailHost, $mailPort, $mailUsername ?? '', $mailPassword ?? '', $mailEncryption);
@@ -1208,17 +1243,35 @@ class SettingsController {
                 $emailResult = $this->sendTestEmailSmtp($mailHost, $mailPort, $mailUsername, $mailPassword, $mailEncryption, $mailFromAddress, $mailFromName);
                 
                 if ($emailResult['success']) {
+                    custom_log_mail("Test SMTP - Connexion et envoi réussis", 'INFO', ['host' => $mailHost, 'port' => $mailPort]);
                     echo json_encode([
                         'success' => true,
                         'message' => 'Test SMTP réussi ! Connexion et envoi d\'email fonctionnent correctement.'
                     ]);
                 } else {
+                    custom_log_mail("Test SMTP - Connexion OK mais envoi échoué : " . $emailResult['message'], 'ERROR', [
+                        'host' => $mailHost,
+                        'port' => $mailPort,
+                        'encryption' => $mailEncryption,
+                        'from_address' => $mailFromAddress,
+                        'to' => $emailResult['to'] ?? null,
+                        'error' => $emailResult['message'],
+                    ]);
                     echo json_encode([
                         'success' => false,
                         'message' => 'Connexion SMTP réussie mais échec de l\'envoi : ' . $emailResult['message']
                     ]);
                 }
             } else {
+                custom_log_mail("Test SMTP - Échec connexion : " . $result['message'], 'ERROR', [
+                    'host' => $mailHost,
+                    'port' => $mailPort,
+                    'encryption' => $mailEncryption,
+                    'from_address' => $mailFromAddress,
+                    'errno' => $result['errno'] ?? null,
+                    'errstr' => $result['errstr'] ?? null,
+                    'error_message' => $result['message'],
+                ]);
                 echo json_encode([
                     'success' => false,
                     'message' => 'Échec de la connexion SMTP : ' . $result['message']
@@ -1226,13 +1279,25 @@ class SettingsController {
             }
 
         } catch (Exception $e) {
-            custom_log_mail("Erreur lors du test SMTP: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors du test SMTP: " . $e->getMessage(), 'ERROR', [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'host' => $mailHost ?? null,
+                'port' => $mailPort ?? null,
+            ]);
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur: ' . $e->getMessage()
             ]);
         } catch (Throwable $e) {
-            custom_log_mail("Erreur inattendue lors du test SMTP: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur inattendue lors du test SMTP: " . $e->getMessage(), 'ERROR', [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'host' => $mailHost ?? null,
+                'port' => $mailPort ?? null,
+            ]);
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur inattendue: ' . $e->getMessage()
@@ -1252,7 +1317,9 @@ class SettingsController {
             if (!$connection) {
                 return [
                     'success' => false,
-                    'message' => "Impossible de se connecter à $host:$port (Code: $errno - $errstr)"
+                    'message' => "Impossible de se connecter à $host:$port (Code: $errno - $errstr)",
+                    'errno' => $errno,
+                    'errstr' => $errstr,
                 ];
             }
             
@@ -1264,7 +1331,8 @@ class SettingsController {
         } catch (Exception $e) {
             return [
                 'success' => false,
-                'message' => 'Erreur de connexion : ' . $e->getMessage()
+                'message' => 'Erreur de connexion : ' . $e->getMessage(),
+                'errstr' => $e->getMessage(),
             ];
         }
     }
@@ -1315,7 +1383,9 @@ class SettingsController {
             if (!$socket) {
                 return [
                     'success' => false,
-                    'message' => "Impossible de se connecter à $host:$testPort (Code: $errno - $errstr)"
+                    'message' => "Impossible de se connecter à $host:$testPort (Code: $errno - $errstr)",
+                    'errno' => $errno,
+                    'errstr' => $errstr,
                 ];
             }
 
@@ -1501,7 +1571,8 @@ class SettingsController {
             } else {
                 return [
                     'success' => false,
-                    'message' => 'Échec de l\'envoi de l\'email de test'
+                    'message' => 'Échec de l\'envoi de l\'email de test',
+                    'to' => $to,
                 ];
             }
             
@@ -1520,7 +1591,9 @@ class SettingsController {
             
             return [
                 'success' => false,
-                'message' => 'Erreur lors de l\'envoi de l\'email de test : ' . $e->getMessage()
+                'message' => $e->getMessage(),
+                'to' => $to ?? null,
+                'exception' => get_class($e),
             ];
         }
     }

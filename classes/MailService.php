@@ -282,7 +282,14 @@ class MailService {
             return true;
             
         } catch (Exception $e) {
-            custom_log_mail("Erreur lors de l'envoi de l'email : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de l'envoi de l'email : " . $e->getMessage(), 'ERROR', [
+                'intervention_id' => $interventionId,
+                'mail_host' => $this->config->get('mail_host'),
+                'mail_port' => $this->config->get('mail_port'),
+                'mail_encryption' => $this->config->get('mail_encryption'),
+                'mail_from_address' => $this->config->get('mail_from_address'),
+                'oauth2_enabled' => $this->config->get('oauth2_enabled', '0'),
+            ]);
             throw $e;
         }
     }
