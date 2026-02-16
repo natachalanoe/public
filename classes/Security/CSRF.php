@@ -12,9 +12,9 @@ class CSRF {
     private const SESSION_KEY = 'csrf_token';
     
     /**
-     * Durée de vie du token en secondes (30 minutes par défaut)
+     * Durée de vie du token en secondes (24 h pour éviter expiration sur pages laissées ouvertes, ex. modale envoi email)
      */
-    private const TOKEN_LIFETIME = 1800;
+    private const TOKEN_LIFETIME = 86400;
     
     /**
      * Génère un nouveau token CSRF et le stocke en session

@@ -1207,6 +1207,240 @@ function loadContractDetails(contractId) {
 <!-- JavaScript extrait vers public/assets/js/pages/interventions.js -->
 <script src="<?php echo BASE_URL; ?>assets/js/pages/interventions.js" onerror="console.error('ERREUR: interventions.js n\'a pas pu être chargé. Vérifiez que le fichier existe et est accessible.');"></script>
 
+<!-- Modal Envoyer un email -->
+<div class="modal fade" id="sendEmailModal" tabindex="-1" aria-labelledby="sendEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendEmailModalLabel">
+                    <i class="bi bi-envelope me-2"></i>Envoyer un email
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div id="sendEmailModalLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 mb-0">Chargement des données...</p>
+                </div>
+                <div id="sendEmailModalContent" style="display: none;">
+                    <p class="mb-3">
+                        <strong>Destinataire :</strong> <span id="sendEmailRecipient"></span>
+                    </p>
+                    <div id="sendEmailTestModeBlock" class="alert alert-warning mb-3 py-2" style="display: none;" role="status">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Mode test</strong> : l'email ne sera pas envoyé au destinataire ci-dessus mais à
+                        <strong id="sendEmailTestAddress"></strong>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Type d'envoi</label>
+                        <div class="d-flex gap-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="email_mode" id="emailModeTemplate" value="template" checked>
+                                <label class="form-check-label" for="emailModeTemplate">Utiliser un template</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="email_mode" id="emailModeCustom" value="custom">
+                                <label class="form-check-label" for="emailModeCustom">Message personnalisé</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="sendEmailTemplateBlock" class="mb-3">
+                        <label for="sendEmailTemplateId" class="form-label">Template</label>
+                        <select class="form-select" id="sendEmailTemplateId" name="template_id">
+                            <option value="">-- Choisir un template --</option>
+                        </select>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="sendEmailPreviewBtn">Aperçu</button>
+                        <div id="sendEmailPreview" class="mt-2 small border rounded p-2 bg-light" style="display: none;"></div>
+                    </div>
+                    <div id="sendEmailCustomBlock" class="mb-3" style="display: none;">
+                        <label for="sendEmailSubject" class="form-label">Sujet</label>
+                        <input type="text" class="form-control" id="sendEmailSubject" name="subject" placeholder="Sujet de l'email">
+                        <label for="sendEmailMessage" class="form-label mt-2">Message</label>
+                        <textarea class="form-control" id="sendEmailMessage" name="message" rows="5" placeholder="Corps du message"></textarea>
+                    </div>
+                    <div class="mb-3" id="sendEmailAttachmentsBlock">
+                        <label class="form-label">Pièces jointes (optionnel)</label>
+                        <div id="sendEmailAttachmentsList" class="border rounded p-2 bg-light" style="max-height: 150px; overflow-y: auto;"></div>
+                    </div>
+                    <div id="sendEmailModalError" class="alert alert-danger mt-2" style="display: none;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="button" class="btn btn-primary" id="sendEmailSubmitBtn" disabled>
+                    <i class="bi bi-send me-1"></i>Envoyer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function() {
+    var interventionId = <?= (int)($intervention['id'] ?? 0) ?>;
+    var baseUrl = '<?= addslashes(BASE_URL) ?>';
+    var csrfToken = '<?= addslashes(csrf_token()) ?>';
+    var emailData = null;
+
+    var modalEl = document.getElementById('sendEmailModal');
+    if (!modalEl) return;
+
+    function showLoading(show) {
+        document.getElementById('sendEmailModalLoading').style.display = show ? 'block' : 'none';
+        document.getElementById('sendEmailModalContent').style.display = show ? 'none' : 'block';
+    }
+
+    function toggleMode() {
+        var isTemplate = document.getElementById('emailModeTemplate').checked;
+        document.getElementById('sendEmailTemplateBlock').style.display = isTemplate ? 'block' : 'none';
+        document.getElementById('sendEmailCustomBlock').style.display = isTemplate ? 'none' : 'block';
+        document.getElementById('sendEmailSubmitBtn').disabled = !validateForm();
+    }
+
+    function validateForm() {
+        if (document.getElementById('emailModeTemplate').checked) {
+            return document.getElementById('sendEmailTemplateId').value !== '';
+        }
+        return document.getElementById('sendEmailSubject').value.trim() !== '' && document.getElementById('sendEmailMessage').value.trim() !== '';
+    }
+
+    function loadEmailData() {
+        showLoading(true);
+        document.getElementById('sendEmailModalError').style.display = 'none';
+        fetch(baseUrl + 'interventions/getEmailData/' + interventionId, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.success) {
+                    document.getElementById('sendEmailModalError').textContent = data.error || 'Erreur lors du chargement';
+                    document.getElementById('sendEmailModalError').style.display = 'block';
+                    showLoading(false);
+                    document.getElementById('sendEmailModalContent').style.display = 'block';
+                    return;
+                }
+                emailData = data;
+                document.getElementById('sendEmailRecipient').textContent = data.recipient_email || '(aucun email renseigné)';
+                var testBlock = document.getElementById('sendEmailTestModeBlock');
+                var testAddressEl = document.getElementById('sendEmailTestAddress');
+                if (data.test_email && data.test_email.trim() !== '') {
+                    testAddressEl.textContent = data.test_email.trim();
+                    testBlock.style.display = 'block';
+                } else {
+                    testBlock.style.display = 'none';
+                }
+                var sel = document.getElementById('sendEmailTemplateId');
+                sel.innerHTML = '<option value="">-- Choisir un template --</option>';
+                (data.templates || []).forEach(function(t) {
+                    var opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.name || 'Template #' + t.id;
+                    sel.appendChild(opt);
+                });
+                var list = document.getElementById('sendEmailAttachmentsList');
+                list.innerHTML = '';
+                if (data.attachments && data.attachments.length) {
+                    data.attachments.forEach(function(a) {
+                        var label = document.createElement('label');
+                        label.className = 'd-block mb-1';
+                        var cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.name = 'attachments[]';
+                        cb.value = a.id;
+                        cb.className = 'form-check-input me-2';
+                        label.appendChild(cb);
+                        label.appendChild(document.createTextNode(a.nom_personnalise || a.nom_fichier || 'Pièce jointe #' + a.id));
+                        list.appendChild(label);
+                    });
+                } else {
+                    list.innerHTML = '<span class="text-muted">Aucune pièce jointe disponible</span>';
+                }
+                document.getElementById('sendEmailSubject').value = '';
+                document.getElementById('sendEmailMessage').value = '';
+                document.getElementById('sendEmailPreview').style.display = 'none';
+                showLoading(false);
+                toggleMode();
+                document.getElementById('sendEmailSubmitBtn').disabled = !validateForm();
+            })
+            .catch(function(err) {
+                document.getElementById('sendEmailModalError').textContent = 'Erreur réseau ou serveur.';
+                document.getElementById('sendEmailModalError').style.display = 'block';
+                showLoading(false);
+                document.getElementById('sendEmailModalContent').style.display = 'block';
+            });
+    }
+
+    modalEl.addEventListener('show.bs.modal', function() { loadEmailData(); });
+    document.getElementById('emailModeTemplate').addEventListener('change', toggleMode);
+    document.getElementById('emailModeCustom').addEventListener('change', toggleMode);
+    document.getElementById('sendEmailTemplateId').addEventListener('change', function() {
+        document.getElementById('sendEmailSubmitBtn').disabled = !validateForm();
+    });
+    document.getElementById('sendEmailSubject').addEventListener('input', function() { document.getElementById('sendEmailSubmitBtn').disabled = !validateForm(); });
+    document.getElementById('sendEmailMessage').addEventListener('input', function() { document.getElementById('sendEmailSubmitBtn').disabled = !validateForm(); });
+
+    document.getElementById('sendEmailPreviewBtn').addEventListener('click', function() {
+        var tid = document.getElementById('sendEmailTemplateId').value;
+        if (!tid) return;
+        fetch(baseUrl + 'interventions/previewEmailTemplate/' + interventionId + '?template_id=' + encodeURIComponent(tid), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var prev = document.getElementById('sendEmailPreview');
+                if (data.success) {
+                    var subjectEscaped = (data.subject || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                    prev.innerHTML = '<strong>Sujet :</strong> ' + subjectEscaped + '<br><strong>Corps :</strong><div class="mt-2 pt-2 border-top">' + (data.body || '') + '</div>';
+                    prev.style.display = 'block';
+                } else {
+                    prev.innerHTML = data.error || 'Erreur aperçu';
+                    prev.style.display = 'block';
+                }
+            });
+    });
+
+    document.getElementById('sendEmailSubmitBtn').addEventListener('click', function() {
+        var btn = this;
+        btn.disabled = true;
+        document.getElementById('sendEmailModalError').style.display = 'none';
+        var token = (typeof window.CSRF_TOKEN !== 'undefined' && window.CSRF_TOKEN) ? window.CSRF_TOKEN : csrfToken;
+        var formData = new FormData();
+        formData.append('csrf_token', token);
+        var templateId = document.getElementById('sendEmailTemplateId').value;
+        if (document.getElementById('emailModeTemplate').checked && templateId) {
+            formData.append('template_id', templateId);
+        } else {
+            formData.append('subject', document.getElementById('sendEmailSubject').value.trim());
+            formData.append('message', document.getElementById('sendEmailMessage').value.trim());
+        }
+        document.querySelectorAll('#sendEmailAttachmentsList input[name="attachments[]"]:checked').forEach(function(cb) {
+            formData.append('attachments[]', cb.value);
+        });
+        fetch(baseUrl + 'interventions/sendEmail/' + interventionId, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': token }
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    var modalInstance = typeof bootstrap !== 'undefined' && bootstrap.Modal && bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({ icon: 'success', title: 'Envoyé', text: data.message || 'Email envoyé avec succès.' });
+                    } else {
+                        alert(data.message || 'Email envoyé avec succès.');
+                    }
+                } else {
+                    document.getElementById('sendEmailModalError').textContent = data.error || 'Échec de l\'envoi';
+                    document.getElementById('sendEmailModalError').style.display = 'block';
+                    btn.disabled = false;
+                }
+            })
+            .catch(function(err) {
+                document.getElementById('sendEmailModalError').textContent = 'Erreur lors de l\'envoi.';
+                document.getElementById('sendEmailModalError').style.display = 'block';
+                btn.disabled = false;
+            });
+    });
+})();
+</script>
+
 <!-- Modale pour forcer les tickets utilisés -->
 <?php if ($isAdmin && $intervention['status_id'] == 6): ?>
 <div class="modal fade" id="forceTicketsModal" tabindex="-1" aria-labelledby="forceTicketsModalLabel" aria-hidden="true">

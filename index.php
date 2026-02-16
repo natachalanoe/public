@@ -97,6 +97,7 @@ require_once CONTROLLERS_PATH . '/AgendaController.php';
 require_once CONTROLLERS_PATH . '/DocumentationController.php';
 require_once CONTROLLERS_PATH . '/MaterielController.php';
 require_once CONTROLLERS_PATH . '/MaterielClientController.php';
+require_once CONTROLLERS_PATH . '/MaterielTestController.php';
 require_once CONTROLLERS_PATH . '/DocumentationClientController.php';
 require_once CONTROLLERS_PATH . '/ProfileClientController.php';
 require_once CONTROLLERS_PATH . '/ContactClientController.php';
@@ -1373,6 +1374,12 @@ try {
                 case 'download_template':
                     $materielBulkController->download_template();
                     break;
+                case 'bulk_delete':
+                    $materielBulkController->bulk_delete();
+                    break;
+                case 'bulk_delete_execute':
+                    $materielBulkController->bulk_delete_execute();
+                    break;
                 default:
                     header('Location: ' . BASE_URL . 'materiel_bulk');
                     break;
@@ -1421,6 +1428,25 @@ try {
                     break;
                 default:
                     header('Location: ' . BASE_URL . 'materiel_client');
+                    break;
+            }
+            break;
+            
+        case 'materiel_test':
+            $materielTestController = new MaterielTestController();
+            switch ($action) {
+                case 'index':
+                case '':
+                    $materielTestController->index();
+                    break;
+                case 'get_sites':
+                    $materielTestController->get_sites();
+                    break;
+                case 'get_rooms':
+                    $materielTestController->get_rooms();
+                    break;
+                default:
+                    header('Location: ' . BASE_URL . 'materiel_test');
                     break;
             }
             break;

@@ -73,6 +73,114 @@ class MaterielBulkController {
     }
 
     /**
+     * Affiche la page de suppression en masse de matériel
+     * Droits : canDeleteDocumentation() (aligné avec le bouton supprimer de la fiche matériel)
+     */
+    public function bulk_delete() {
+        if (!isset($_SESSION['user'])) {
+            header('Location: ' . BASE_URL . 'auth/login');
+            exit;
+        }
+
+        if (!canDeleteDocumentation()) {
+            $_SESSION['error'] = "Vous n'avez pas les droits pour supprimer du matériel.";
+            header('Location: ' . BASE_URL . 'materiel');
+            exit;
+        }
+
+        $filters = [
+            'client_id' => isset($_GET['client_id']) ? (int)$_GET['client_id'] : null,
+            'site_id'   => isset($_GET['site_id']) ? (int)$_GET['site_id'] : null,
+            'salle_id'  => isset($_GET['salle_id']) ? (int)$_GET['salle_id'] : null
+        ];
+
+        try {
+            $clients = $this->clientModel->getAllClients();
+            $sites = [];
+            $salles = [];
+            $materiel_list = [];
+
+            if ($filters['client_id']) {
+                $sites = $this->siteModel->getSitesByClientId($filters['client_id']);
+                if ($filters['site_id']) {
+                    $salles = $this->roomModel->getRoomsBySiteId($filters['site_id']);
+                } else {
+                    $salles = $this->roomModel->getRoomsByClientId($filters['client_id']);
+                }
+                $materiel_list = $this->materielModel->getAllMateriel($filters);
+            }
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors du chargement : " . $e->getMessage();
+            header('Location: ' . BASE_URL . 'materiel');
+            exit;
+        }
+
+        require_once VIEWS_PATH . '/materiel/bulk_delete.php';
+    }
+
+    /**
+     * Traite la suppression en masse des matériels sélectionnés
+     * POST ids[] ; droits : canDeleteDocumentation()
+     */
+    public function bulk_delete_execute() {
+        if (!isset($_SESSION['user'])) {
+            header('Location: ' . BASE_URL . 'auth/login');
+            exit;
+        }
+
+        if (!canDeleteDocumentation()) {
+            $_SESSION['error'] = "Vous n'avez pas les droits pour supprimer du matériel.";
+            header('Location: ' . BASE_URL . 'materiel_bulk/bulk_delete');
+            exit;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . BASE_URL . 'materiel_bulk/bulk_delete');
+            exit;
+        }
+
+        $ids = $_POST['ids'] ?? [];
+        if (!is_array($ids)) {
+            $ids = [];
+        }
+        $ids = array_filter(array_map('intval', $ids), function ($id) { return $id > 0; });
+
+        if (empty($ids)) {
+            $_SESSION['error'] = "Aucun matériel sélectionné.";
+            $redirect = BASE_URL . 'materiel_bulk/bulk_delete';
+            if (!empty($_POST['client_id'])) $redirect .= '?client_id=' . (int)$_POST['client_id'];
+            if (!empty($_POST['site_id'])) $redirect .= (strpos($redirect, '?') !== false ? '&' : '?') . 'site_id=' . (int)$_POST['site_id'];
+            if (!empty($_POST['salle_id'])) $redirect .= (strpos($redirect, '?') !== false ? '&' : '?') . 'salle_id=' . (int)$_POST['salle_id'];
+            header('Location: ' . $redirect);
+            exit;
+        }
+
+        try {
+            $result = $this->materielModel->deleteMaterielBulk($ids);
+            if ($result['success']) {
+                $_SESSION['success'] = $result['message'];
+                if (!empty($result['errors'])) {
+                    $_SESSION['warning'] = implode(' ; ', $result['errors']);
+                }
+            } else {
+                $_SESSION['error'] = $result['message'];
+                if (!empty($result['errors'])) {
+                    $_SESSION['error'] .= ' ' . implode(' ; ', $result['errors']);
+                }
+            }
+        } catch (Exception $e) {
+            $_SESSION['error'] = "Erreur lors de la suppression : " . $e->getMessage();
+        }
+
+        $redirect = BASE_URL . 'materiel_bulk/bulk_delete';
+        if (!empty($_POST['client_id'])) $redirect .= '?client_id=' . (int)$_POST['client_id'];
+        if (!empty($_POST['site_id'])) $redirect .= (strpos($redirect, '?') !== false ? '&' : '?') . 'site_id=' . (int)$_POST['site_id'];
+        if (!empty($_POST['salle_id'])) $redirect .= (strpos($redirect, '?') !== false ? '&' : '?') . 'salle_id=' . (int)$_POST['salle_id'];
+        header('Location: ' . $redirect);
+        exit;
+    }
+
+    /**
      * Convertit une valeur Excel en format approprié pour la base de données
      * 
      * @param mixed $value Valeur depuis Excel

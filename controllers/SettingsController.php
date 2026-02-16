@@ -1191,17 +1191,17 @@ class SettingsController {
             $mailFromAddress = $_POST['mail_from_address'] ?? '';
             $mailFromName = $_POST['mail_from_name'] ?? '';
 
-            // Validation des paramètres
-            if (empty($mailHost) || empty($mailPort) || empty($mailUsername) || empty($mailPassword)) {
+            // Validation des paramètres (host et port requis ; username/password optionnels pour Mailpit ou serveur sans auth)
+            if (empty(trim($mailHost)) || empty(trim($mailPort))) {
                 echo json_encode([
                     'success' => false,
-                    'message' => 'Paramètres SMTP manquants (host, port, username, password requis)'
+                    'message' => 'Paramètres SMTP manquants : serveur et port requis (nom d\'utilisateur et mot de passe optionnels pour Mailpit).'
                 ]);
                 exit;
             }
 
             // Test de connexion SMTP
-            $result = $this->testSmtpConnection($mailHost, $mailPort, $mailUsername, $mailPassword, $mailEncryption);
+            $result = $this->testSmtpConnection($mailHost, $mailPort, $mailUsername ?? '', $mailPassword ?? '', $mailEncryption);
             
             if ($result['success']) {
                 // Test d'envoi d'email
@@ -1467,11 +1467,11 @@ class SettingsController {
             $config->set('mail_username', $username);
             $config->set('mail_password', $password);
             $config->set('mail_encryption', $encryption);
-            $config->set('mail_from_address', $fromAddress ?: $username);
+            $config->set('mail_from_address', $fromAddress ?: ($username ?: 'noreply@localhost'));
             $config->set('mail_from_name', $fromName ?: 'Test SMTP');
             
-            // Envoyer l'email de test
-            $to = $username; // Envoyer à l'utilisateur configuré
+            // Destinataire du test : utilisateur configuré, ou email de test, ou adresse from, ou Mailpit (accepte tout)
+            $to = $username ?: $config->get('test_email', '') ?: $fromAddress ?: 'test@mailpit.local';
             $subject = 'Test SMTP - ' . date('Y-m-d H:i:s');
             $body = 'Ceci est un email de test SMTP envoyé le ' . date('Y-m-d H:i:s') . '.<br><br>' .
                    'Configuration testée :<br>' .

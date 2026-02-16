@@ -176,6 +176,28 @@ $allColumnsConfig = [
                             <i class="bi bi-arrow-left-right me-2 me-1"></i>Import/Export en Masse
                         </a>
                     <?php endif; ?>
+                    <?php if (canDeleteDocumentation()): ?>
+                        <!-- Bouton suppression en masse -->
+                        <?php
+                        $bulkDeleteParams = [];
+                        if (!empty($filters['client_id'])) {
+                            $bulkDeleteParams['client_id'] = $filters['client_id'];
+                        }
+                        if (!empty($filters['site_id'])) {
+                            $bulkDeleteParams['site_id'] = $filters['site_id'];
+                        }
+                        if (!empty($filters['salle_id'])) {
+                            $bulkDeleteParams['salle_id'] = $filters['salle_id'];
+                        }
+                        $bulkDeleteUrl = BASE_URL . 'materiel_bulk/bulk_delete';
+                        if (!empty($bulkDeleteParams)) {
+                            $bulkDeleteUrl .= '?' . http_build_query($bulkDeleteParams);
+                        }
+                        ?>
+                        <a href="<?= $bulkDeleteUrl ?>" class="btn btn-outline-danger">
+                            <i class="bi bi-trash me-2 me-1"></i>Supprimer en masse
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

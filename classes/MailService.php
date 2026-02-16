@@ -204,8 +204,18 @@ class MailService {
         // TODO: Ajouter d'autres destinataires via la table mail_recipients
         // Pour l'instant, on se contente du site_email ou contact_client
 
+        // Si aucun destinataire sur l'intervention, utiliser l'email de test si configuré (mode test prend le dessus)
         if (empty($recipients)) {
-            throw new Exception("Aucun destinataire trouvé pour l'intervention " . $intervention['id']);
+            $testEmail = $this->config->get('test_email', '');
+            $testEmail = is_string($testEmail) ? trim($testEmail) : '';
+            if ($testEmail !== '') {
+                $recipients[] = [
+                    'email' => $testEmail,
+                    'name' => 'Mode test (aucun destinataire sur l\'intervention)'
+                ];
+            } else {
+                throw new Exception("Aucun destinataire trouvé pour l'intervention " . $intervention['id']);
+            }
         }
 
         return $recipients;
@@ -273,7 +283,7 @@ class MailService {
             
         } catch (Exception $e) {
             custom_log("Erreur lors de l'envoi de l'email : " . $e->getMessage(), 'ERROR');
-            return false;
+            throw $e;
         }
     }
 
@@ -699,14 +709,8 @@ class MailService {
                 }
             }
 
-            // Authentification si des identifiants sont fournis
-            if (!empty($username) && !empty($password)) {
-                // Vérifier si AUTH est supporté
-                if (!preg_match('/AUTH/i', $ehloResponse)) {
-                    fclose($socket);
-                    throw new Exception("Le serveur ne supporte pas l'authentification");
-                }
-
+            // Authentification optionnelle : seulement si identifiants fournis ET serveur supporte AUTH (sinon envoi sans auth, ex. Mailpit localhost)
+            if (!empty($username) && !empty($password) && preg_match('/AUTH/i', $ehloResponse)) {
                 // Essayer l'authentification LOGIN
                 fwrite($socket, "AUTH LOGIN\r\n");
                 $response = fgets($socket, 1024);
@@ -733,6 +737,8 @@ class MailService {
                     fclose($socket);
                     throw new Exception("Échec de l'authentification: " . trim($response));
                 }
+            } elseif (!empty($username) && !empty($password) && !preg_match('/AUTH/i', $ehloResponse)) {
+                custom_log("SMTP: serveur sans AUTH (ex. Mailpit localhost) — envoi sans authentification", 'INFO');
             }
 
             // MAIL FROM

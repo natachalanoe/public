@@ -118,13 +118,15 @@ $config = Config::getInstance();
                         <div class="mb-3">
                             <label for="mail_username" class="form-label">Nom d'utilisateur</label>
                             <input type="text" class="form-control" id="mail_username" name="mail_username" 
-                                   value="<?= h($mailSettings['mail_username']) ?>">
+                                   value="<?= h($mailSettings['mail_username']) ?>"
+                                   autocomplete="off" placeholder="Laisser vide pour Mailpit / serveur sans auth">
                         </div>
                         
                         <div class="mb-3">
                             <label for="mail_password" class="form-label">Mot de passe</label>
                             <input type="password" class="form-control" id="mail_password" name="mail_password" 
-                                   value="<?= h($mailSettings['mail_password']) ?>">
+                                   value="<?= h($mailSettings['mail_password']) ?>"
+                                   autocomplete="new-password" placeholder="Laisser vide si pas d'authentification">
                         </div>
                         
                         <div class="mb-3">
