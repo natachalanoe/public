@@ -1144,19 +1144,19 @@ class SettingsController {
             }
 
         } catch (Exception $e) {
-            custom_log("Erreur lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur: ' . $e->getMessage()
             ]);
         } catch (Error $e) {
-            custom_log("Erreur fatale lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur fatale lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur fatale: ' . $e->getMessage()
             ]);
         } catch (Throwable $e) {
-            custom_log("Erreur inattendue lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur inattendue lors du test d'envoi d'email: " . $e->getMessage(), 'ERROR');
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur inattendue: ' . $e->getMessage()
@@ -1226,13 +1226,13 @@ class SettingsController {
             }
 
         } catch (Exception $e) {
-            custom_log("Erreur lors du test SMTP: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors du test SMTP: " . $e->getMessage(), 'ERROR');
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur: ' . $e->getMessage()
             ]);
         } catch (Throwable $e) {
-            custom_log("Erreur inattendue lors du test SMTP: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur inattendue lors du test SMTP: " . $e->getMessage(), 'ERROR');
             echo json_encode([
                 'success' => false,
                 'message' => 'Erreur inattendue: ' . $e->getMessage()

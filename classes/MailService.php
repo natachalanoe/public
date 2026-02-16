@@ -40,13 +40,13 @@ class MailService {
                     throw new Exception("Token OAuth2 invalide ou expiré. Vérifiez la configuration OAuth2.");
                 }
                 
-                custom_log("Token OAuth2 valide trouvé, tentative d'envoi", 'INFO');
+                custom_log_mail("Token OAuth2 valide trouvé, tentative d'envoi", 'INFO');
                 return $this->sendEmailOAuth2($to, '', $subject, $body);
             } else {
                 return $this->sendEmailBasic($to, '', $subject, $body);
             }
         } catch (Exception $e) {
-            custom_log("Erreur lors de l'envoi de l'email de test: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de l'envoi de l'email de test: " . $e->getMessage(), 'ERROR');
             throw $e; // Re-throw pour avoir l'erreur détaillée
         }
     }
@@ -60,7 +60,7 @@ class MailService {
         try {
             // Vérifier si l'envoi automatique est activé
             if ($this->config->get('email_auto_send_creation', '0') != '1') {
-                custom_log("Envoi automatique de création désactivé pour l'intervention $interventionId", 'INFO');
+                custom_log_mail("Envoi automatique de création désactivé pour l'intervention $interventionId", 'INFO');
                 return true;
             }
 
@@ -87,7 +87,7 @@ class MailService {
             return $this->sendEmail($recipients, $subject, $body, 'intervention_created', $interventionId);
 
         } catch (Exception $e) {
-            custom_log("Erreur envoi email création intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur envoi email création intervention $interventionId : " . $e->getMessage(), 'ERROR');
             return false;
         }
     }
@@ -135,7 +135,7 @@ class MailService {
             return $this->sendEmail($recipients, $subject, $body, 'technician_assigned', $interventionId);
 
         } catch (Exception $e) {
-            custom_log("Erreur envoi email affectation technicien intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur envoi email affectation technicien intervention $interventionId : " . $e->getMessage(), 'ERROR');
             return false;
         }
     }
@@ -150,7 +150,7 @@ class MailService {
         try {
             // Vérifier si l'envoi automatique est activé (sauf si forcé)
             if (!$force && $this->config->get('email_auto_send_closing', '0') != '1') {
-                custom_log("Envoi automatique de fermeture désactivé pour l'intervention $interventionId", 'INFO');
+                custom_log_mail("Envoi automatique de fermeture désactivé pour l'intervention $interventionId", 'INFO');
                 return true;
             }
 
@@ -177,7 +177,7 @@ class MailService {
             return $this->sendEmail($recipients, $subject, $body, 'intervention_closed', $interventionId);
 
         } catch (Exception $e) {
-            custom_log("Erreur envoi email fermeture intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur envoi email fermeture intervention $interventionId : " . $e->getMessage(), 'ERROR');
             return false;
         }
     }
@@ -268,9 +268,9 @@ class MailService {
             
             // Logger les pièces jointes
             if (!empty($attachmentPaths)) {
-                custom_log("Envoi email avec " . count($attachmentPaths) . " pièce(s) jointe(s) pour intervention $interventionId", 'INFO');
+                custom_log_mail("Envoi email avec " . count($attachmentPaths) . " pièce(s) jointe(s) pour intervention $interventionId", 'INFO');
                 foreach ($attachmentPaths as $path) {
-                    custom_log("  - Pièce jointe : $path (existe: " . (file_exists($path) ? 'OUI' : 'NON') . ")", 'INFO');
+                    custom_log_mail("  - Pièce jointe : $path (existe: " . (file_exists($path) ? 'OUI' : 'NON') . ")", 'INFO');
                 }
             }
             
@@ -282,7 +282,7 @@ class MailService {
             return true;
             
         } catch (Exception $e) {
-            custom_log("Erreur lors de l'envoi de l'email : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de l'envoi de l'email : " . $e->getMessage(), 'ERROR');
             throw $e;
         }
     }
@@ -306,10 +306,10 @@ class MailService {
         $attachmentPathStr = !empty($attachmentPaths) ? implode(', ', $attachmentPaths) : null;
         $historyId = $this->mailHistoryModel->saveToHistory($interventionId, $templateId, $recipient, $subject, $body, $attachmentPathStr);
         
-            custom_log("Envoi email à " . $recipient['email'] . " avec " . count($attachmentPaths) . " pièce(s) jointe(s)", 'INFO');
+            custom_log_mail("Envoi email à " . $recipient['email'] . " avec " . count($attachmentPaths) . " pièce(s) jointe(s)", 'INFO');
             if (!empty($attachmentPaths)) {
                 foreach ($attachmentPaths as $idx => $path) {
-                    custom_log("  PJ " . ($idx + 1) . ": $path (existe: " . (file_exists($path) ? 'OUI' : 'NON') . ", taille: " . (file_exists($path) ? filesize($path) : 0) . " bytes)", 'INFO');
+                    custom_log_mail("  PJ " . ($idx + 1) . ": $path (existe: " . (file_exists($path) ? 'OUI' : 'NON') . ", taille: " . (file_exists($path) ? filesize($path) : 0) . " bytes)", 'INFO');
                 }
             }
         
@@ -324,7 +324,7 @@ class MailService {
             if ($success) {
                 // Mettre à jour l'historique
                 $this->mailHistoryModel->updateHistoryStatus($historyId, 'sent');
-                custom_log("Email envoyé avec succès à " . $recipient['email'], 'INFO');
+                custom_log_mail("Email envoyé avec succès à " . $recipient['email'], 'INFO');
             } else {
                 throw new Exception("Échec de l'envoi de l'email");
             }
@@ -332,7 +332,7 @@ class MailService {
         } catch (Exception $e) {
             // Mettre à jour l'historique avec l'erreur
             $this->mailHistoryModel->updateHistoryStatus($historyId, 'failed', $e->getMessage());
-            custom_log("Erreur envoi email à " . $recipient['email'] . " : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur envoi email à " . $recipient['email'] . " : " . $e->getMessage(), 'ERROR');
             throw $e;
         }
     }
@@ -475,14 +475,14 @@ class MailService {
             
             // Ajouter les pièces jointes
             if ($hasAttachments) {
-                custom_log("Ajout de " . count($attachmentPaths) . " pièce(s) jointe(s) à l'email OAuth2", 'INFO');
+                custom_log_mail("Ajout de " . count($attachmentPaths) . " pièce(s) jointe(s) à l'email OAuth2", 'INFO');
                 foreach ($attachmentPaths as $index => $attachmentPath) {
                     if (file_exists($attachmentPath)) {
                         $emailData .= "\r\n--$boundary\r\n";
                         $fileName = basename($attachmentPath);
                         $fileContent = file_get_contents($attachmentPath);
                         if ($fileContent === false) {
-                            custom_log("Erreur lors de la lecture du fichier OAuth2 : $attachmentPath", 'ERROR');
+                            custom_log_mail("Erreur lors de la lecture du fichier OAuth2 : $attachmentPath", 'ERROR');
                             continue;
                         }
                         $fileContentBase64 = chunk_split(base64_encode($fileContent));
@@ -496,9 +496,9 @@ class MailService {
                         $emailData .= "Content-Transfer-Encoding: base64\r\n";
                         $emailData .= "\r\n";
                         $emailData .= $fileContentBase64;
-                        custom_log("Pièce jointe " . ($index + 1) . " ajoutée à l'email OAuth2 : $fileName (" . strlen($fileContent) . " bytes)", 'INFO');
+                        custom_log_mail("Pièce jointe " . ($index + 1) . " ajoutée à l'email OAuth2 : $fileName (" . strlen($fileContent) . " bytes)", 'INFO');
                     } else {
-                        custom_log("Fichier introuvable pour pièce jointe OAuth2 : $attachmentPath", 'ERROR');
+                        custom_log_mail("Fichier introuvable pour pièce jointe OAuth2 : $attachmentPath", 'ERROR');
                     }
                 }
                 $emailData .= "\r\n--$boundary--\r\n";
@@ -553,11 +553,11 @@ class MailService {
             fwrite($socket, "QUIT\r\n");
             fclose($socket);
 
-            custom_log("Email OAuth2 envoyé avec succès à $to" . ($hasAttachments ? " avec " . count($attachmentPaths) . " pièce(s) jointe(s)" : ""), 'INFO');
+            custom_log_mail("Email OAuth2 envoyé avec succès à $to" . ($hasAttachments ? " avec " . count($attachmentPaths) . " pièce(s) jointe(s)" : ""), 'INFO');
             return true;
 
         } catch (Exception $e) {
-            custom_log("Erreur OAuth2: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur OAuth2: " . $e->getMessage(), 'ERROR');
             // Re-throw l'exception pour que les messages d'erreur détaillés soient disponibles
             throw $e;
         }
@@ -682,7 +682,7 @@ class MailService {
                         
                         if (@stream_socket_enable_crypto($socket, true, $method)) {
                             $tlsActivated = true;
-                            custom_log("TLS activé avec la méthode: " . $method, 'INFO');
+                            custom_log_mail("TLS activé avec la méthode: " . $method, 'INFO');
                             break;
                         } else {
                             $lastError = error_get_last()['message'] ?? 'Erreur inconnue';
@@ -705,7 +705,7 @@ class MailService {
                         $ehloResponse .= $response;
                     }
                 } else {
-                    custom_log("Avertissement: STARTTLS demandé mais non supporté par le serveur", 'WARNING');
+                    custom_log_mail("Avertissement: STARTTLS demandé mais non supporté par le serveur", 'WARNING');
                 }
             }
 
@@ -738,7 +738,7 @@ class MailService {
                     throw new Exception("Échec de l'authentification: " . trim($response));
                 }
             } elseif (!empty($username) && !empty($password) && !preg_match('/AUTH/i', $ehloResponse)) {
-                custom_log("SMTP: serveur sans AUTH (ex. Mailpit localhost) — envoi sans authentification", 'INFO');
+                custom_log_mail("SMTP: serveur sans AUTH (ex. Mailpit localhost) — envoi sans authentification", 'INFO');
             }
 
             // MAIL FROM
@@ -802,14 +802,14 @@ class MailService {
             
             // Ajouter les pièces jointes
             if ($hasAttachments) {
-                custom_log("Ajout de " . count($attachmentPaths) . " pièce(s) jointe(s) à l'email SMTP Basic", 'INFO');
+                custom_log_mail("Ajout de " . count($attachmentPaths) . " pièce(s) jointe(s) à l'email SMTP Basic", 'INFO');
                 foreach ($attachmentPaths as $index => $attachmentPath) {
                     if (file_exists($attachmentPath)) {
                         $emailData .= "\r\n--$boundary\r\n";
                         $fileName = basename($attachmentPath);
                         $fileContent = file_get_contents($attachmentPath);
                         if ($fileContent === false) {
-                            custom_log("Erreur lors de la lecture du fichier SMTP Basic : $attachmentPath", 'ERROR');
+                            custom_log_mail("Erreur lors de la lecture du fichier SMTP Basic : $attachmentPath", 'ERROR');
                             continue;
                         }
                         $fileContentBase64 = chunk_split(base64_encode($fileContent));
@@ -823,9 +823,9 @@ class MailService {
                         $emailData .= "Content-Transfer-Encoding: base64\r\n";
                         $emailData .= "\r\n";
                         $emailData .= $fileContentBase64;
-                        custom_log("Pièce jointe " . ($index + 1) . " ajoutée à l'email SMTP Basic : $fileName (" . strlen($fileContent) . " bytes)", 'INFO');
+                        custom_log_mail("Pièce jointe " . ($index + 1) . " ajoutée à l'email SMTP Basic : $fileName (" . strlen($fileContent) . " bytes)", 'INFO');
                     } else {
-                        custom_log("Fichier introuvable pour pièce jointe SMTP Basic : $attachmentPath", 'ERROR');
+                        custom_log_mail("Fichier introuvable pour pièce jointe SMTP Basic : $attachmentPath", 'ERROR');
                     }
                 }
                 $emailData .= "\r\n--$boundary--\r\n";
@@ -880,11 +880,11 @@ class MailService {
             fwrite($socket, "QUIT\r\n");
             fclose($socket);
 
-            custom_log("Email SMTP envoyé avec succès à $to" . ($hasAttachments ? " avec " . count($attachmentPaths) . " pièce(s) jointe(s)" : ""), 'INFO');
+            custom_log_mail("Email SMTP envoyé avec succès à $to" . ($hasAttachments ? " avec " . count($attachmentPaths) . " pièce(s) jointe(s)" : ""), 'INFO');
             return true;
 
         } catch (Exception $e) {
-            custom_log("Erreur lors de l'envoi de l'email SMTP: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de l'envoi de l'email SMTP: " . $e->getMessage(), 'ERROR');
             // Re-throw l'exception pour que les messages d'erreur détaillés soient disponibles
             throw $e;
         }
@@ -985,11 +985,11 @@ class MailService {
             $expiresAt = date('Y-m-d H:i:s', time() + $expiresIn);
             $this->config->set('oauth2_token_expires', $expiresAt);
 
-            custom_log("Token OAuth2 rafraîchi avec succès", 'INFO');
+            custom_log_mail("Token OAuth2 rafraîchi avec succès", 'INFO');
             return $tokenData;
 
         } catch (Exception $e) {
-            custom_log("Erreur lors du refresh du token OAuth2: " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors du refresh du token OAuth2: " . $e->getMessage(), 'ERROR');
             return false;
         }
     }
@@ -1125,7 +1125,7 @@ class MailService {
             
             // Ajouter les pièces jointes sélectionnées
             if (!empty($attachmentIds)) {
-                custom_log("Traitement de " . count($attachmentIds) . " pièce(s) jointe(s) sélectionnée(s) pour message personnalisé", 'INFO');
+                custom_log_mail("Traitement de " . count($attachmentIds) . " pièce(s) jointe(s) sélectionnée(s) pour message personnalisé", 'INFO');
                 foreach ($attachmentIds as $attachmentId) {
                     $attachment = $this->getAttachmentById($interventionId, $attachmentId);
                     if ($attachment) {
@@ -1134,31 +1134,31 @@ class MailService {
                         $attachmentPath = realpath($tentativePath);
                         if ($attachmentPath && file_exists($attachmentPath)) {
                             $attachmentPaths[] = $attachmentPath;
-                            custom_log("Pièce jointe ajoutée : $attachmentPath (chemin DB: " . $attachment['chemin_fichier'] . ")", 'INFO');
+                            custom_log_mail("Pièce jointe ajoutée : $attachmentPath (chemin DB: " . $attachment['chemin_fichier'] . ")", 'INFO');
                         } else {
-                            custom_log("Pièce jointe introuvable. ID: $attachmentId, Tentative: $tentativePath, Réel: " . ($attachmentPath ?: 'null'), 'WARNING');
+                            custom_log_mail("Pièce jointe introuvable. ID: $attachmentId, Tentative: $tentativePath, Réel: " . ($attachmentPath ?: 'null'), 'WARNING');
                             // Essayer sans realpath
                             if (file_exists($tentativePath)) {
                                 $attachmentPaths[] = $tentativePath;
-                                custom_log("Pièce jointe trouvée sans realpath : $tentativePath", 'INFO');
+                                custom_log_mail("Pièce jointe trouvée sans realpath : $tentativePath", 'INFO');
                             }
                         }
                     } else {
-                        custom_log("Pièce jointe ID $attachmentId introuvable en base pour intervention $interventionId", 'WARNING');
+                        custom_log_mail("Pièce jointe ID $attachmentId introuvable en base pour intervention $interventionId", 'WARNING');
                     }
                 }
             }
             
-            custom_log("Nombre total de pièces jointes à envoyer pour message personnalisé : " . count($attachmentPaths), 'INFO');
+            custom_log_mail("Nombre total de pièces jointes à envoyer pour message personnalisé : " . count($attachmentPaths), 'INFO');
             if (empty($attachmentPaths)) {
-                custom_log("Aucune pièce jointe ne sera envoyée avec le message personnalisé", 'INFO');
+                custom_log_mail("Aucune pièce jointe ne sera envoyée avec le message personnalisé", 'INFO');
             }
 
             // Envoyer l'email (type 'custom' pour message personnalisé)
             return $this->sendEmail($recipients, $subject, $body, 'custom', $interventionId, $attachmentPaths);
 
         } catch (Exception $e) {
-            custom_log("Erreur lors de l'envoi du message personnalisé pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de l'envoi du message personnalisé pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
             throw $e;
         }
     }
@@ -1242,23 +1242,23 @@ class MailService {
                     $bonPath = realpath($tentativePath);
                     if ($bonPath && file_exists($bonPath)) {
                         $attachmentPaths[] = $bonPath;
-                        custom_log("Bon d'intervention ajouté automatiquement : $bonPath (chemin DB: " . $lastBon['chemin_fichier'] . ")", 'INFO');
+                        custom_log_mail("Bon d'intervention ajouté automatiquement : $bonPath (chemin DB: " . $lastBon['chemin_fichier'] . ")", 'INFO');
                     } else {
-                        custom_log("Bon d'intervention introuvable. Tentative: $tentativePath, Réel: " . ($bonPath ?: 'null'), 'WARNING');
+                        custom_log_mail("Bon d'intervention introuvable. Tentative: $tentativePath, Réel: " . ($bonPath ?: 'null'), 'WARNING');
                         // Essayer sans realpath
                         if (file_exists($tentativePath)) {
                             $attachmentPaths[] = $tentativePath;
-                            custom_log("Bon d'intervention trouvé sans realpath : $tentativePath", 'INFO');
+                            custom_log_mail("Bon d'intervention trouvé sans realpath : $tentativePath", 'INFO');
                         }
                     }
                 } else {
-                    custom_log("Aucun bon d'intervention trouvé pour l'intervention $interventionId", 'INFO');
+                    custom_log_mail("Aucun bon d'intervention trouvé pour l'intervention $interventionId", 'INFO');
                 }
             }
             
             // Ajouter les pièces jointes sélectionnées
             if (!empty($attachmentIds)) {
-                custom_log("Traitement de " . count($attachmentIds) . " pièce(s) jointe(s) sélectionnée(s)", 'INFO');
+                custom_log_mail("Traitement de " . count($attachmentIds) . " pièce(s) jointe(s) sélectionnée(s)", 'INFO');
                 foreach ($attachmentIds as $attachmentId) {
                     $attachment = $this->getAttachmentById($interventionId, $attachmentId);
                     if ($attachment) {
@@ -1267,31 +1267,31 @@ class MailService {
                         $attachmentPath = realpath($tentativePath);
                         if ($attachmentPath && file_exists($attachmentPath)) {
                             $attachmentPaths[] = $attachmentPath;
-                            custom_log("Pièce jointe ajoutée : $attachmentPath (chemin DB: " . $attachment['chemin_fichier'] . ")", 'INFO');
+                            custom_log_mail("Pièce jointe ajoutée : $attachmentPath (chemin DB: " . $attachment['chemin_fichier'] . ")", 'INFO');
                         } else {
-                            custom_log("Pièce jointe introuvable. ID: $attachmentId, Tentative: $tentativePath, Réel: " . ($attachmentPath ?: 'null'), 'WARNING');
+                            custom_log_mail("Pièce jointe introuvable. ID: $attachmentId, Tentative: $tentativePath, Réel: " . ($attachmentPath ?: 'null'), 'WARNING');
                             // Essayer sans realpath
                             if (file_exists($tentativePath)) {
                                 $attachmentPaths[] = $tentativePath;
-                                custom_log("Pièce jointe trouvée sans realpath : $tentativePath", 'INFO');
+                                custom_log_mail("Pièce jointe trouvée sans realpath : $tentativePath", 'INFO');
                             }
                         }
                     } else {
-                        custom_log("Pièce jointe ID $attachmentId introuvable en base pour intervention $interventionId", 'WARNING');
+                        custom_log_mail("Pièce jointe ID $attachmentId introuvable en base pour intervention $interventionId", 'WARNING');
                     }
                 }
             }
             
-            custom_log("Nombre total de pièces jointes à envoyer : " . count($attachmentPaths), 'INFO');
+            custom_log_mail("Nombre total de pièces jointes à envoyer : " . count($attachmentPaths), 'INFO');
             if (empty($attachmentPaths)) {
-                custom_log("ATTENTION: Aucune pièce jointe ne sera envoyée", 'WARNING');
+                custom_log_mail("ATTENTION: Aucune pièce jointe ne sera envoyée", 'WARNING');
             }
 
             // Envoyer l'email
             return $this->sendEmail($recipients, $subject, $body, $templateType, $interventionId, $attachmentPaths);
 
         } catch (Exception $e) {
-            custom_log("Erreur envoi email personnalisé intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur envoi email personnalisé intervention $interventionId : " . $e->getMessage(), 'ERROR');
             throw $e;
         }
     }
@@ -1314,7 +1314,7 @@ class MailService {
             $stmt->execute([$interventionId]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
-            custom_log("Erreur lors de la récupération du dernier BI pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de la récupération du dernier BI pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
             return null;
         }
     }
@@ -1337,7 +1337,7 @@ class MailService {
             $stmt->execute([$attachmentId, $interventionId]);
             return $stmt->fetch(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
-            custom_log("Erreur lors de la récupération de la pièce jointe $attachmentId pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de la récupération de la pièce jointe $attachmentId pour intervention $interventionId : " . $e->getMessage(), 'ERROR');
             return null;
         }
     }

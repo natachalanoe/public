@@ -35,6 +35,18 @@ function custom_log($message, $level = 'INFO', $context = []) {
     error_log($log_message, 3, $log_file);
 }
 
+/**
+ * Log dédié aux mails (config SMTP, envois, erreurs connexion).
+ * Écrit dans logs/mail.log pour faciliter le diagnostic.
+ */
+function custom_log_mail($message, $level = 'INFO', $context = []) {
+    $log_file = LOGS_PATH . '/mail.log';
+    $date = date('Y-m-d H:i:s');
+    $context_str = !empty($context) ? json_encode($context) : '';
+    $log_message = "[$date][$level] $message $context_str\n";
+    error_log($log_message, 3, $log_file);
+}
+
 // Initialisation du gestionnaire d'erreurs centralisé
 require_once __DIR__ . '/../classes/Error/ErrorHandler.php';
 // Déterminer l'environnement (dev ou prod) - peut être défini dans config.php

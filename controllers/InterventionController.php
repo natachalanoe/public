@@ -771,13 +771,13 @@ class InterventionController {
                         if ($updatedIntervention) {
                             $emailSent = $this->mailService->sendTechnicianAssigned($id, $newTechnicianId);
                             if ($emailSent) {
-                                custom_log("Email de notification envoyé au technicien $newTechnicianId pour l'intervention $id", 'INFO');
+                                custom_log_mail("Email de notification envoyé au technicien $newTechnicianId pour l'intervention $id", 'INFO');
                             } else {
-                                custom_log("Échec de l'envoi de l'email de notification au technicien $newTechnicianId pour l'intervention $id", 'WARNING');
+                                custom_log_mail("Échec de l'envoi de l'email de notification au technicien $newTechnicianId pour l'intervention $id", 'WARNING');
                             }
                         }
                     } catch (Exception $e) {
-                        custom_log("Erreur lors de l'envoi de l'email de notification au technicien : " . $e->getMessage(), 'ERROR');
+                        custom_log_mail("Erreur lors de l'envoi de l'email de notification au technicien : " . $e->getMessage(), 'ERROR');
                     }
                 }
             }
@@ -2513,7 +2513,7 @@ class InterventionController {
                 $this->mailService->sendInterventionCreated($interventionId);
             } catch (Exception $e) {
                 // Log l'erreur mais ne pas faire échouer la création
-                custom_log("Erreur envoi email création intervention $interventionId : " . $e->getMessage(), 'ERROR');
+                custom_log_mail("Erreur envoi email création intervention $interventionId : " . $e->getMessage(), 'ERROR');
             }
             
             // Vérifier si un technicien a été affecté et si on doit envoyer un email
@@ -2521,12 +2521,12 @@ class InterventionController {
                 try {
                     $emailSent = $this->mailService->sendTechnicianAssigned($interventionId, $data['technician_id']);
                     if ($emailSent) {
-                        custom_log("Email de notification envoyé au technicien {$data['technician_id']} pour l'intervention $interventionId", 'INFO');
+                        custom_log_mail("Email de notification envoyé au technicien {$data['technician_id']} pour l'intervention $interventionId", 'INFO');
                     } else {
-                        custom_log("Échec de l'envoi de l'email de notification au technicien {$data['technician_id']} pour l'intervention $interventionId", 'WARNING');
+                        custom_log_mail("Échec de l'envoi de l'email de notification au technicien {$data['technician_id']} pour l'intervention $interventionId", 'WARNING');
                     }
                 } catch (Exception $e) {
-                    custom_log("Erreur lors de l'envoi de l'email de notification au technicien : " . $e->getMessage(), 'ERROR');
+                    custom_log_mail("Erreur lors de l'envoi de l'email de notification au technicien : " . $e->getMessage(), 'ERROR');
                 }
             }
             
@@ -2980,7 +2980,7 @@ class InterventionController {
                     $this->mailService->sendInterventionClosed($id, true);
                 } catch (Exception $e) {
                     // Log l'erreur mais ne pas faire échouer la fermeture
-                    custom_log("Erreur envoi email fermeture intervention $id : " . $e->getMessage(), 'ERROR');
+                    custom_log_mail("Erreur envoi email fermeture intervention $id : " . $e->getMessage(), 'ERROR');
                 }
             }
 
@@ -4019,7 +4019,7 @@ class InterventionController {
             ]);
             
         } catch (Exception $e) {
-            custom_log("Erreur lors de la récupération des données email pour intervention $id : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de la récupération des données email pour intervention $id : " . $e->getMessage(), 'ERROR');
             echo json_encode(['success' => false, 'error' => 'Erreur lors de la récupération des données']);
         }
         exit;
@@ -4050,7 +4050,7 @@ class InterventionController {
             $customMessage = $_POST['message'] ?? '';
             
             // DEBUG: Logger tout le POST pour voir ce qui est reçu
-            custom_log("DEBUG sendEmail - POST reçu : " . json_encode($_POST), 'INFO');
+            custom_log_mail("DEBUG sendEmail - POST reçu : " . json_encode($_POST), 'INFO');
             
             // Récupérer les observations
             $sql = "SELECT c.*, 
@@ -4069,9 +4069,9 @@ class InterventionController {
             $attachmentIds = [];
             if (!empty($_POST['attachments']) && is_array($_POST['attachments'])) {
                 $attachmentIds = array_map('intval', $_POST['attachments']);
-                custom_log("Pièces jointes sélectionnées reçues : " . json_encode($attachmentIds), 'INFO');
+                custom_log_mail("Pièces jointes sélectionnées reçues : " . json_encode($attachmentIds), 'INFO');
             } else {
-                custom_log("Aucune pièce jointe sélectionnée dans le formulaire", 'INFO');
+                custom_log_mail("Aucune pièce jointe sélectionnée dans le formulaire", 'INFO');
             }
             
             // Vérifier si un template est sélectionné
@@ -4081,13 +4081,13 @@ class InterventionController {
                     $success = $this->mailService->sendCustomEmail($id, $templateId, $observations, $attachmentIds);
                     
                     if ($success) {
-                        custom_log("Email envoyé avec succès pour l'intervention $id via template $templateId", 'INFO');
+                        custom_log_mail("Email envoyé avec succès pour l'intervention $id via template $templateId", 'INFO');
                         echo json_encode(['success' => true, 'message' => 'Email envoyé avec succès']);
                     } else {
                         echo json_encode(['success' => false, 'error' => 'Échec de l\'envoi de l\'email']);
                     }
                 } catch (Exception $e) {
-                    custom_log("Erreur lors de l'envoi de l'email pour intervention $id : " . $e->getMessage(), 'ERROR');
+                    custom_log_mail("Erreur lors de l'envoi de l'email pour intervention $id : " . $e->getMessage(), 'ERROR');
                     echo json_encode(['success' => false, 'error' => 'Erreur lors de l\'envoi : ' . $e->getMessage()]);
                 }
             } else {
@@ -4105,20 +4105,20 @@ class InterventionController {
                     $success = $this->mailService->sendCustomMessage($id, $customSubject, $body, $attachmentIds);
                     
                     if ($success) {
-                        custom_log("Email personnalisé envoyé avec succès pour l'intervention $id", 'INFO');
+                        custom_log_mail("Email personnalisé envoyé avec succès pour l'intervention $id", 'INFO');
                         echo json_encode(['success' => true, 'message' => 'Email envoyé avec succès']);
                     } else {
                         echo json_encode(['success' => false, 'error' => 'Échec de l\'envoi de l\'email']);
                     }
                 } catch (Exception $e) {
-                    custom_log("Erreur lors de l'envoi de l'email personnalisé pour intervention $id : " . $e->getMessage(), 'ERROR');
+                    custom_log_mail("Erreur lors de l'envoi de l'email personnalisé pour intervention $id : " . $e->getMessage(), 'ERROR');
                     echo json_encode(['success' => false, 'error' => 'Erreur lors de l\'envoi : ' . $e->getMessage()]);
                     exit;
                 }
             }
             
         } catch (Exception $e) {
-            custom_log("Erreur lors de l'envoi de l'email pour intervention $id : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de l'envoi de l'email pour intervention $id : " . $e->getMessage(), 'ERROR');
             echo json_encode(['success' => false, 'error' => 'Erreur : ' . $e->getMessage()]);
         }
         exit;
@@ -4193,7 +4193,7 @@ class InterventionController {
             ]);
             
         } catch (Exception $e) {
-            custom_log("Erreur lors de la prévisualisation du template pour intervention $id : " . $e->getMessage(), 'ERROR');
+            custom_log_mail("Erreur lors de la prévisualisation du template pour intervention $id : " . $e->getMessage(), 'ERROR');
             echo json_encode(['success' => false, 'error' => 'Erreur lors de la prévisualisation']);
         }
         exit;
