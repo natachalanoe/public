@@ -354,8 +354,8 @@ class MailService {
             $fromAddress = $this->config->get('mail_from_address', '');
             $fromName = $this->config->get('mail_from_name', 'Support');
 
-            // Créer la socket
-            $socket = stream_socket_client("tcp://$host:$port", $errno, $errstr, 30);
+            // Créer la socket (timeout 60s)
+            $socket = stream_socket_client("tcp://$host:$port", $errno, $errstr, 60);
             if (!$socket) {
                 throw new Exception("Impossible de se connecter au serveur SMTP: $errstr");
             }
@@ -598,12 +598,12 @@ class MailService {
                 ]);
             }
 
-            // Créer la socket avec contexte SSL si nécessaire
+            // Créer la socket (timeout 60s)
             $socket = @stream_socket_client(
                 "$protocol://$host:$port", 
                 $errno, 
                 $errstr, 
-                30,
+                60,
                 STREAM_CLIENT_CONNECT,
                 $sslContext
             );
