@@ -3249,8 +3249,8 @@ class InterventionController {
     }
 
     /**
-     * Supprime une intervention annulée (admin seulement)
-     * Re-crédite les tickets si l'intervention était fermée
+     * Supprime une intervention (admin seulement)
+     * Re-crédite les tickets si l'intervention avait consommé des tickets
      */
     public function delete($id) {
         // Vérifier les permissions - admin seulement
@@ -3260,19 +3260,19 @@ class InterventionController {
             exit;
         }
 
+        // Sécurité: ne pas autoriser une suppression via GET (confirmation + CSRF via POST)
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+            $_SESSION['error'] = "Suppression non autorisée sans confirmation (POST requis).";
+            header('Location: ' . BASE_URL . 'interventions/view/' . $id);
+            exit;
+        }
+
         // Récupérer l'intervention
         $intervention = $this->interventionModel->getById($id);
         
         if (!$intervention) {
             $_SESSION['error'] = "Intervention introuvable.";
             header('Location: ' . $this->getInterventionsListUrl());
-            exit;
-        }
-
-        // Vérifier que l'intervention est annulée (status_id = 7)
-        if ($intervention['status_id'] != 7) {
-            $_SESSION['error'] = "Seules les interventions annulées peuvent être supprimées.";
-            header('Location: ' . BASE_URL . 'interventions/view/' . $id);
             exit;
         }
 

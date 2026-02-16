@@ -146,22 +146,66 @@ include_once __DIR__ . '/../../includes/navbar.php';
                     </button>
                 <?php endif; ?>
             <?php endif; ?>
-            
-            <?php if ($isAdmin && $intervention['status_id'] == 7): ?>
-                <!-- DEBUG: Bouton de suppression affiché pour admin et intervention annulée -->
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="deleteIntervention(<?php echo $intervention['id']; ?>, '<?php echo htmlspecialchars($intervention['reference'] ?? ''); ?>')" title="Supprimer l'intervention">
-                    <i class="bi bi-trash"></i>
-                </button>
-            <?php else: ?>
-                <!-- DEBUG: Bouton non affiché - isAdmin: <?php echo $isAdmin ? 'true' : 'false'; ?>, status_id: <?php echo $intervention['status_id']; ?> -->
-            <?php endif; ?>
         <?php else: ?>
             <button type="button" class="btn btn-warning me-2" disabled title="Vous n'avez pas les droits nécessaires">
                 <i class="bi bi-pencil me-1"></i> Modifier
             </button>
         <?php endif; ?>
+
+        <?php if ($isAdmin): ?>
+            <?php
+                $reference = $intervention['reference'] ?? ('ID ' . ($intervention['id'] ?? ''));
+                $ticketsUsed = (int)($intervention['tickets_used'] ?? 0);
+                $isTicketContract = isInterventionLinkedToTicketContract($intervention['id']);
+
+                $deleteWarningTitle = "Supprimer définitivement l'intervention {$reference} ?";
+                $deleteWarningText = "Cette action est irréversible.";
+                if ($isTicketContract && $ticketsUsed > 0) {
+                    $deleteWarningText .= " Cette intervention a consommé {$ticketsUsed} ticket(s). Sur un contrat tickets, la suppression peut entraîner une réaffectation (re-crédit) des tickets sur le contrat.";
+                } else {
+                    $deleteWarningText .= " Si l'intervention est liée à un contrat tickets et que des tickets ont été décomptés, la suppression peut entraîner une réaffectation (re-crédit) des tickets sur le contrat.";
+                }
+            ?>
+            <button type="button"
+                    class="btn btn-outline-danger me-2"
+                    data-bs-toggle="modal"
+                    data-bs-target="#deleteInterventionModal"
+                    title="Supprimer l'intervention">
+                <i class="bi bi-trash"></i>
+            </button>
+        <?php endif; ?>
     </div>
 </div>
+
+<?php if ($isAdmin): ?>
+<div class="modal fade" id="deleteInterventionModal" tabindex="-1" aria-labelledby="deleteInterventionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteInterventionModalLabel">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Confirmation de suppression
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger mb-0">
+                    <strong><?php echo h($deleteWarningTitle); ?></strong>
+                    <div class="mt-2"><?php echo h($deleteWarningText); ?></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <form method="POST" action="<?php echo BASE_URL; ?>interventions/delete/<?php echo $intervention['id']; ?>" class="d-inline">
+                    <?= csrf_field() ?>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Oui, supprimer
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
     <?php if (isset($_SESSION['error'])): ?>
         <div class="alert alert-danger">
