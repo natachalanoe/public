@@ -34,6 +34,9 @@ $availableVariables = [
         '{intervention_reference}' => 'Référence de l\'intervention',
         '{intervention_title}' => 'Titre de l\'intervention',
         '{client_name}' => 'Nom du client',
+        '{demande_par}' => 'Demandé par (champ "Demande par")',
+        '{ref_client}' => 'Référence client',
+        '{contract_name}' => 'Contrat (nom du contrat lié à l\'intervention)',
         '{site_name}' => 'Nom du site',
         '{room_name}' => 'Nom de la salle',
         '{technician_name}' => 'Nom du technicien',
@@ -53,6 +56,9 @@ $availableVariables = [
         '{intervention_reference}' => 'Référence de l\'intervention',
         '{intervention_title}' => 'Titre de l\'intervention',
         '{client_name}' => 'Nom du client',
+        '{demande_par}' => 'Demandé par (champ "Demande par")',
+        '{ref_client}' => 'Référence client',
+        '{contract_name}' => 'Contrat (nom du contrat lié à l\'intervention)',
         '{site_name}' => 'Nom du site',
         '{room_name}' => 'Nom de la salle',
         '{technician_name}' => 'Nom du technicien',
@@ -74,6 +80,9 @@ $availableVariables = [
         '{intervention_reference}' => 'Référence de l\'intervention',
         '{intervention_title}' => 'Titre de l\'intervention',
         '{client_name}' => 'Nom du client',
+        '{demande_par}' => 'Demandé par (champ "Demande par")',
+        '{ref_client}' => 'Référence client',
+        '{contract_name}' => 'Contrat (nom du contrat lié à l\'intervention)',
         '{site_name}' => 'Nom du site',
         '{room_name}' => 'Nom de la salle',
         '{technician_name}' => 'Nom du technicien',
@@ -227,8 +236,25 @@ $availableVariables = [
 document.addEventListener('DOMContentLoaded', function() {
     const templateTypeSelect = document.getElementById('template_type');
     const variablesList = document.getElementById('variables-list');
+    const subjectEl = document.getElementById('subject');
+    const bodyEl = document.getElementById('body');
+    let lastFocusedField = null;
     
     const availableVariables = <?= json_encode($availableVariables) ?>;
+
+    // Garder trace du dernier champ édité (car le clic sur la variable prend le focus)
+    function setLastFocusedField(el) {
+        if (!el) return;
+        if (el === subjectEl || el === bodyEl) {
+            lastFocusedField = el;
+        }
+    }
+    [subjectEl, bodyEl].forEach(function(el) {
+        if (!el) return;
+        el.addEventListener('focus', function() { setLastFocusedField(el); });
+        el.addEventListener('click', function() { setLastFocusedField(el); });
+        el.addEventListener('keyup', function() { setLastFocusedField(el); });
+    });
     
     function updateVariables() {
         const selectedType = templateTypeSelect.value;
@@ -260,19 +286,24 @@ document.addEventListener('DOMContentLoaded', function() {
             // Ajouter les événements de clic
             variablesList.querySelectorAll('code').forEach(function(code) {
                 code.style.cursor = 'pointer';
-                code.addEventListener('click', function() {
+                // Utiliser mousedown pour insérer avant que le focus ne change
+                code.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
                     const variable = this.textContent;
-                    const activeElement = document.activeElement;
-                    
-                    if (activeElement && (activeElement.id === 'subject' || activeElement.id === 'body')) {
-                        const start = activeElement.selectionStart;
-                        const end = activeElement.selectionEnd;
-                        const text = activeElement.value;
-                        
-                        activeElement.value = text.substring(0, start) + variable + text.substring(end);
-                        activeElement.focus();
-                        activeElement.setSelectionRange(start + variable.length, start + variable.length);
+                    const target = lastFocusedField || bodyEl || subjectEl;
+                    if (!target) return;
+
+                    const start = target.selectionStart ?? target.value.length;
+                    const end = target.selectionEnd ?? target.value.length;
+                    const text = target.value ?? '';
+
+                    target.value = text.substring(0, start) + variable + text.substring(end);
+                    target.focus();
+                    const cursorPos = start + variable.length;
+                    if (typeof target.setSelectionRange === 'function') {
+                        target.setSelectionRange(cursorPos, cursorPos);
                     }
+                    setLastFocusedField(target);
                 });
             });
         } else {

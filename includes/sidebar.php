@@ -254,7 +254,7 @@ require_once __DIR__ . '/functions.php';
             <li class="menu-item mt-auto">
                 <div class="menu-link d-flex align-items-center justify-content-center px-3 py-2">
                     <span class="badge bg-warning text-dark">
-                        <i class="bi bi-code-slash me-1"></i>Version dev 0.9.4
+                        <i class="bi bi-code-slash me-1"></i>Version dev 0.9.5
                     </span>
                 </div>
             </li>

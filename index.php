@@ -924,6 +924,15 @@ try {
                         exit;
                     }
                     break;
+                case 'getMailHistory':
+                    if ($id) {
+                        $interventionController->getMailHistory($id);
+                    } else {
+                        header('Content-Type: application/json');
+                        echo json_encode(['success' => false, 'error' => 'ID manquant']);
+                        exit;
+                    }
+                    break;
                 case 'sendEmail':
                     if ($id) {
                         $interventionController->sendEmail($id);

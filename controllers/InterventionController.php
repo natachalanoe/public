@@ -4011,6 +4011,8 @@ class InterventionController {
                 'intervention' => $interventionData,
                 'observations' => $observations,
                 'recipient_email' => $recipientEmail,
+                'technician_email' => $intervention['technician_email'] ?? '',
+                'technician_name' => $intervention['technician_name'] ?? '',
                 'test_email' => $testEmail,
                 'intervention_url' => $interventionUrl,
                 'templates' => array_values($activeTemplates),
@@ -4021,6 +4023,89 @@ class InterventionController {
         } catch (Exception $e) {
             custom_log_mail("Erreur lors de la récupération des données email pour intervention $id : " . $e->getMessage(), 'ERROR');
             echo json_encode(['success' => false, 'error' => 'Erreur lors de la récupération des données']);
+        }
+        exit;
+    }
+
+    /**
+     * Récupère l'historique des emails envoyés pour une intervention
+     * (groupé par "envoi" pour afficher une ligne avec plusieurs destinataires)
+     * @param int $id ID de l'intervention
+     */
+    public function getMailHistory($id) {
+        header('Content-Type: application/json');
+
+        try {
+            $this->checkAccess();
+
+            $intervention = $this->interventionModel->getById($id);
+            if (!$intervention) {
+                echo json_encode(['success' => false, 'error' => 'Intervention introuvable']);
+                exit;
+            }
+
+            require_once __DIR__ . '/../models/MailHistoryModel.php';
+            $mailHistoryModel = new MailHistoryModel($this->db);
+            $rows = $mailHistoryModel->getByIntervention($id);
+
+            // mail_history est stocké "1 ligne par destinataire".
+            // On regroupe par send_uuid si disponible (sinon fallback ancien: seconde + sujet + template).
+            $grouped = [];
+            foreach ($rows as $r) {
+                $subject = (string)($r['subject'] ?? '');
+                $createdAt = (string)($r['created_at'] ?? '');
+                $sentAt = (string)($r['sent_at'] ?? '');
+                $displayAt = $sentAt !== '' ? $sentAt : $createdAt;
+
+                $sendUuid = isset($r['send_uuid']) ? trim((string)$r['send_uuid']) : '';
+
+                // Clé de regroupement (send_uuid si présent) sinon: seconde + sujet + template
+                $ts = $displayAt !== '' ? date('Y-m-d H:i:s', strtotime($displayAt)) : '';
+                $templateId = $r['template_id'] ?? null;
+                $key = $sendUuid !== '' ? ('uuid|' . $sendUuid) : ($ts . '|' . $subject . '|' . (string)($templateId ?? ''));
+
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'title' => $subject,
+                        'datetime' => $ts,
+                        'recipients' => [],
+                        'cc_snapshot' => $r['cc_snapshot'] ?? '',
+                        'template_name' => $r['template_name'] ?? null,
+                        'template_type' => $r['template_type'] ?? null,
+                    ];
+                }
+
+                $email = isset($r['recipient_email']) ? trim((string)$r['recipient_email']) : '';
+                $name = isset($r['recipient_name']) ? trim((string)$r['recipient_name']) : '';
+                if ($email !== '') {
+                    $label = $name !== '' ? ($name . ' <' . $email . '>') : $email;
+                    $grouped[$key]['recipients'][strtolower($email)] = $label;
+                }
+            }
+
+            // Remettre en tableau, tri desc par datetime
+            $items = array_values(array_map(function($g) {
+                $to = implode(', ', array_values($g['recipients']));
+                $cc = is_string($g['cc_snapshot'] ?? null) ? trim($g['cc_snapshot']) : '';
+                $dest = $to !== '' ? ("À: " . $to) : "À: (aucun)";
+                if ($cc !== '') {
+                    $dest .= " | CC: " . $cc;
+                }
+                $g['recipients'] = $dest;
+                return $g;
+            }, $grouped));
+
+            usort($items, function($a, $b) {
+                return strcmp($b['datetime'] ?? '', $a['datetime'] ?? '');
+            });
+
+            echo json_encode([
+                'success' => true,
+                'items' => $items,
+            ]);
+        } catch (Exception $e) {
+            custom_log_mail("Erreur getMailHistory intervention $id : " . $e->getMessage(), 'ERROR');
+            echo json_encode(['success' => false, 'error' => 'Erreur lors de la récupération de l\'historique des emails']);
         }
         exit;
     }
@@ -4078,7 +4163,7 @@ class InterventionController {
             if (!empty($templateId)) {
                 // Utiliser le template
                 try {
-                    $success = $this->mailService->sendCustomEmail($id, $templateId, $observations, $attachmentIds);
+                    $success = $this->mailService->sendCustomEmail($id, $templateId, $observations, $attachmentIds, true, true);
                     
                     if ($success) {
                         custom_log_mail("Email envoyé avec succès pour l'intervention $id via template $templateId", 'INFO');
@@ -4102,7 +4187,7 @@ class InterventionController {
                 
                 // Envoyer l'email via MailService avec support des pièces jointes
                 try {
-                    $success = $this->mailService->sendCustomMessage($id, $customSubject, $body, $attachmentIds);
+                    $success = $this->mailService->sendCustomMessage($id, $customSubject, $body, $attachmentIds, true);
                     
                     if ($success) {
                         custom_log_mail("Email personnalisé envoyé avec succès pour l'intervention $id", 'INFO');

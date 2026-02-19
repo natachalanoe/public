@@ -21,6 +21,7 @@ class InterventionModel extends BaseModel {
                 r.name as room_name,
                 u.first_name as technician_first_name,
                 u.last_name as technician_last_name,
+                u.email as technician_email,
                 its.name as status_name,
                 its.color as status_color,
                 it.name as type_name,

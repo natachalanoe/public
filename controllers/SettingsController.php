@@ -598,6 +598,19 @@ class SettingsController {
         setPageVariables('Configuration email', 'settings');
         $currentPage = 'settings';
 
+        // Verrouillage temporaire: désactiver l'envoi automatique (non utilisé pour le moment)
+        // On force les settings à 0 pour éviter toute activation accidentelle.
+        try {
+            $config = Config::getInstance();
+            foreach (['email_auto_send_creation', 'email_auto_send_closing', 'email_auto_send_bon'] as $key) {
+                if ($config->get($key, '0') === '1') {
+                    $config->set($key, '0');
+                }
+            }
+        } catch (Exception $e) {
+            // Si la config n'est pas disponible, on ne bloque pas l'affichage de la page.
+        }
+
         // Récupérer les templates
         $templates = [];
         try {
@@ -634,6 +647,7 @@ class SettingsController {
                 'mail_encryption' => $_POST['mail_encryption'] ?? 'tls',
                 'mail_from_address' => $_POST['mail_from_address'] ?? '',
                 'mail_from_name' => $_POST['mail_from_name'] ?? '',
+                'mail_cc_address' => $_POST['mail_cc_address'] ?? '',
             ];
 
             // Paramètres OAuth2
@@ -661,6 +675,7 @@ class SettingsController {
                 'encryption' => $smtpSettings['mail_encryption'] ?? '',
                 'from_address' => $smtpSettings['mail_from_address'] ?? '',
                 'from_name' => $smtpSettings['mail_from_name'] ?? '',
+                'cc_address_set' => !empty(trim($smtpSettings['mail_cc_address'] ?? '')),
                 'username_set' => !empty(trim($smtpSettings['mail_username'] ?? '')),
                 'password_set' => !empty($smtpSettings['mail_password'] ?? ''),
             ]);
@@ -698,10 +713,11 @@ class SettingsController {
             $config = Config::getInstance();
             
             // Paramètres d'envoi automatique
+            // Verrouillage temporaire: on empêche l'activation des envois automatiques.
             $emailSettings = [
-                'email_auto_send_creation' => isset($_POST['email_auto_send_creation']) ? '1' : '0',
-                'email_auto_send_closing' => isset($_POST['email_auto_send_closing']) ? '1' : '0',
-                'email_auto_send_bon' => isset($_POST['email_auto_send_bon']) ? '1' : '0',
+                'email_auto_send_creation' => '0',
+                'email_auto_send_closing' => '0',
+                'email_auto_send_bon' => '0',
                 'test_email' => $_POST['test_email'] ?? '',
             ];
 

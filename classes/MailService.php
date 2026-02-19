@@ -185,9 +185,10 @@ class MailService {
     /**
      * Prépare la liste des destinataires pour une intervention
      * @param array $intervention Données de l'intervention
+     * @param bool $includeTechnician Si true, inclure le technicien affecté (envoi manuel)
      * @return array Liste des destinataires
      */
-    private function prepareRecipients($intervention) {
+    private function prepareRecipients($intervention, $includeTechnician = false) {
         $recipients = [];
 
         // Destinataire principal : site_email en priorité, puis contact_client
@@ -201,8 +202,49 @@ class MailService {
             ];
         }
 
-        // TODO: Ajouter d'autres destinataires via la table mail_recipients
-        // Pour l'instant, on se contente du site_email ou contact_client
+        // Option: inclure le technicien affecté (surtout pour l'envoi manuel depuis la modale)
+        if ($includeTechnician) {
+            $techEmail = $intervention['technician_email'] ?? '';
+            $techEmail = is_string($techEmail) ? trim($techEmail) : '';
+
+            // Fallback si l'email n'est pas présent dans $intervention
+            if ($techEmail === '' && !empty($intervention['technician_id'])) {
+                try {
+                    require_once __DIR__ . '/../models/UserModel.php';
+                    $userModel = new UserModel($this->db);
+                    $technician = $userModel->getUserById((int)$intervention['technician_id']);
+                    if (!empty($technician['email'])) {
+                        $techEmail = trim($technician['email']);
+                    }
+                    if (empty($intervention['technician_name']) && (!empty($technician['first_name']) || !empty($technician['last_name']))) {
+                        $intervention['technician_name'] = trim(($technician['first_name'] ?? '') . ' ' . ($technician['last_name'] ?? ''));
+                    }
+                } catch (Exception $e) {
+                    // Ne pas bloquer l'envoi si on ne peut pas récupérer l'email du technicien
+                }
+            }
+
+            if ($techEmail !== '') {
+                $recipients[] = [
+                    'email' => $techEmail,
+                    'name' => !empty($intervention['technician_name']) ? $intervention['technician_name'] : 'Technicien'
+                ];
+            }
+        }
+
+        // Dédoublonner par email
+        if (!empty($recipients)) {
+            $unique = [];
+            foreach ($recipients as $r) {
+                $email = isset($r['email']) && is_string($r['email']) ? trim($r['email']) : '';
+                if ($email === '') continue;
+                $key = strtolower($email);
+                if (!isset($unique[$key])) {
+                    $unique[$key] = $r;
+                }
+            }
+            $recipients = array_values($unique);
+        }
 
         // Si aucun destinataire sur l'intervention, utiliser l'email de test si configuré (mode test prend le dessus)
         if (empty($recipients)) {
@@ -265,6 +307,13 @@ class MailService {
             if (!empty($testEmail)) {
                 $subject = '[TEST] ' . $subject;
             }
+
+            // Identifiant unique pour regrouper l'envoi dans mail_history
+            $sendUuid = 'mail_' . bin2hex(random_bytes(8));
+
+            // Snapshot du CC forcé utilisé pour cet envoi (désactivé en mode test)
+            $ccEmails = $this->getCcAddressesForCurrentMode();
+            $ccSnapshot = !empty($ccEmails) ? implode(', ', $ccEmails) : '';
             
             // Logger les pièces jointes
             if (!empty($attachmentPaths)) {
@@ -276,7 +325,7 @@ class MailService {
             
             // Envoyer à chaque destinataire
             foreach ($finalRecipients as $recipient) {
-                $this->sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPaths);
+                $this->sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPaths, $sendUuid, $ccSnapshot);
             }
             
             return true;
@@ -303,7 +352,7 @@ class MailService {
      * @param int $interventionId ID de l'intervention
      * @param array $attachmentPaths Liste des chemins vers les pièces jointes
      */
-    private function sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPaths = []) {
+    private function sendSingleEmail($recipient, $subject, $body, $templateType, $interventionId, $attachmentPaths = [], $sendUuid = null, $ccSnapshot = null) {
         // Enregistrer dans l'historique avant envoi
         $templateId = $this->mailTemplateModel->getTemplateIdByType($templateType);
         // Si aucun template trouvé (message personnalisé), passer null explicitement
@@ -311,7 +360,7 @@ class MailService {
             $templateId = null;
         }
         $attachmentPathStr = !empty($attachmentPaths) ? implode(', ', $attachmentPaths) : null;
-        $historyId = $this->mailHistoryModel->saveToHistory($interventionId, $templateId, $recipient, $subject, $body, $attachmentPathStr);
+        $historyId = $this->mailHistoryModel->saveToHistory($interventionId, $templateId, $recipient, $subject, $body, $attachmentPathStr, $sendUuid, $ccSnapshot);
         
             custom_log_mail("Envoi email à " . $recipient['email'] . " avec " . count($attachmentPaths) . " pièce(s) jointe(s)", 'INFO');
             if (!empty($attachmentPaths)) {
@@ -354,6 +403,8 @@ class MailService {
             if (!$accessToken) {
                 throw new Exception("Token OAuth2 invalide ou expiré");
             }
+
+            $ccEmails = $this->getCcAddressesForCurrentMode();
 
             // Configuration SMTP pour OAuth2
             $host = $this->config->get('mail_host', 'smtp.office365.com');
@@ -437,6 +488,16 @@ class MailService {
                 throw new Exception("Erreur RCPT TO: " . trim($response));
             }
 
+            // RCPT TO (CC)
+            foreach ($ccEmails as $ccEmail) {
+                fwrite($socket, "RCPT TO:<$ccEmail>\r\n");
+                $response = fgets($socket, 1024);
+                if (!preg_match('/^250/', $response)) {
+                    fclose($socket);
+                    throw new Exception("Erreur RCPT TO (CC): " . trim($response));
+                }
+            }
+
             // DATA
             fwrite($socket, "DATA\r\n");
             $response = fgets($socket, 1024);
@@ -456,6 +517,9 @@ class MailService {
             // En-têtes de l'email
             $emailData = "From: $fromName <$fromAddress>\r\n";
             $emailData .= "To: $toName <$to>\r\n";
+            if (!empty($ccEmails)) {
+                $emailData .= "Cc: " . implode(', ', $ccEmails) . "\r\n";
+            }
             $emailData .= "Reply-To: $fromAddress\r\n";
             $emailData .= "Subject: " . $this->encodeHeader($subject) . "\r\n";
             $emailData .= "MIME-Version: 1.0\r\n";
@@ -583,6 +647,7 @@ class MailService {
             $encryption = $this->config->get('mail_encryption', 'tls');
             $fromAddress = $this->config->get('mail_from_address');
             $fromName = $this->config->get('mail_from_name', 'Support');
+            $ccEmails = $this->getCcAddressesForCurrentMode();
 
             // Vérifier la configuration SMTP
             if (empty($host) || empty($fromAddress)) {
@@ -764,6 +829,16 @@ class MailService {
                 throw new Exception("Erreur RCPT TO: " . trim($response));
             }
 
+            // RCPT TO (CC)
+            foreach ($ccEmails as $ccEmail) {
+                fwrite($socket, "RCPT TO:<$ccEmail>\r\n");
+                $response = fgets($socket, 1024);
+                if (!preg_match('/^250/', $response)) {
+                    fclose($socket);
+                    throw new Exception("Erreur RCPT TO (CC): " . trim($response));
+                }
+            }
+
             // DATA
             fwrite($socket, "DATA\r\n");
             $response = fgets($socket, 1024);
@@ -783,6 +858,9 @@ class MailService {
             // Préparer les en-têtes de l'email
             $emailData = "From: $fromName <$fromAddress>\r\n";
             $emailData .= "To: $toName <$to>\r\n";
+            if (!empty($ccEmails)) {
+                $emailData .= "Cc: " . implode(', ', $ccEmails) . "\r\n";
+            }
             $emailData .= "Reply-To: $fromAddress\r\n";
             $emailData .= "Subject: " . $this->encodeHeader($subject) . "\r\n";
             $emailData .= "MIME-Version: 1.0\r\n";
@@ -908,6 +986,42 @@ class MailService {
             return '=?UTF-8?B?' . base64_encode($header) . '?=';
         }
         return $header;
+    }
+
+    /**
+     * Récupère l'adresse CC configurée (désactivée en mode test)
+     * @return array Liste d'emails CC valides
+     */
+    private function getCcAddressesForCurrentMode() {
+        $testEmail = $this->config->get('test_email', '');
+        $testEmail = is_string($testEmail) ? trim($testEmail) : '';
+        if ($testEmail !== '') {
+            return [];
+        }
+
+        $raw = $this->config->get('mail_cc_address', '');
+        $raw = is_string($raw) ? trim($raw) : '';
+        if ($raw === '') {
+            return [];
+        }
+
+        // Support simple: une seule adresse, mais on tolère aussi "a@b.com, c@d.com"
+        $parts = preg_split('/[;,]+/', $raw);
+        if (!$parts) {
+            return [];
+        }
+
+        $emails = [];
+        foreach ($parts as $part) {
+            $email = trim($part);
+            if ($email === '') {
+                continue;
+            }
+            if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $emails[strtolower($email)] = $email;
+            }
+        }
+        return array_values($emails);
     }
 
     /**
@@ -1038,6 +1152,9 @@ class MailService {
             '{intervention_reference}' => $intervention['reference'] ?? '',
             '{intervention_title}' => $intervention['title'] ?? '',
             '{client_name}' => $intervention['client_name'] ?? '',
+            '{demande_par}' => $intervention['demande_par'] ?? '',
+            '{ref_client}' => $intervention['ref_client'] ?? '',
+            '{contract_name}' => $intervention['contract_name'] ?? '',
             '{site_name}' => $intervention['site_name'] ?? '',
             '{room_name}' => $intervention['room_name'] ?? '',
             '{technician_name}' => $intervention['technician_name'] ?? '',
@@ -1060,6 +1177,9 @@ class MailService {
             '#{intervention_reference}' => $intervention['reference'] ?? '',
             '#{intervention_title}' => $intervention['title'] ?? '',
             '#{client_name}' => $intervention['client_name'] ?? '',
+            '#{demande_par}' => $intervention['demande_par'] ?? '',
+            '#{ref_client}' => $intervention['ref_client'] ?? '',
+            '#{contract_name}' => $intervention['contract_name'] ?? '',
             '#{site_name}' => $intervention['site_name'] ?? '',
             '#{room_name}' => $intervention['room_name'] ?? '',
             '#{technician_name}' => $intervention['technician_name'] ?? '',
@@ -1112,9 +1232,10 @@ class MailService {
      * @param string $subject Sujet de l'email
      * @param string $body Corps de l'email (HTML)
      * @param array $attachmentIds Liste des IDs des pièces jointes à joindre
+     * @param bool $includeTechnician Si true, inclure le technicien affecté
      * @return bool Succès de l'envoi
      */
-    public function sendCustomMessage($interventionId, $subject, $body, $attachmentIds = []) {
+    public function sendCustomMessage($interventionId, $subject, $body, $attachmentIds = [], $includeTechnician = false) {
         try {
             // Récupérer l'intervention
             $interventionModel = new InterventionModel($this->db);
@@ -1125,7 +1246,7 @@ class MailService {
             }
             
             // Préparer les destinataires
-            $recipients = $this->prepareRecipients($intervention);
+            $recipients = $this->prepareRecipients($intervention, $includeTechnician);
             
             // Préparer les pièces jointes
             $attachmentPaths = [];
@@ -1206,9 +1327,10 @@ class MailService {
      * @param array $observations Liste des observations (optionnel)
      * @param array $attachmentIds Liste des IDs des pièces jointes à joindre (optionnel)
      * @param bool $autoAttachBon Si true et template bon_intervention, joindre automatiquement le dernier BI
+     * @param bool $includeTechnician Si true, inclure le technicien affecté
      * @return bool Succès de l'envoi
      */
-    public function sendCustomEmail($interventionId, $templateId, $observations = [], $attachmentIds = [], $autoAttachBon = true) {
+    public function sendCustomEmail($interventionId, $templateId, $observations = [], $attachmentIds = [], $autoAttachBon = true, $includeTechnician = false) {
         try {
             // Récupérer l'intervention
             $intervention = $this->interventionModel->getById($interventionId);
@@ -1223,7 +1345,7 @@ class MailService {
             }
 
             // Préparer les destinataires
-            $recipients = $this->prepareRecipients($intervention);
+            $recipients = $this->prepareRecipients($intervention, $includeTechnician);
 
             // Remplacer les variables dans le template (avec observations si fournies)
             if (!empty($observations)) {

@@ -28,8 +28,9 @@ $config = Config::getInstance();
         'mail_encryption' => $config->get('mail_encryption', 'tls'),
         'mail_from_address' => $config->get('mail_from_address', ''),
         'mail_from_name' => $config->get('mail_from_name', ''),
-        'email_auto_send_creation' => $config->get('email_auto_send_creation', '1'),
-        'email_auto_send_closing' => $config->get('email_auto_send_closing', '1'),
+        'mail_cc_address' => $config->get('mail_cc_address', ''),
+        'email_auto_send_creation' => $config->get('email_auto_send_creation', '0'),
+        'email_auto_send_closing' => $config->get('email_auto_send_closing', '0'),
         'email_auto_send_bon' => $config->get('email_auto_send_bon', '0'),
         'test_email' => $config->get('test_email', ''),
         // Paramètres OAuth2
@@ -148,6 +149,17 @@ $config = Config::getInstance();
                             <label for="mail_from_name" class="form-label">Nom d'expédition</label>
                             <input type="text" class="form-control" id="mail_from_name" name="mail_from_name" 
                                    value="<?= h($mailSettings['mail_from_name']) ?>" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="mail_cc_address" class="form-label">Copie (CC) systématique</label>
+                            <input type="email" class="form-control" id="mail_cc_address" name="mail_cc_address"
+                                   value="<?= h($mailSettings['mail_cc_address']) ?>"
+                                   placeholder="copie@example.com">
+                            <div class="form-text">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Si renseigné, cette adresse sera mise en copie sur tous les emails sortants.
+                            </div>
                         </div>
                         
                         <!-- Aide SMTP avec OAuth2 -->
@@ -291,11 +303,15 @@ $config = Config::getInstance();
                 <div class="card-body">
                     <form method="POST" action="<?= BASE_URL ?>settings/saveEmailSettings">
                         <?= csrf_field() ?>
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>Envoi automatique verrouillé :</strong> ces options sont désactivées pour le moment et ne peuvent pas être activées.
+                        </div>
                         <div class="mb-3">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="email_auto_send_creation" 
                                        name="email_auto_send_creation" value="1" 
-                                       <?= $mailSettings['email_auto_send_creation'] == '1' ? 'checked' : '' ?>>
+                                       disabled>
                                 <label class="form-check-label" for="email_auto_send_creation">
                                     Envoi automatique à la création d'intervention
                                 </label>
@@ -306,7 +322,7 @@ $config = Config::getInstance();
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="email_auto_send_closing" 
                                        name="email_auto_send_closing" value="1" 
-                                       <?= $mailSettings['email_auto_send_closing'] == '1' ? 'checked' : '' ?>>
+                                       disabled>
                                 <label class="form-check-label" for="email_auto_send_closing">
                                     Envoi automatique à la fermeture d'intervention
                                 </label>
@@ -317,7 +333,7 @@ $config = Config::getInstance();
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="email_auto_send_bon" 
                                        name="email_auto_send_bon" value="1" 
-                                       <?= $mailSettings['email_auto_send_bon'] == '1' ? 'checked' : '' ?>>
+                                       disabled>
                                 <label class="form-check-label" for="email_auto_send_bon">
                                     Envoi automatique du bon d'intervention (actuellement désactivé)
                                 </label>

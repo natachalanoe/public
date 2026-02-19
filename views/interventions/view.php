@@ -716,6 +716,16 @@ include_once __DIR__ . '/../../includes/navbar.php';
             <i class="bi bi-clock-history me-1"></i>
         </button>
 
+        <!-- Section Historique emails (Bouton flottant à côté) -->
+        <button type="button"
+                class="btn btn-sm btn-outline-primary position-fixed bottom-0 end-0 m-3"
+                style="transform: translateX(-56px);"
+                data-bs-toggle="modal"
+                data-bs-target="#mailHistoryModal"
+                title="Historique des emails">
+            <i class="bi bi-envelope-paper me-1"></i>
+        </button>
+
         <!-- Modal Historique -->
         <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-scrollable">
@@ -748,6 +758,132 @@ include_once __DIR__ . '/../../includes/navbar.php';
                 </div>
             </div>
         </div>
+
+        <!-- Modal Historique des emails -->
+        <div class="modal fade" id="mailHistoryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-envelope-paper me-2 me-1"></i> Historique des emails
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="mailHistoryLoading" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 mb-0">Chargement de l'historique...</p>
+                        </div>
+                        <div id="mailHistoryError" class="alert alert-danger" style="display:none;"></div>
+                        <div id="mailHistoryEmpty" class="text-muted" style="display:none;">
+                            Aucun email dans l'historique.
+                        </div>
+                        <div id="mailHistoryTableWrap" style="display:none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped align-middle mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 170px;">Date</th>
+                                            <th>Titre</th>
+                                            <th>Destinataires</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="mailHistoryTbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        (function() {
+            var interventionId = <?= (int)($intervention['id'] ?? 0) ?>;
+            var baseUrl = '<?= addslashes(BASE_URL) ?>';
+            var modalEl = document.getElementById('mailHistoryModal');
+            if (!modalEl) return;
+
+            function esc(s) {
+                return String(s || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function setVisible(el, show) {
+                if (!el) return;
+                el.style.display = show ? '' : 'none';
+            }
+
+            function loadMailHistory() {
+                var loading = document.getElementById('mailHistoryLoading');
+                var err = document.getElementById('mailHistoryError');
+                var empty = document.getElementById('mailHistoryEmpty');
+                var wrap = document.getElementById('mailHistoryTableWrap');
+                var tbody = document.getElementById('mailHistoryTbody');
+                setVisible(err, false);
+                setVisible(empty, false);
+                setVisible(wrap, false);
+                setVisible(loading, true);
+                if (tbody) tbody.innerHTML = '';
+
+                fetch(baseUrl + 'interventions/getMailHistory/' + interventionId, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        setVisible(loading, false);
+                        if (!data || !data.success) {
+                            err.textContent = (data && (data.error || data.message)) ? (data.error || data.message) : 'Erreur lors du chargement.';
+                            setVisible(err, true);
+                            return;
+                        }
+
+                        var items = data.items || [];
+                        if (!items.length) {
+                            setVisible(empty, true);
+                            return;
+                        }
+
+                        var html = '';
+                        items.forEach(function(it) {
+                            var dt = it.datetime ? esc(it.datetime) : '';
+                            // Affichage "fr" si possible
+                            if (it.datetime) {
+                                try {
+                                    var d = new Date(it.datetime.replace(' ', 'T'));
+                                    if (!isNaN(d.getTime())) {
+                                        dt = d.toLocaleString('fr-FR', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+                                    }
+                                } catch (e) {}
+                            }
+
+                            var title = esc(it.title || '(sans sujet)');
+                            var templateInfo = '';
+                            if (it.template_name) {
+                                templateInfo = '<div class="text-muted small">Template: ' + esc(it.template_name) + '</div>';
+                            }
+                            var recipients = esc(it.recipients || '');
+
+                            html += '<tr>';
+                            html += '<td><span class="text-muted small">' + dt + '</span></td>';
+                            html += '<td><div class="fw-semibold">' + title + '</div>' + templateInfo + '</td>';
+                            html += '<td>' + recipients + '</td>';
+                            html += '</tr>';
+                        });
+                        tbody.innerHTML = html;
+                        setVisible(wrap, true);
+                    })
+                    .catch(function() {
+                        setVisible(loading, false);
+                        err.textContent = 'Erreur réseau ou serveur.';
+                        setVisible(err, true);
+                    });
+            }
+
+            modalEl.addEventListener('show.bs.modal', loadMailHistory);
+        })();
+        </script>
 
     <?php else: ?>
         <div class="alert alert-danger">
@@ -1270,6 +1406,9 @@ function loadContractDetails(contractId) {
                     <p class="mb-3">
                         <strong>Destinataire :</strong> <span id="sendEmailRecipient"></span>
                     </p>
+                    <p class="mb-3">
+                        <strong>Technicien affecté :</strong> <span id="sendEmailTechnician"></span>
+                    </p>
                     <div id="sendEmailTestModeBlock" class="alert alert-warning mb-3 py-2" style="display: none;" role="status">
                         <i class="bi bi-info-circle me-2"></i>
                         <strong>Mode test</strong> : l'email ne sera pas envoyé au destinataire ci-dessus mais à
@@ -1362,6 +1501,19 @@ function loadContractDetails(contractId) {
                 }
                 emailData = data;
                 document.getElementById('sendEmailRecipient').textContent = data.recipient_email || '(aucun email renseigné)';
+                (function() {
+                    var techLabel = '(aucun technicien affecté)';
+                    var techEmail = (data.technician_email || '').trim();
+                    var techName = (data.technician_name || '').trim();
+                    if (techEmail !== '' && techName !== '') {
+                        techLabel = techName + ' <' + techEmail + '>';
+                    } else if (techEmail !== '') {
+                        techLabel = techEmail;
+                    } else if (techName !== '') {
+                        techLabel = techName;
+                    }
+                    document.getElementById('sendEmailTechnician').textContent = techLabel;
+                })();
                 var testBlock = document.getElementById('sendEmailTestModeBlock');
                 var testAddressEl = document.getElementById('sendEmailTestAddress');
                 if (data.test_email && data.test_email.trim() !== '') {
